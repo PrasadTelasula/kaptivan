@@ -2,9 +2,13 @@ import React, { useState, useEffect, useRef } from 'react';
 import { Rnd } from 'react-rnd';
 import { X, Maximize2, Minimize2, ScrollText, Download, RefreshCw, Search, ChevronUp, ChevronDown, Minus, RotateCw, PlayCircle, PauseCircle, ZoomIn, ZoomOut } from 'lucide-react';
 import { Button } from '@/components/ui/button';
+import { encodeClusterName, encodeNamespace, encodeResourceName } from '@/utils/url-encoding'
 import { Input } from '@/components/ui/input';
+import { encodeClusterName, encodeNamespace, encodeResourceName } from '@/utils/url-encoding'
 import { cn } from '@/lib/utils';
+import { encodeClusterName, encodeNamespace, encodeResourceName } from '@/utils/url-encoding'
 import { LogsWebSocketClient } from '@/services/logs-websocket';
+import { encodeClusterName, encodeNamespace, encodeResourceName } from '@/utils/url-encoding'
 
 interface LogsWindowProps {
   podName: string;
@@ -57,7 +61,7 @@ export const LogsWindow: React.FC<LogsWindowProps> = ({
     setError(null);
     
     try {
-      let url = `${API_BASE_URL}/api/v1/pods/${context}/${namespace}/${podName}/logs?tailLines=${tailLines}`;
+      let url = `${API_BASE_URL}/api/v1/pods/${encodeClusterName(context)}/${encodeNamespace(namespace)}/${encodeResourceName(podName)}/logs?tailLines=${tailLines}`;
       if (containerName) {
         url += `&container=${containerName}`;
       }
@@ -246,7 +250,7 @@ export const LogsWindow: React.FC<LogsWindowProps> = ({
     }
 
     // Create WebSocket connection for log streaming
-    const wsUrl = `${API_BASE_URL.replace('http', 'ws')}/api/v1/pods/${context}/${namespace}/${podName}/logs/ws?tailLines=${tailLines}${containerName ? `&container=${containerName}` : ''}&follow=true`;
+    const wsUrl = `${API_BASE_URL.replace('http', 'ws')}/api/v1/pods/${encodeClusterName(context)}/${encodeNamespace(namespace)}/${encodeResourceName(podName)}/logs/ws?tailLines=${tailLines}${containerName ? `&container=${containerName}` : ''}&follow=true`;
     
     const wsClient = new LogsWebSocketClient(
       wsUrl,

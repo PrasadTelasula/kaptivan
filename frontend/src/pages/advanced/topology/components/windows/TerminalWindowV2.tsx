@@ -1,10 +1,15 @@
 import React, { useRef, useEffect, useState } from 'react';
 import { X, Maximize2, Minimize2, Terminal, FileText, Minus } from 'lucide-react';
 import { Button } from '@/components/ui/button';
+import { encodeClusterName, encodeNamespace, encodeResourceName } from '@/utils/url-encoding'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import { encodeClusterName, encodeNamespace, encodeResourceName } from '@/utils/url-encoding'
 import { ScrollArea } from '@/components/ui/scroll-area';
+import { encodeClusterName, encodeNamespace, encodeResourceName } from '@/utils/url-encoding'
 import { cn } from '@/lib/utils';
+import { encodeClusterName, encodeNamespace, encodeResourceName } from '@/utils/url-encoding'
 import { terminalManager } from '@/services/terminal-manager';
+import { encodeClusterName, encodeNamespace, encodeResourceName } from '@/utils/url-encoding'
 
 interface TerminalWindowProps {
   podName: string;
@@ -55,7 +60,7 @@ export const TerminalWindow: React.FC<TerminalWindowProps> = ({
       terminalManager.createTerminal(terminalId);
       
       // Connect WebSocket only once when creating
-      const wsUrl = `${API_BASE_URL.replace('http', 'ws')}/api/v1/pods/${context}/${namespace}/${podName}/exec/ws${containerName ? `?container=${containerName}` : ''}`;
+      const wsUrl = `${API_BASE_URL.replace('http', 'ws')}/api/v1/pods/${encodeClusterName(context)}/${encodeNamespace(namespace)}/${encodeResourceName(podName)}/exec/ws${containerName ? `?container=${containerName}` : ''}`;
       terminalManager.connectWebSocket(terminalId, wsUrl);
     }
   }, [terminalId, context, namespace, podName, containerName]);
@@ -117,7 +122,7 @@ export const TerminalWindow: React.FC<TerminalWindowProps> = ({
     setIsLoadingLogs(true);
     try {
       const containerParam = containerName ? `&container=${containerName}` : '';
-      const response = await fetch(`${API_BASE_URL}/api/v1/pods/${context}/${namespace}/${podName}/logs?tailLines=1000${containerParam}`);
+      const response = await fetch(`${API_BASE_URL}/api/v1/pods/${encodeClusterName(context)}/${encodeNamespace(namespace)}/${encodeResourceName(podName)}/logs?tailLines=1000${containerParam}`);
       if (response.ok) {
         const data = await response.json();
         setLogs(data.logs || 'No logs available');

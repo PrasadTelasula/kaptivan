@@ -1,25 +1,45 @@
 import { useState, useEffect, useMemo, useRef, useCallback } from 'react'
 import { Header } from '@/components/layout/header'
+import { encodeClusterName, encodeResourceName } from '@/utils/url-encoding'
 import { Sidebar } from '@/components/layout/sidebar-new'
+import { encodeClusterName, encodeResourceName } from '@/utils/url-encoding'
 import { useTheme } from '@/components/theme-provider'
+import { encodeClusterName, encodeResourceName } from '@/utils/url-encoding'
 import { Button } from '@/components/ui/button'
+import { encodeClusterName, encodeResourceName } from '@/utils/url-encoding'
 import { Badge } from '@/components/ui/badge'
+import { encodeClusterName, encodeResourceName } from '@/utils/url-encoding'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
+import { encodeClusterName, encodeResourceName } from '@/utils/url-encoding'
 import { ScrollArea } from '@/components/ui/scroll-area'
+import { encodeClusterName, encodeResourceName } from '@/utils/url-encoding'
 import { Separator } from '@/components/ui/separator'
+import { encodeClusterName, encodeResourceName } from '@/utils/url-encoding'
 import { Input } from '@/components/ui/input'
+import { encodeClusterName, encodeResourceName } from '@/utils/url-encoding'
 import { ResizableHandle, ResizablePanel, ResizablePanelGroup } from '@/components/ui/resizable'
+import { encodeClusterName, encodeResourceName } from '@/utils/url-encoding'
 import { Label } from '@/components/ui/label'
+import { encodeClusterName, encodeResourceName } from '@/utils/url-encoding'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
+import { encodeClusterName, encodeResourceName } from '@/utils/url-encoding'
 import { useClusterStore } from '@/stores/cluster.store'
+import { encodeClusterName, encodeResourceName } from '@/utils/url-encoding'
 import { useTabsStore } from '@/stores/tabs.store'
+import { encodeClusterName, encodeResourceName } from '@/utils/url-encoding'
 import { cn } from '@/utils/cn'
+import { encodeClusterName, encodeResourceName } from '@/utils/url-encoding'
 import Editor from '@monaco-editor/react'
 import { ManifestCompareDialog } from '@/components/manifest-compare-dialog'
+import { encodeClusterName, encodeResourceName } from '@/utils/url-encoding'
 import { RelatedResourcesPopover } from '@/components/related-resources-popover'
+import { encodeClusterName, encodeResourceName } from '@/utils/url-encoding'
 import { MultiSelectDropdown } from '@/components/multi-select-dropdown'
+import { encodeClusterName, encodeResourceName } from '@/utils/url-encoding'
 import { YamlOutline } from '@/components/yaml-outline'
+import { encodeClusterName, encodeResourceName } from '@/utils/url-encoding'
 import { TabManager } from '@/components/tab-manager'
+import { encodeClusterName, encodeResourceName } from '@/utils/url-encoding'
 import {
   FileText,
   Search,
@@ -441,7 +461,7 @@ export function ManifestViewerPage() {
         params.append('namespace', resource.namespace)
       }
       
-      const endpoint = `/api/v1/manifests/${clusterContext}/${resource.name}?${params.toString()}`
+      const endpoint = `/api/v1/manifests/${encodeClusterName(clusterContext)}/${encodeResourceName(resource.name)}?${params.toString()}`
       
       const response = await fetch(endpoint)
       if (response.ok) {

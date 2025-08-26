@@ -1,4 +1,5 @@
 import { API_BASE_URL } from '@/config/constants'
+import { encodeClusterName, encodeNamespace, encodeResourceName } from '@/utils/url-encoding'
 
 export interface DeploymentInfo {
   name: string
@@ -126,7 +127,7 @@ class DeploymentsService {
 
   async getDeployment(context: string, namespace: string, name: string): Promise<DeploymentDetail> {
     const response = await fetch(
-      `${API_BASE_URL}/api/v1/deployments/${context}/${namespace}/${name}`
+      `${API_BASE_URL}/api/v1/deployments/${encodeClusterName(context)}/${encodeNamespace(namespace)}/${encodeResourceName(name)}`
     )
 
     if (!response.ok) {
@@ -143,7 +144,7 @@ class DeploymentsService {
     replicas: number
   ): Promise<void> {
     const response = await fetch(
-      `${API_BASE_URL}/api/v1/deployments/${context}/${namespace}/${name}/scale`,
+      `${API_BASE_URL}/api/v1/deployments/${encodeClusterName(context)}/${encodeNamespace(namespace)}/${encodeResourceName(name)}/scale`,
       {
         method: 'POST',
         headers: {
@@ -164,7 +165,7 @@ class DeploymentsService {
     name: string
   ): Promise<void> {
     const response = await fetch(
-      `${API_BASE_URL}/api/v1/deployments/${context}/${namespace}/${name}/restart`,
+      `${API_BASE_URL}/api/v1/deployments/${encodeClusterName(context)}/${encodeNamespace(namespace)}/${encodeResourceName(name)}/restart`,
       {
         method: 'POST',
       }
@@ -181,7 +182,7 @@ class DeploymentsService {
     name: string
   ): Promise<void> {
     const response = await fetch(
-      `${API_BASE_URL}/api/v1/deployments/${context}/${namespace}/${name}`,
+      `${API_BASE_URL}/api/v1/deployments/${encodeClusterName(context)}/${encodeNamespace(namespace)}/${encodeResourceName(name)}`,
       {
         method: 'DELETE',
       }

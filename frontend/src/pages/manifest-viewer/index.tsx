@@ -1,19 +1,32 @@
 import { useState, useEffect, useCallback, useRef } from 'react'
 import { ResizableHandle, ResizablePanel, ResizablePanelGroup } from '@/components/ui/resizable'
+import { encodeClusterName, encodeResourceName } from '@/utils/url-encoding'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
+import { encodeClusterName, encodeResourceName } from '@/utils/url-encoding'
 import { Button } from '@/components/ui/button'
+import { encodeClusterName, encodeResourceName } from '@/utils/url-encoding'
 import { Badge } from '@/components/ui/badge'
+import { encodeClusterName, encodeResourceName } from '@/utils/url-encoding'
 import { ScrollArea } from '@/components/ui/scroll-area'
+import { encodeClusterName, encodeResourceName } from '@/utils/url-encoding'
 import { TabManager } from '@/components/tab-manager'
+import { encodeClusterName, encodeResourceName } from '@/utils/url-encoding'
 import { ManifestCompareDialog } from '@/components/manifest-compare-dialog'
+import { encodeClusterName, encodeResourceName } from '@/utils/url-encoding'
 import { RelatedResourcesPopover } from '@/components/related-resources-popover'
+import { encodeClusterName, encodeResourceName } from '@/utils/url-encoding'
 import { TemplateLibrary } from '@/components/template-library'
+import { encodeClusterName, encodeResourceName } from '@/utils/url-encoding'
 import { useTabsStore } from '@/stores/tabs.store'
+import { encodeClusterName, encodeResourceName } from '@/utils/url-encoding'
 import { GitCompare, Copy, Download, SidebarOpen, SidebarClose, Maximize2, Minimize2, Info, X, BookOpen } from 'lucide-react'
 import Editor from '@monaco-editor/react'
 import { YamlOutline } from '@/components/yaml-outline'
+import { encodeClusterName, encodeResourceName } from '@/utils/url-encoding'
 import { useTheme } from '@/components/theme-provider'
+import { encodeClusterName, encodeResourceName } from '@/utils/url-encoding'
 import { cn } from '@/utils/cn'
+import { encodeClusterName, encodeResourceName } from '@/utils/url-encoding'
 import {
   Tooltip,
   TooltipContent,
@@ -208,7 +221,7 @@ export function ManifestViewer({ selectedClusters = [], isFullscreen = false, on
         params.append('namespace', resource.namespace)
       }
       
-      const endpoint = `/api/v1/manifests/${clusterContext}/${resource.name}?${params.toString()}`
+      const endpoint = `/api/v1/manifests/${encodeClusterName(clusterContext)}/${encodeResourceName(resource.name)}?${params.toString()}`
       
       const response = await fetch(endpoint)
       if (response.ok) {

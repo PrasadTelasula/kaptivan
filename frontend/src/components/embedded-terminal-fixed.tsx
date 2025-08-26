@@ -3,6 +3,7 @@ import { Terminal } from '@xterm/xterm'
 import { FitAddon } from '@xterm/addon-fit'
 import '@xterm/xterm/css/xterm.css'
 import { API_BASE_URL } from '@/config/constants'
+import { encodeClusterName, encodeNamespace, encodeResourceName } from '@/utils/url-encoding'
 
 interface EmbeddedTerminalFixedProps {
   cluster: string
@@ -129,7 +130,7 @@ export const EmbeddedTerminalFixed = forwardRef<TerminalHandle, EmbeddedTerminal
       fitAddon.current.fit()
       
       // Connect WebSocket
-      const wsUrl = `${API_BASE_URL.replace('http', 'ws')}/api/v1/pods/${cluster}/${namespace}/${podName}/exec/ws?container=${containerName}`
+      const wsUrl = `${API_BASE_URL.replace('http', 'ws')}/api/v1/pods/${encodeClusterName(cluster)}/${encodeNamespace(namespace)}/${encodeResourceName(podName)}/exec/ws?container=${containerName}`
       console.log('Connecting to WebSocket:', wsUrl)
       
       const websocket = new WebSocket(wsUrl)

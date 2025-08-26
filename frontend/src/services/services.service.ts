@@ -1,4 +1,5 @@
 import { API_BASE_URL } from '@/config/constants'
+import { encodeClusterName, encodeNamespace, encodeResourceName } from '@/utils/url-encoding'
 
 export interface ServiceInfo {
   name: string
@@ -112,7 +113,7 @@ class ServicesService {
 
   async getService(context: string, namespace: string, name: string): Promise<ServiceDetail> {
     const response = await fetch(
-      `${API_BASE_URL}/api/v1/services/${context}/${namespace}/${name}`
+      `${API_BASE_URL}/api/v1/services/${encodeClusterName(context)}/${encodeNamespace(namespace)}/${encodeResourceName(name)}`
     )
 
     if (!response.ok) {
@@ -124,7 +125,7 @@ class ServicesService {
 
   async getServiceEndpoints(context: string, namespace: string, name: string): Promise<EndpointInfo[]> {
     const response = await fetch(
-      `${API_BASE_URL}/api/v1/services/${context}/${namespace}/${name}/endpoints`
+      `${API_BASE_URL}/api/v1/services/${encodeClusterName(context)}/${encodeNamespace(namespace)}/${encodeResourceName(name)}/endpoints`
     )
 
     if (!response.ok) {
@@ -145,7 +146,7 @@ class ServicesService {
     }
   ): Promise<void> {
     const response = await fetch(
-      `${API_BASE_URL}/api/v1/services/${context}/${namespace}/${name}`,
+      `${API_BASE_URL}/api/v1/services/${encodeClusterName(context)}/${encodeNamespace(namespace)}/${encodeResourceName(name)}`,
       {
         method: 'PUT',
         headers: {
@@ -166,7 +167,7 @@ class ServicesService {
     name: string
   ): Promise<void> {
     const response = await fetch(
-      `${API_BASE_URL}/api/v1/services/${context}/${namespace}/${name}`,
+      `${API_BASE_URL}/api/v1/services/${encodeClusterName(context)}/${encodeNamespace(namespace)}/${encodeResourceName(name)}`,
       {
         method: 'DELETE',
       }

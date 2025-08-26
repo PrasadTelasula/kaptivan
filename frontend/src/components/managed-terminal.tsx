@@ -1,5 +1,6 @@
 import { useEffect, useRef, memo } from 'react'
 import { terminalManager } from '@/services/terminal-manager'
+import { encodeClusterName, encodeNamespace, encodeResourceName } from '@/utils/url-encoding'
 
 const API_BASE_URL = import.meta.env.VITE_API_URL || 'http://localhost:8080'
 
@@ -40,7 +41,7 @@ export const ManagedTerminal = memo(({
         // Connect WebSocket if not connected
         const terminal = terminalManager.getTerminal(id)
         if (terminal && !terminal.isConnected && !terminal.websocket) {
-          const wsUrl = `${API_BASE_URL.replace('http', 'ws')}/api/v1/pods/${cluster}/${namespace}/${podName}/exec/ws?container=${containerName}`
+          const wsUrl = `${API_BASE_URL.replace('http', 'ws')}/api/v1/pods/${encodeClusterName(cluster)}/${encodeNamespace(namespace)}/${encodeResourceName(podName)}/exec/ws?container=${containerName}`
           terminalManager.connectWebSocket(id, wsUrl)
         }
       }, 50)

@@ -3,6 +3,7 @@ import { Terminal } from '@xterm/xterm'
 import { FitAddon } from '@xterm/addon-fit'
 import '@xterm/xterm/css/xterm.css'
 import { Button } from '@/components/ui/button'
+import { encodeClusterName, encodeNamespace, encodeResourceName } from '@/utils/url-encoding'
 import { X } from 'lucide-react'
 import {
   Dialog,
@@ -85,7 +86,7 @@ export function PodTerminalTest({
       return
     }
     
-    const wsUrl = `${API_BASE_URL.replace('http', 'ws')}/api/v1/pods/${cluster}/${namespace}/${podName}/exec/ws?container=${container}`
+    const wsUrl = `${API_BASE_URL.replace('http', 'ws')}/api/v1/pods/${encodeClusterName(cluster)}/${encodeNamespace(namespace)}/${encodeResourceName(podName)}/exec/ws?container=${container}`
     setMessages(prev => [...prev, `Connecting to: ${wsUrl}`])
     
     try {

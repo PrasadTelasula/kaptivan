@@ -1,4 +1,5 @@
 import { API_BASE_URL } from '@/config/constants'
+import { encodeClusterName, encodeNamespace, encodeResourceName } from '@/utils/url-encoding'
 
 export type PodInfo = {
   name: string
@@ -153,7 +154,7 @@ class ResourcesService {
   }
 
   async getPod(context: string, namespace: string, name: string): Promise<any> {
-    return this.fetchSingleResource<any>(`/api/v1/pods/${context}/${namespace}/${name}`, 'GET')
+    return this.fetchSingleResource<any>(`/api/v1/pods/${encodeClusterName(context)}/${encodeNamespace(namespace)}/${encodeResourceName(name)}`, 'GET')
   }
 
   async getPodLogs(context: string, namespace: string, name: string, container?: string, lines?: number): Promise<any> {
@@ -161,11 +162,11 @@ class ResourcesService {
     if (container) params.append('container', container)
     if (lines) params.append('lines', lines.toString())
     
-    return this.fetchSingleResource<any>(`/api/v1/pods/${context}/${namespace}/${name}/logs?${params}`, 'GET')
+    return this.fetchSingleResource<any>(`/api/v1/pods/${encodeClusterName(context)}/${encodeNamespace(namespace)}/${encodeResourceName(name)}/logs?${params}`, 'GET')
   }
 
   async getPodEvents(context: string, namespace: string, name: string): Promise<any> {
-    return this.fetchSingleResource<any>(`/api/v1/pods/${context}/${namespace}/${name}/events`, 'GET')
+    return this.fetchSingleResource<any>(`/api/v1/pods/${encodeClusterName(context)}/${encodeNamespace(namespace)}/${encodeResourceName(name)}/events`, 'GET')
   }
 }
 

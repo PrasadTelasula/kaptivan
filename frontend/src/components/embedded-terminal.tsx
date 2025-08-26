@@ -4,6 +4,7 @@ import { FitAddon } from '@xterm/addon-fit'
 import { WebLinksAddon } from '@xterm/addon-web-links'
 import '@xterm/xterm/css/xterm.css'
 import { API_BASE_URL } from '@/config/constants'
+import { encodeClusterName, encodeNamespace, encodeResourceName } from '@/utils/url-encoding'
 import { Loader2 } from 'lucide-react'
 
 interface EmbeddedTerminalProps {
@@ -38,7 +39,7 @@ export function EmbeddedTerminal({
     setIsConnecting(true)
     setError(null)
 
-    const wsUrl = `${API_BASE_URL.replace('http', 'ws')}/api/v1/pods/${cluster}/${namespace}/${podName}/exec/ws`
+    const wsUrl = `${API_BASE_URL.replace('http', 'ws')}/api/v1/pods/${encodeClusterName(cluster)}/${encodeNamespace(namespace)}/${encodeResourceName(podName)}/exec/ws`
     const params = new URLSearchParams()
     if (containerName) {
       params.append('container', containerName)

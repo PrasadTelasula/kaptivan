@@ -1,8 +1,12 @@
 import { useState, useEffect } from 'react'
 import { Button } from '@/components/ui/button'
+import { encodeClusterName, encodeResourceName } from '@/utils/url-encoding'
 import { Badge } from '@/components/ui/badge'
+import { encodeClusterName, encodeResourceName } from '@/utils/url-encoding'
 import { Separator } from '@/components/ui/separator'
+import { encodeClusterName, encodeResourceName } from '@/utils/url-encoding'
 import { ScrollArea } from '@/components/ui/scroll-area'
+import { encodeClusterName, encodeResourceName } from '@/utils/url-encoding'
 import {
   Popover,
   PopoverContent,
@@ -22,6 +26,7 @@ import {
   Link2
 } from 'lucide-react'
 import { cn } from '@/utils/cn'
+import { encodeClusterName, encodeResourceName } from '@/utils/url-encoding'
 
 interface RelatedResource {
   name: string
@@ -87,7 +92,7 @@ export function RelatedResourcesPopover({
         params.append('namespace', resourceNamespace)
       }
 
-      const url = `/api/v1/manifests/${clusterContext}/${resourceName}/related?${params.toString()}`
+      const url = `/api/v1/manifests/${encodeClusterName(clusterContext)}/${encodeResourceName(resourceName)}/related?${params.toString()}`
       console.log('Fetching related resources from:', url)
       
       const response = await fetch(url)

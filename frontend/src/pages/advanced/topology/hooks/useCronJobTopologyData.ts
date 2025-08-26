@@ -1,5 +1,6 @@
 import { useState, useEffect, useCallback } from 'react';
 import type { CronJobTopology, CronJobSummary } from '../types/cronjob';
+import { encodeClusterName, encodeNamespace, encodeResourceName } from '../../../../utils/url-encoding';
 
 const API_BASE_URL = import.meta.env.VITE_API_URL || 'http://localhost:8080';
 
@@ -34,7 +35,7 @@ export const useCronJobTopologyData = (context: string | null): UseCronJobTopolo
       }
 
       try {
-        const response = await fetch(`${API_BASE_URL}/api/v1/topology/${context}/namespaces`);
+        const response = await fetch(`${API_BASE_URL}/api/v1/topology/${encodeClusterName(context)}/namespaces`);
         if (!response.ok) throw new Error('Failed to fetch namespaces');
         const data = await response.json();
         setNamespaces(data.namespaces || []);
@@ -62,7 +63,7 @@ export const useCronJobTopologyData = (context: string | null): UseCronJobTopolo
       }
 
       try {
-        const response = await fetch(`${API_BASE_URL}/api/v1/topology/${context}/cronjobs?namespace=${selectedNamespace}`);
+        const response = await fetch(`${API_BASE_URL}/api/v1/topology/${encodeClusterName(context)}/cronjobs?namespace=${encodeNamespace(selectedNamespace)}`);
         if (!response.ok) throw new Error('Failed to fetch CronJobs');
         const data = await response.json();
         setCronJobs(data.cronjobs || []);
@@ -98,7 +99,7 @@ export const useCronJobTopologyData = (context: string | null): UseCronJobTopolo
 
     try {
       const response = await fetch(
-        `${API_BASE_URL}/api/v1/topology/${context}/cronjob/${selectedNamespace}/${selectedCronJob}`
+        `${API_BASE_URL}/api/v1/topology/${encodeClusterName(context)}/cronjob/${encodeNamespace(selectedNamespace)}/${encodeResourceName(selectedCronJob)}`
       );
       
       if (!response.ok) throw new Error('Failed to fetch CronJob topology');

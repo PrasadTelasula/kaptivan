@@ -2,7 +2,9 @@ import React, { useState, useEffect } from 'react';
 import { Rnd } from 'react-rnd';
 import { X, Maximize2, Minimize2, FileText, Minus, Eye, EyeOff, ZoomIn, ZoomOut } from 'lucide-react';
 import { Button } from '@/components/ui/button';
+import { encodeClusterName, encodeResourceName } from '@/utils/url-encoding'
 import { cn } from '@/lib/utils';
+import { encodeClusterName, encodeResourceName } from '@/utils/url-encoding'
 import Editor from '@monaco-editor/react';
 import type { OnMount } from '@monaco-editor/react';
 import type { editor } from 'monaco-editor';
@@ -80,7 +82,7 @@ export const YamlWindow: React.FC<YamlWindowProps> = ({
       }
 
       // Construct the endpoint URL - matching the manifest-viewer pattern
-      const endpoint = `/api/v1/manifests/${context}/${resourceName}?${params.toString()}`;
+      const endpoint = `/api/v1/manifests/${encodeClusterName(context)}/${encodeResourceName(resourceName)}?${params.toString()}`;
       
       const response = await fetch(`${API_BASE_URL}${endpoint}`);
       

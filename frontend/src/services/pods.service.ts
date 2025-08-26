@@ -1,4 +1,5 @@
 import { API_BASE_URL } from '@/config/constants'
+import { encodeClusterName, encodeNamespace, encodeResourceName } from '@/utils/url-encoding'
 
 export interface PodInfo {
   name: string
@@ -103,7 +104,7 @@ export interface ExecResponse {
 class PodsService {
   async getPod(context: string, namespace: string, name: string): Promise<PodDetail> {
     const response = await fetch(
-      `${API_BASE_URL}/api/v1/pods/${context}/${namespace}/${name}`
+      `${API_BASE_URL}/api/v1/pods/${encodeClusterName(context)}/${encodeNamespace(namespace)}/${encodeResourceName(name)}`
     )
 
     if (!response.ok) {
@@ -115,7 +116,7 @@ class PodsService {
 
   async getPodEvents(context: string, namespace: string, name: string): Promise<PodEvent[]> {
     const response = await fetch(
-      `${API_BASE_URL}/api/v1/pods/${context}/${namespace}/${name}/events`
+      `${API_BASE_URL}/api/v1/pods/${encodeClusterName(context)}/${encodeNamespace(namespace)}/${encodeResourceName(name)}/events`
     )
 
     if (!response.ok) {
@@ -140,7 +141,7 @@ class PodsService {
     if (follow) params.append('follow', 'true')
 
     const response = await fetch(
-      `${API_BASE_URL}/api/v1/pods/${context}/${namespace}/${name}/logs?${params}`
+      `${API_BASE_URL}/api/v1/pods/${encodeClusterName(context)}/${encodeNamespace(namespace)}/${encodeResourceName(name)}/logs?${params}`
     )
 
     if (!response.ok) {
@@ -152,7 +153,7 @@ class PodsService {
 
   async deletePod(context: string, namespace: string, name: string): Promise<void> {
     const response = await fetch(
-      `${API_BASE_URL}/api/v1/pods/${context}/${namespace}/${name}`,
+      `${API_BASE_URL}/api/v1/pods/${encodeClusterName(context)}/${encodeNamespace(namespace)}/${encodeResourceName(name)}`,
       {
         method: 'DELETE',
       }
@@ -171,7 +172,7 @@ class PodsService {
     command: string[]
   ): Promise<ExecResponse> {
     const response = await fetch(
-      `${API_BASE_URL}/api/v1/pods/${context}/${namespace}/${name}/exec`,
+      `${API_BASE_URL}/api/v1/pods/${encodeClusterName(context)}/${encodeNamespace(namespace)}/${encodeResourceName(name)}/exec`,
       {
         method: 'POST',
         headers: {

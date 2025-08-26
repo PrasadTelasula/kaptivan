@@ -1,8 +1,12 @@
 import { useState, useEffect } from 'react'
 import { Button } from '@/components/ui/button'
+import { encodeClusterName, encodeResourceName } from '@/utils/url-encoding'
 import { Badge } from '@/components/ui/badge'
+import { encodeClusterName, encodeResourceName } from '@/utils/url-encoding'
 import { Separator } from '@/components/ui/separator'
+import { encodeClusterName, encodeResourceName } from '@/utils/url-encoding'
 import { ScrollArea } from '@/components/ui/scroll-area'
+import { encodeClusterName, encodeResourceName } from '@/utils/url-encoding'
 import { 
   ArrowUpRight, 
   ArrowDownRight,
@@ -16,6 +20,7 @@ import {
   Loader2
 } from 'lucide-react'
 import { cn } from '@/utils/cn'
+import { encodeClusterName, encodeResourceName } from '@/utils/url-encoding'
 
 interface RelatedResource {
   name: string
@@ -77,7 +82,7 @@ export function RelatedResources({
       }
 
       const response = await fetch(
-        `/api/v1/manifests/${clusterContext}/${resourceName}/related?${params.toString()}`
+        `/api/v1/manifests/${encodeClusterName(clusterContext)}/${encodeResourceName(resourceName)}/related?${params.toString()}`
       )
 
       if (!response.ok) {

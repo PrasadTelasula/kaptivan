@@ -96,7 +96,7 @@ export function useFetchManifest() {
         params.append('namespace', resource.namespace)
       }
       
-      const endpoint = `/api/v1/manifests/${context}/${resource.name}?${params.toString()}`
+      const endpoint = `/api/v1/manifests/${encodeClusterName(context)}/${encodeResourceName(resource.name)}?${params.toString()}`
       
       const response = await fetch(endpoint)
       if (response.ok) {

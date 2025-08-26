@@ -2,8 +2,11 @@ import React, { useRef, useEffect, useState, useCallback } from 'react';
 import { Rnd } from 'react-rnd';
 import { X, Maximize2, Minimize2, Terminal, Minus, ZoomIn, ZoomOut } from 'lucide-react';
 import { Button } from '@/components/ui/button';
+import { encodeClusterName, encodeNamespace, encodeResourceName } from '@/utils/url-encoding'
 import { cn } from '@/lib/utils';
+import { encodeClusterName, encodeNamespace, encodeResourceName } from '@/utils/url-encoding'
 import { terminalManager } from '@/services/terminal-manager';
+import { encodeClusterName, encodeNamespace, encodeResourceName } from '@/utils/url-encoding'
 
 interface ShellWindowProps {
   podName: string;
@@ -57,7 +60,7 @@ export const ShellWindow: React.FC<ShellWindowProps> = ({
       terminalManager.createTerminal(terminalId);
       
       // Connect WebSocket only once when creating
-      const wsUrl = `${API_BASE_URL.replace('http', 'ws')}/api/v1/pods/${context}/${namespace}/${podName}/exec/ws${containerName ? `?container=${containerName}` : ''}`;
+      const wsUrl = `${API_BASE_URL.replace('http', 'ws')}/api/v1/pods/${encodeClusterName(context)}/${encodeNamespace(namespace)}/${encodeResourceName(podName)}/exec/ws${containerName ? `?container=${containerName}` : ''}`;
       terminalManager.connectWebSocket(terminalId, wsUrl);
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps

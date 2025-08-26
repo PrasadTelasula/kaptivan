@@ -1,9 +1,13 @@
 import React, { useRef, useEffect, useState, useCallback } from 'react';
 import { X, Maximize2, Minimize2, Terminal, FileText, Minus } from 'lucide-react';
 import { Button } from '@/components/ui/button';
+import { encodeClusterName, encodeNamespace, encodeResourceName } from '@/utils/url-encoding'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import { encodeClusterName, encodeNamespace, encodeResourceName } from '@/utils/url-encoding'
 import { ScrollArea } from '@/components/ui/scroll-area';
+import { encodeClusterName, encodeNamespace, encodeResourceName } from '@/utils/url-encoding'
 import { cn } from '@/lib/utils';
+import { encodeClusterName, encodeNamespace, encodeResourceName } from '@/utils/url-encoding'
 import { Terminal as XTerm } from '@xterm/xterm';
 import { FitAddon } from '@xterm/addon-fit';
 import { WebLinksAddon } from '@xterm/addon-web-links';
@@ -216,7 +220,7 @@ export const TerminalWindow: React.FC<TerminalWindowProps> = ({
 
   const connectToShell = (term: XTerm) => {
     const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
-    const wsUrl = `${protocol}//${window.location.hostname}:8080/api/v1/pods/${context}/${namespace}/${podName}/exec/ws${containerName ? `?container=${containerName}` : ''}`;
+    const wsUrl = `${protocol}//${window.location.hostname}:8080/api/v1/pods/${encodeClusterName(context)}/${encodeNamespace(namespace)}/${encodeResourceName(podName)}/exec/ws${containerName ? `?container=${containerName}` : ''}`;
     
     const ws = new WebSocket(wsUrl);
     wsRef.current = ws;
@@ -295,7 +299,7 @@ export const TerminalWindow: React.FC<TerminalWindowProps> = ({
     setIsLoadingLogs(true);
     try {
       const containerParam = containerName ? `&container=${containerName}` : '';
-      const response = await fetch(`http://localhost:8080/api/v1/pods/${context}/${namespace}/${podName}/logs?tailLines=1000${containerParam}`);
+      const response = await fetch(`http://localhost:8080/api/v1/pods/${encodeClusterName(context)}/${encodeNamespace(namespace)}/${encodeResourceName(podName)}/logs?tailLines=1000${containerParam}`);
       if (response.ok) {
         const data = await response.json();
         setLogs(data.logs || 'No logs available');

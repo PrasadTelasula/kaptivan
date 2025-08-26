@@ -1,4 +1,5 @@
 import type { DeploymentTopology } from '../types';
+import { encodeClusterName, encodeNamespace, encodeResourceName } from '../../../../utils/url-encoding';
 
 const API_BASE_URL = import.meta.env.VITE_API_URL || 'http://localhost:8080';
 
@@ -49,7 +50,7 @@ class TopologyAPI {
 
   async getNamespaces(clusterContext: string): Promise<string[]> {
     try {
-      const url = `${this.baseUrl}/api/v1/topology/${clusterContext}/namespaces`;
+      const url = `${this.baseUrl}/api/v1/topology/${encodeClusterName(clusterContext)}/namespaces`;
       console.log('Fetching namespaces from:', url);
       
       const response = await this.fetchWithAuth(url);
@@ -72,8 +73,8 @@ class TopologyAPI {
   async listDeployments(clusterContext: string, namespace?: string): Promise<DeploymentSummary[]> {
     try {
       const url = namespace 
-        ? `${this.baseUrl}/api/v1/topology/${clusterContext}/deployments?namespace=${namespace}`
-        : `${this.baseUrl}/api/v1/topology/${clusterContext}/deployments`;
+        ? `${this.baseUrl}/api/v1/topology/${encodeClusterName(clusterContext)}/deployments?namespace=${encodeNamespace(namespace)}`
+        : `${this.baseUrl}/api/v1/topology/${encodeClusterName(clusterContext)}/deployments`;
         
       const response = await this.fetchWithAuth(url);
       
@@ -96,7 +97,7 @@ class TopologyAPI {
   ): Promise<DeploymentTopology | null> {
     try {
       const response = await this.fetchWithAuth(
-        `${this.baseUrl}/api/v1/topology/${clusterContext}/deployment/${namespace}/${deploymentName}`
+        `${this.baseUrl}/api/v1/topology/${encodeClusterName(clusterContext)}/deployment/${encodeNamespace(namespace)}/${encodeResourceName(deploymentName)}`
       );
       
       if (!response.ok) {

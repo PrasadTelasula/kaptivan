@@ -20,6 +20,7 @@ import {
   SelectValue,
 } from "@/components/ui/select"
 import { API_BASE_URL } from '@/config/constants'
+import { encodeClusterName, encodeNamespace, encodeResourceName } from '@/utils/url-encoding'
 
 interface PodTerminalWebSocketProps {
   open: boolean
@@ -57,7 +58,7 @@ export function PodTerminalWebSocket({
     setIsConnecting(true)
     setError(null)
 
-    const wsUrl = `${API_BASE_URL.replace('http', 'ws')}/api/v1/pods/${cluster}/${namespace}/${podName}/exec/ws`
+    const wsUrl = `${API_BASE_URL.replace('http', 'ws')}/api/v1/pods/${encodeClusterName(cluster)}/${encodeNamespace(namespace)}/${encodeResourceName(podName)}/exec/ws`
     const params = new URLSearchParams()
     if (selectedContainer) {
       params.append('container', selectedContainer)
