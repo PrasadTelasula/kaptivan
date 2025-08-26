@@ -1,0 +1,1456 @@
+# ---
+# # Namespace
+# apiVersion: v1
+# kind: Namespace
+# metadata:
+#   name: apps
+#   labels:
+#     name: apps
+#     environment: production
+
+---
+# ConfigMap 1: Application Configuration
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: app-config
+  namespace: apps
+data:
+  app.properties: |
+    server.port=8080
+    app.name=sample-app
+    app.version=1.0.0
+    log.level=info
+  database.conf: |
+    host=localhost
+    port=5432
+    name=appdb
+    max_connections=100
+  welcome.message: "Welcome to Kubernetes Sample Application!"
+
+---
+# ConfigMap 2: Feature Flags
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: feature-flags
+  namespace: apps
+data:
+  enable.caching: "true"
+  enable.debug: "false"
+  enable.metrics: "true"
+  enable.tracing: "true"
+  feature.new-ui: "enabled"
+  feature.dark-mode: "enabled"
+  feature.beta-features: "disabled"
+
+---
+# ConfigMap 3: Logging Configuration
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: logging-config
+  namespace: apps
+data:
+  log4j.properties: |
+    log4j.rootLogger=INFO, stdout, file
+    log4j.appender.stdout=org.apache.log4j.ConsoleAppender
+    log4j.appender.stdout.layout=org.apache.log4j.PatternLayout
+    log4j.appender.stdout.layout.ConversionPattern=%d{yyyy-MM-dd HH:mm:ss} %-5p %c{1}:%L - %m%n
+  logback.xml: |
+    <configuration>
+      <appender name="STDOUT" class="ch.qos.logback.core.ConsoleAppender">
+        <encoder>
+          <pattern>%d{HH:mm:ss.SSS} [%thread] %-5level %logger{36} - %msg%n</pattern>
+        </encoder>
+      </appender>
+      <root level="INFO">
+        <appender-ref ref="STDOUT" />
+      </root>
+    </configuration>
+
+---
+# ConfigMap 4: Environment Settings
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: env-settings
+  namespace: apps
+data:
+  ENVIRONMENT: "production"
+  REGION: "us-west-2"
+  DATACENTER: "DC1"
+  CLUSTER_NAME: "prod-cluster-01"
+  DEPLOYMENT_TYPE: "kubernetes"
+  SERVICE_MESH: "istio"
+  MONITORING_ENABLED: "true"
+
+---
+# ConfigMap 5: Cache Configuration
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: cache-config
+  namespace: apps
+data:
+  redis.conf: |
+    maxmemory 256mb
+    maxmemory-policy allkeys-lru
+    save 900 1
+    save 300 10
+    save 60 10000
+  cache.ttl: "3600"
+  cache.size: "1000"
+  cache.eviction: "LRU"
+
+---
+# ConfigMap 6: Security Policies
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: security-policies
+  namespace: apps
+data:
+  cors.allowed-origins: "https://example.com,https://app.example.com"
+  cors.allowed-methods: "GET,POST,PUT,DELETE,OPTIONS"
+  cors.allowed-headers: "Content-Type,Authorization,X-Requested-With"
+  rate.limit.requests: "1000"
+  rate.limit.window: "60"
+  security.headers: |
+    X-Frame-Options: DENY
+    X-Content-Type-Options: nosniff
+    X-XSS-Protection: 1; mode=block
+
+---
+# ConfigMap 7: Notification Templates
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: notification-templates
+  namespace: apps
+data:
+  email.welcome: |
+    Subject: Welcome to Our Service!
+    Dear {{username}},
+    Welcome to our platform. We're excited to have you on board!
+  email.alert: |
+    Subject: System Alert
+    Alert Type: {{alert_type}}
+    Message: {{message}}
+    Timestamp: {{timestamp}}
+  slack.webhook: "https://hooks.slack.com/services/EXAMPLE"
+  teams.webhook: "https://outlook.office.com/webhook/EXAMPLE"
+
+---
+# ConfigMap 8: Monitoring Configuration
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: monitoring-config
+  namespace: apps
+data:
+  prometheus.yaml: |
+    global:
+      scrape_interval: 15s
+      evaluation_interval: 15s
+    scrape_configs:
+      - job_name: 'kubernetes-pods'
+        kubernetes_sd_configs:
+        - role: pod
+  grafana.dashboard: |
+    {
+      "dashboard": {
+        "title": "Application Metrics",
+        "panels": []
+      }
+    }
+  alert.rules: |
+    - alert: HighMemoryUsage
+      expr: memory_usage > 80
+      for: 5m
+
+---
+# ConfigMap 9: Business Rules
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: business-rules
+  namespace: apps
+data:
+  pricing.tiers: |
+    basic: 9.99
+    premium: 19.99
+    enterprise: 49.99
+  limits.api: "10000"
+  limits.storage: "100GB"
+  limits.users: "1000"
+  business.hours: "09:00-17:00"
+  support.email: "support@example.com"
+  compliance.standards: "SOC2,GDPR,HIPAA"
+
+---
+# ConfigMap 10: Application Scripts
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: app-scripts
+  namespace: apps
+data:
+  startup.sh: |
+    #!/bin/bash
+    echo "Starting application..."
+    export APP_HOME=/opt/app
+    mkdir -p $APP_HOME/logs
+    echo "Application started at $(date)"
+  healthcheck.sh: |
+    #!/bin/bash
+    curl -f http://localhost:8080/health || exit 1
+  backup.sh: |
+    #!/bin/bash
+    echo "Backing up data..."
+    tar -czf /backup/app-$(date +%Y%m%d).tar.gz /data
+
+---
+# Secret 1: Database Credentials
+apiVersion: v1
+kind: Secret
+metadata:
+  name: db-credentials
+  namespace: apps
+type: Opaque
+data:
+  username: ZGJ1c2Vy  # dbuser
+  password: ZGJwYXNzMTIz  # dbpass123
+  host: ZGJob3N0LmV4YW1wbGUuY29t  # dbhost.example.com
+  port: NTQzMg==  # 5432
+  database: YXBwZGI=  # appdb
+  database-url: cG9zdGdyZXNxbDovL2RidXNlcjpkYnBhc3NAZGJob3N0OjU0MzIvYXBwZGI=  # postgresql://dbuser:dbpass@dbhost:5432/appdb
+
+---
+# Secret 2: API Keys
+apiVersion: v1
+kind: Secret
+metadata:
+  name: api-keys
+  namespace: apps
+type: Opaque
+data:
+  stripe-key: c2tfMTIzNDU2Nzg5MGFiY2RlZg==  # sk-1234567890abcdef
+  aws-access-key: QUtJQUlPU0ZPRE5ON0VYQU1QTEU=  # AKIAIOSFODNN7EXAMPLE
+  aws-secret-key: d0phbHJYVXRuRkVNSS9LN01ERU5HL2JQeFJmaUNZRVhBTVBMRUtFWQ==
+  google-api-key: QUl6YVN5Q3RmZGZkZmRmZGZkZmRmZGZk  # AIzaSyCtfdfdfdfdfdfdfdfd
+
+---
+# Secret 3: OAuth Credentials
+apiVersion: v1
+kind: Secret
+metadata:
+  name: oauth-credentials
+  namespace: apps
+type: Opaque
+data:
+  client-id: b2F1dGgtY2xpZW50LWlk  # oauth-client-id
+  client-secret: b2F1dGgtY2xpZW50LXNlY3JldA==  # oauth-client-secret
+  redirect-uri: aHR0cHM6Ly9hcHAuZXhhbXBsZS5jb20vY2FsbGJhY2s=  # https://app.example.com/callback
+  scope: cmVhZCB3cml0ZSBhZG1pbg==  # read write admin
+
+---
+# Secret 4: TLS Certificates
+apiVersion: v1
+kind: Secret
+metadata:
+  name: tls-certificates
+  namespace: apps
+type: kubernetes.io/tls
+data:
+  tls.crt: LS0tLS1CRUdJTiBDRVJUSUZJQ0FURS0tLS0tCk1JSUJrekNDQVh1Z0F3SUJBZ0lKQUkzNG9MSEpmUFl5TUEwR0NTcUdTSWIzRFFFQkJRVUFNQkl4RURBT0JnTlYKQkFNTUIzUmxjM1F0Y0dFd0hoY05NVGd3TXpJNU1USXhORE13V2hjTk1UZ3dOREk0TVRJeE5ETXdXakFTTVJBdwpEZ1lEVlFRRERBZDBaWE4wTFdOaE1JSUJJakFOQmdrcWhraUc5dzBCQVFFRkFBT0NBUThBTUlJQkNnS0NBUUVBCG1JMFQ2WWk5UmNaZnBKU0FEVFZBTDA0Ly85ZDF0UE1JaFVBbG12T2RBdApDbml3Z0FGQnRHcGVBVjFFczQzNEJNQU9HQTFVZER3RUIvd1FFQXdJRm9EQVRCZ05WSFNVRUREQUtCZ2dyCkJnRUZCUWNEQVRBTUJnTlZIUk1CQWY4RUFqQUFNQjBHQTFVZERnUVdCQlFyNXJLaUZNUEhBMG1RR0VQTU1DCjdWSEFPR0RBTkJna3Foa2lHOXcwQkFRVUZBQU9DQVFFQWhKZitrVkU5cQotLS0tLUVORCBDRVJUSUZJQ0FURS0tLS0t
+  tls.key: LS0tLS1CRUdJTiBSU0EgUFJJVkFURSBLRVktLS0tLQpNSUlFcEFJQkFBS0NBUUVBczc5RDBKNEo0b2hvNkI5c3hPOHRTODJIb2F1VmJZeWQvazFmcDhVbHNhbEtrekFmCkprYmg1VkQyUnZFSHJrT2FOQXJtNkJQT0hDazBLMHUwTE5NL2YvZkdNTCt0NWJYRjUrZkcwUEFCQ0wxR3J5VHkKRDFSTVM1OEFBTmlIMmM4NzZ2djY4WEFBTkJna3Foa2lHOXcwQkFRVUZBQU9DQVFFQWhKZitrVkU5cQotLS0tLUVORCBSU0EgUFJJVkFURSBLRVktLS0tLQ==
+
+---
+# Secret 5: SMTP Configuration
+apiVersion: v1
+kind: Secret
+metadata:
+  name: smtp-config
+  namespace: apps
+type: Opaque
+data:
+  smtp-host: c210cC5nbWFpbC5jb20=  # smtp.gmail.com
+  smtp-port: NTg3  # 587
+  smtp-username: ZW1haWxAZXhhbXBsZS5jb20=  # email@example.com
+  smtp-password: ZW1haWxwYXNzd29yZDEyMw==  # emailpassword123
+  smtp-from: bm9yZXBseUBleGFtcGxlLmNvbQ==  # noreply@example.com
+
+---
+# Secret 6: JWT Tokens
+apiVersion: v1
+kind: Secret
+metadata:
+  name: jwt-tokens
+  namespace: apps
+type: Opaque
+data:
+  jwt-secret: c3VwZXJzZWNyZXRqd3Rfa2V5XzEyMzQ1Njc4OTA=  # supersecretjwt_key_1234567890
+  jwt-public-key: LS0tLS1CRUdJTiBQVUJMSUMgS0VZLS0tLS0K  # -----BEGIN PUBLIC KEY-----
+  jwt-private-key: LS0tLS1CRUdJTiBQUklWQVRFIEtFWS0tLS0tCg==  # -----BEGIN PRIVATE KEY-----
+  jwt-refresh-secret: cmVmcmVzaF90b2tlbl9zZWNyZXQ=  # refresh_token_secret
+
+---
+# Secret 7: Encryption Keys
+apiVersion: v1
+kind: Secret
+metadata:
+  name: encryption-keys
+  namespace: apps
+type: Opaque
+data:
+  aes-key: YWVzMjU2ZW5jcnlwdGlvbmtleQ==  # aes256encryptionkey
+  rsa-private: cnNhcHJpdmF0ZWtleWNvbnRlbnQ=  # rsaprivatekeycontent
+  rsa-public: cnNhcHVibGlja2V5Y29udGVudA==  # rsapublickeycontent
+  hmac-secret: aG1hY3NlY3JldGtleQ==  # hmacsecretkey
+
+---
+# Secret 8: Third-party Services
+apiVersion: v1
+kind: Secret
+metadata:
+  name: third-party-services
+  namespace: apps
+type: Opaque
+data:
+  twilio-sid: QUMxMjM0NTY3ODkwYWJjZGVm  # AC1234567890abcdef
+  twilio-token: YXV0aF90b2tlbl8xMjM0NTY=  # auth_token_123456
+  sendgrid-key: U0cuMTIzNDU2Nzg5MC5hYmNkZWY=  # SG.1234567890.abcdef
+  slack-token: eG94Yi0xMjM0NTY3ODkwLWFiY2RlZg==  # xoxb-1234567890-abcdef
+
+---
+# Secret 9: Storage Credentials
+apiVersion: v1
+kind: Secret
+metadata:
+  name: storage-credentials
+  namespace: apps
+type: Opaque
+data:
+  s3-bucket: bXktYXBwLWJ1Y2tldA==  # my-app-bucket
+  s3-region: dXMtd2VzdC0y  # us-west-2
+  azure-storage-account: bXlzdG9yYWdlYWNjb3VudA==  # mystorageaccount
+  azure-storage-key: c3RvcmFnZWtleTE2MmNoYXJzPT0=  # storagekey162chars==
+  gcs-bucket: Z2NzLWJ1Y2tldC1uYW1l  # gcs-bucket-name
+
+---
+# Secret 10: License Keys
+apiVersion: v1
+kind: Secret
+metadata:
+  name: license-keys
+  namespace: apps
+type: Opaque
+data:
+  enterprise-license: RU5ULUxJQy0xMjM0LTU2Nzg5MA==  # ENT-LIC-1234-567890
+  monitoring-license: TU9OLTI0NjgtMTM1Ny05MDEy  # MON-2468-1357-9012
+  backup-license: QktQLTk4NzYtNTQzMi0xMDk4  # BKP-9876-5432-1098
+  security-license: U0VDLTExMjItMzM0NC01NTY2  # SEC-1122-3344-5566
+
+---
+# ServiceAccount - Single account for the deployment
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: app-service-account
+  namespace: apps
+  labels:
+    app: sample-app
+    description: sa-with-four-roles-each
+
+---
+# Role 1: Read-Only Operations (View everything in namespace)
+apiVersion: rbac.authorization.k8s.io/v1
+kind: Role
+metadata:
+  name: readonly-role
+  namespace: apps
+  labels:
+    tier: readonly
+rules:
+  - apiGroups: ["", "apps", "batch", "autoscaling", "networking.k8s.io", "policy", "metrics.k8s.io"]
+    resources: ["*"]
+    verbs: ["get", "list", "watch"]
+
+---
+# Role 2: Application Management (Deploy, scale, update apps)
+apiVersion: rbac.authorization.k8s.io/v1
+kind: Role
+metadata:
+  name: app-management-role
+  namespace: apps
+  labels:
+    tier: application
+rules:
+  - apiGroups: ["apps"]
+    resources: ["deployments", "replicasets", "statefulsets", "daemonsets"]
+    verbs: ["*"]
+  - apiGroups: [""]
+    resources: ["pods", "pods/log", "pods/status", "pods/exec", "pods/portforward"]
+    verbs: ["*"]
+  - apiGroups: [""]
+    resources: ["services", "endpoints"]
+    verbs: ["*"]
+  - apiGroups: ["autoscaling"]
+    resources: ["horizontalpodautoscalers"]
+    verbs: ["*"]
+  - apiGroups: ["batch"]
+    resources: ["jobs", "cronjobs"]
+    verbs: ["*"]
+
+---
+# Role 3: Configuration & Storage (Manage configs, secrets, storage)
+apiVersion: rbac.authorization.k8s.io/v1
+kind: Role
+metadata:
+  name: config-storage-role
+  namespace: apps
+  labels:
+    tier: configuration
+rules:
+  - apiGroups: [""]
+    resources: ["configmaps", "secrets", "persistentvolumeclaims"]
+    verbs: ["*"]
+  - apiGroups: [""]
+    resources: ["serviceaccounts", "serviceaccounts/token"]
+    verbs: ["*"]
+  - apiGroups: ["storage.k8s.io"]
+    resources: ["storageclasses"]
+    verbs: ["get", "list", "watch"]
+
+---
+# Role 4: Network & Security (Manage network policies, ingress)
+apiVersion: rbac.authorization.k8s.io/v1
+kind: Role
+metadata:
+  name: network-security-role
+  namespace: apps
+  labels:
+    tier: security
+rules:
+  - apiGroups: ["networking.k8s.io"]
+    resources: ["networkpolicies", "ingresses"]
+    verbs: ["*"]
+  - apiGroups: ["policy"]
+    resources: ["poddisruptionbudgets"]
+    verbs: ["*"]
+  - apiGroups: [""]
+    resources: ["events"]
+    verbs: ["*"]
+  - apiGroups: [""]
+    resources: ["resourcequotas", "limitranges"]
+    verbs: ["*"]
+
+---
+# ClusterRole 1: Global Read-Only (View everything cluster-wide)
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRole
+metadata:
+  name: global-readonly-cluster-role
+  labels:
+    tier: readonly
+rules:
+  - apiGroups: ["*"]
+    resources: ["*"]
+    verbs: ["get", "list", "watch"]
+  - nonResourceURLs: ["*"]
+    verbs: ["get"]
+
+---
+# ClusterRole 2: Node & Namespace Management
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRole
+metadata:
+  name: node-namespace-cluster-role
+  labels:
+    tier: infrastructure
+rules:
+  - apiGroups: [""]
+    resources: ["nodes", "nodes/status", "nodes/proxy"]
+    verbs: ["*"]
+  - apiGroups: [""]
+    resources: ["namespaces"]
+    verbs: ["*"]
+  - apiGroups: ["node.k8s.io"]
+    resources: ["runtimeclasses"]
+    verbs: ["*"]
+  - apiGroups: ["metrics.k8s.io"]
+    resources: ["pods", "nodes"]
+    verbs: ["get", "list"]
+  - apiGroups: [""]
+    resources: ["events"]
+    verbs: ["get", "list", "watch"]
+
+---
+# ClusterRole 3: Storage & Volume Management
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRole
+metadata:
+  name: storage-cluster-role
+  labels:
+    tier: storage
+rules:
+  - apiGroups: [""]
+    resources: ["persistentvolumes"]
+    verbs: ["*"]
+  - apiGroups: ["storage.k8s.io"]
+    resources: ["storageclasses", "volumeattachments", "csidrivers", "csinodes"]
+    verbs: ["*"]
+  - apiGroups: ["snapshot.storage.k8s.io"]
+    resources: ["volumesnapshots", "volumesnapshotclasses"]
+    verbs: ["*"]
+
+---
+# ClusterRole 4: Security & RBAC Management
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRole
+metadata:
+  name: security-rbac-cluster-role
+  labels:
+    tier: security
+rules:
+  - apiGroups: ["rbac.authorization.k8s.io"]
+    resources: ["roles", "rolebindings", "clusterroles", "clusterrolebindings"]
+    verbs: ["*"]
+  - apiGroups: ["certificates.k8s.io"]
+    resources: ["certificatesigningrequests", "certificatesigningrequests/approval", "certificatesigningrequests/status"]
+    verbs: ["*"]
+  - apiGroups: ["policy"]
+    resources: ["podsecuritypolicies", "poddisruptionbudgets"]
+    verbs: ["*"]
+  - apiGroups: ["admissionregistration.k8s.io"]
+    resources: ["validatingwebhookconfigurations", "mutatingwebhookconfigurations"]
+    verbs: ["*"]
+  - apiGroups: ["apiextensions.k8s.io"]
+    resources: ["customresourcedefinitions"]
+    verbs: ["*"]
+
+---
+# RoleBinding 1: Readonly access
+apiVersion: rbac.authorization.k8s.io/v1
+kind: RoleBinding
+metadata:
+  name: readonly-binding
+  namespace: apps
+subjects:
+  - kind: ServiceAccount
+    name: app-service-account
+    namespace: apps
+roleRef:
+  kind: Role
+  name: readonly-role
+  apiGroup: rbac.authorization.k8s.io
+
+---
+# RoleBinding 2: Application management
+apiVersion: rbac.authorization.k8s.io/v1
+kind: RoleBinding
+metadata:
+  name: app-management-binding
+  namespace: apps
+subjects:
+  - kind: ServiceAccount
+    name: app-service-account
+    namespace: apps
+roleRef:
+  kind: Role
+  name: app-management-role
+  apiGroup: rbac.authorization.k8s.io
+
+---
+# RoleBinding 3: Configuration and storage
+apiVersion: rbac.authorization.k8s.io/v1
+kind: RoleBinding
+metadata:
+  name: config-storage-binding
+  namespace: apps
+subjects:
+  - kind: ServiceAccount
+    name: app-service-account
+    namespace: apps
+roleRef:
+  kind: Role
+  name: config-storage-role
+  apiGroup: rbac.authorization.k8s.io
+
+---
+# RoleBinding 4: Network and security
+apiVersion: rbac.authorization.k8s.io/v1
+kind: RoleBinding
+metadata:
+  name: network-security-binding
+  namespace: apps
+subjects:
+  - kind: ServiceAccount
+    name: app-service-account
+    namespace: apps
+roleRef:
+  kind: Role
+  name: network-security-role
+  apiGroup: rbac.authorization.k8s.io
+
+---
+# ClusterRoleBinding 1: Global readonly
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRoleBinding
+metadata:
+  name: global-readonly-binding
+subjects:
+  - kind: ServiceAccount
+    name: app-service-account
+    namespace: apps
+roleRef:
+  kind: ClusterRole
+  name: global-readonly-cluster-role
+  apiGroup: rbac.authorization.k8s.io
+
+---
+# ClusterRoleBinding 2: Node and namespace management
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRoleBinding
+metadata:
+  name: node-namespace-binding
+subjects:
+  - kind: ServiceAccount
+    name: app-service-account
+    namespace: apps
+roleRef:
+  kind: ClusterRole
+  name: node-namespace-cluster-role
+  apiGroup: rbac.authorization.k8s.io
+
+---
+# ClusterRoleBinding 3: Storage management
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRoleBinding
+metadata:
+  name: storage-binding
+subjects:
+  - kind: ServiceAccount
+    name: app-service-account
+    namespace: apps
+roleRef:
+  kind: ClusterRole
+  name: storage-cluster-role
+  apiGroup: rbac.authorization.k8s.io
+
+---
+# ClusterRoleBinding 4: Security and RBAC
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRoleBinding
+metadata:
+  name: security-rbac-binding
+subjects:
+  - kind: ServiceAccount
+    name: app-service-account
+    namespace: apps
+roleRef:
+  kind: ClusterRole
+  name: security-rbac-cluster-role
+  apiGroup: rbac.authorization.k8s.io
+
+---
+# Deployment with all ConfigMaps and Secrets
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: sample-app
+  namespace: apps
+  labels:
+    app: sample-app
+    version: v1
+spec:
+  replicas: 2
+  selector:
+    matchLabels:
+      app: sample-app
+  template:
+    metadata:
+      labels:
+        app: sample-app
+        version: v1
+    spec:
+      serviceAccountName: app-service-account
+      
+      # Init Container
+      initContainers:
+      - name: init-setup
+        image: busybox:1.35
+        command: ['sh', '-c']
+        args:
+          - |
+            echo "Starting initialization..."
+            echo "Checking connectivity..."
+            wget -O- --timeout=2 --tries=3 http://www.google.com > /dev/null 2>&1
+            if [ $? -eq 0 ]; then
+              echo "Internet connectivity: OK"
+            else
+              echo "Internet connectivity: Not available (continuing anyway)"
+            fi
+            echo "Creating required directories..."
+            mkdir -p /shared-data/config
+            mkdir -p /shared-data/logs
+            mkdir -p /shared-data/scripts
+            echo "Initialization timestamp: $(date)" > /shared-data/init-timestamp.txt
+            echo "App Version: $APP_VERSION" > /shared-data/config/version.txt
+            echo "Environment: $ENVIRONMENT" > /shared-data/config/environment.txt
+            # Copy scripts from ConfigMap
+            cp /scripts/* /shared-data/scripts/ 2>/dev/null || true
+            chmod +x /shared-data/scripts/*.sh 2>/dev/null || true
+            echo "Initialization complete!"
+            sleep 2
+        env:
+        - name: APP_VERSION
+          valueFrom:
+            configMapKeyRef:
+              name: app-config
+              key: app.properties
+        - name: ENVIRONMENT
+          valueFrom:
+            configMapKeyRef:
+              name: env-settings
+              key: ENVIRONMENT
+        volumeMounts:
+        - name: shared-data
+          mountPath: /shared-data
+        - name: app-scripts-volume
+          mountPath: /scripts
+      
+      containers:
+      # Main Application Container
+      - name: main-app
+        image: nginx:1.25-alpine
+        ports:
+        - containerPort: 80
+          name: http
+          protocol: TCP
+        env:
+        # Secret 1: Database Credentials (ALL keys)
+        - name: DB_USERNAME
+          valueFrom:
+            secretKeyRef:
+              name: db-credentials
+              key: username
+        - name: DB_PASSWORD
+          valueFrom:
+            secretKeyRef:
+              name: db-credentials
+              key: password
+        - name: DB_HOST
+          valueFrom:
+            secretKeyRef:
+              name: db-credentials
+              key: host
+        - name: DB_PORT
+          valueFrom:
+            secretKeyRef:
+              name: db-credentials
+              key: port
+        - name: DB_NAME
+          valueFrom:
+            secretKeyRef:
+              name: db-credentials
+              key: database
+        - name: DATABASE_URL
+          valueFrom:
+            secretKeyRef:
+              name: db-credentials
+              key: database-url
+        # Secret 2: API Keys (ALL keys)
+        - name: API_KEY_STRIPE
+          valueFrom:
+            secretKeyRef:
+              name: api-keys
+              key: stripe-key
+        - name: AWS_ACCESS_KEY_ID
+          valueFrom:
+            secretKeyRef:
+              name: api-keys
+              key: aws-access-key
+        - name: AWS_SECRET_ACCESS_KEY
+          valueFrom:
+            secretKeyRef:
+              name: api-keys
+              key: aws-secret-key
+        - name: GOOGLE_API_KEY
+          valueFrom:
+            secretKeyRef:
+              name: api-keys
+              key: google-api-key
+        # Secret 3: OAuth Credentials (ALL keys)
+        - name: OAUTH_CLIENT_ID
+          valueFrom:
+            secretKeyRef:
+              name: oauth-credentials
+              key: client-id
+        - name: OAUTH_CLIENT_SECRET
+          valueFrom:
+            secretKeyRef:
+              name: oauth-credentials
+              key: client-secret
+        - name: OAUTH_REDIRECT_URI
+          valueFrom:
+            secretKeyRef:
+              name: oauth-credentials
+              key: redirect-uri
+        - name: OAUTH_SCOPE
+          valueFrom:
+            secretKeyRef:
+              name: oauth-credentials
+              key: scope
+        # Secret 4: TLS Certificates (referenced as files via volume mount)
+        - name: TLS_CERT_PATH
+          value: "/etc/tls/tls.crt"
+        - name: TLS_KEY_PATH
+          value: "/etc/tls/tls.key"
+        # Secret 5: SMTP Configuration (ALL keys)
+        - name: SMTP_HOST
+          valueFrom:
+            secretKeyRef:
+              name: smtp-config
+              key: smtp-host
+        - name: SMTP_PORT
+          valueFrom:
+            secretKeyRef:
+              name: smtp-config
+              key: smtp-port
+        - name: SMTP_USERNAME
+          valueFrom:
+            secretKeyRef:
+              name: smtp-config
+              key: smtp-username
+        - name: SMTP_PASSWORD
+          valueFrom:
+            secretKeyRef:
+              name: smtp-config
+              key: smtp-password
+        - name: SMTP_FROM_ADDRESS
+          valueFrom:
+            secretKeyRef:
+              name: smtp-config
+              key: smtp-from
+        # Secret 6: JWT Tokens (ALL keys)
+        - name: JWT_SECRET
+          valueFrom:
+            secretKeyRef:
+              name: jwt-tokens
+              key: jwt-secret
+        - name: JWT_PUBLIC_KEY
+          valueFrom:
+            secretKeyRef:
+              name: jwt-tokens
+              key: jwt-public-key
+        - name: JWT_PRIVATE_KEY
+          valueFrom:
+            secretKeyRef:
+              name: jwt-tokens
+              key: jwt-private-key
+        - name: JWT_REFRESH_SECRET
+          valueFrom:
+            secretKeyRef:
+              name: jwt-tokens
+              key: jwt-refresh-secret
+        # Secret 7: Encryption Keys (ALL keys)
+        - name: AES_KEY
+          valueFrom:
+            secretKeyRef:
+              name: encryption-keys
+              key: aes-key
+        - name: RSA_PRIVATE_KEY
+          valueFrom:
+            secretKeyRef:
+              name: encryption-keys
+              key: rsa-private
+        - name: RSA_PUBLIC_KEY
+          valueFrom:
+            secretKeyRef:
+              name: encryption-keys
+              key: rsa-public
+        - name: HMAC_SECRET
+          valueFrom:
+            secretKeyRef:
+              name: encryption-keys
+              key: hmac-secret
+        # Secret 8: Third-party Services (ALL keys)
+        - name: TWILIO_SID
+          valueFrom:
+            secretKeyRef:
+              name: third-party-services
+              key: twilio-sid
+        - name: TWILIO_AUTH_TOKEN
+          valueFrom:
+            secretKeyRef:
+              name: third-party-services
+              key: twilio-token
+        - name: SENDGRID_API_KEY
+          valueFrom:
+            secretKeyRef:
+              name: third-party-services
+              key: sendgrid-key
+        - name: SLACK_BOT_TOKEN
+          valueFrom:
+            secretKeyRef:
+              name: third-party-services
+              key: slack-token
+        # Secret 9: Storage Credentials (ALL keys)
+        - name: S3_BUCKET
+          valueFrom:
+            secretKeyRef:
+              name: storage-credentials
+              key: s3-bucket
+        - name: S3_REGION
+          valueFrom:
+            secretKeyRef:
+              name: storage-credentials
+              key: s3-region
+        - name: AZURE_STORAGE_ACCOUNT
+          valueFrom:
+            secretKeyRef:
+              name: storage-credentials
+              key: azure-storage-account
+        - name: AZURE_STORAGE_KEY
+          valueFrom:
+            secretKeyRef:
+              name: storage-credentials
+              key: azure-storage-key
+        - name: GCS_BUCKET
+          valueFrom:
+            secretKeyRef:
+              name: storage-credentials
+              key: gcs-bucket
+        # Secret 10: License Keys (ALL keys)
+        - name: LICENSE_KEY_ENTERPRISE
+          valueFrom:
+            secretKeyRef:
+              name: license-keys
+              key: enterprise-license
+        - name: LICENSE_KEY_MONITORING
+          valueFrom:
+            secretKeyRef:
+              name: license-keys
+              key: monitoring-license
+        - name: LICENSE_KEY_BACKUP
+          valueFrom:
+            secretKeyRef:
+              name: license-keys
+              key: backup-license
+        - name: LICENSE_KEY_SECURITY
+          valueFrom:
+            secretKeyRef:
+              name: license-keys
+              key: security-license
+        # Environment variables from ConfigMaps
+        - name: WELCOME_MESSAGE
+          valueFrom:
+            configMapKeyRef:
+              name: app-config
+              key: welcome.message
+        - name: FEATURE_CACHING
+          valueFrom:
+            configMapKeyRef:
+              name: feature-flags
+              key: enable.caching
+        - name: REGION
+          valueFrom:
+            configMapKeyRef:
+              name: env-settings
+              key: REGION
+        - name: CACHE_TTL
+          valueFrom:
+            configMapKeyRef:
+              name: cache-config
+              key: cache.ttl
+        - name: CORS_ORIGINS
+          valueFrom:
+            configMapKeyRef:
+              name: security-policies
+              key: cors.allowed-origins
+        - name: SLACK_WEBHOOK
+          valueFrom:
+            configMapKeyRef:
+              name: notification-templates
+              key: slack.webhook
+        - name: API_LIMITS
+          valueFrom:
+            configMapKeyRef:
+              name: business-rules
+              key: limits.api
+        # Pod information
+        - name: POD_NAME
+          valueFrom:
+            fieldRef:
+              fieldPath: metadata.name
+        - name: POD_IP
+          valueFrom:
+            fieldRef:
+              fieldPath: status.podIP
+        envFrom:
+        # Import all keys from specific ConfigMaps as environment variables
+        - configMapRef:
+            name: env-settings
+        - configMapRef:
+            name: feature-flags
+        volumeMounts:
+        - name: app-config-volume
+          mountPath: /etc/app-config
+        - name: logging-config-volume
+          mountPath: /etc/logging
+        - name: cache-config-volume
+          mountPath: /etc/cache
+        - name: security-policies-volume
+          mountPath: /etc/security
+        - name: notification-templates-volume
+          mountPath: /etc/notifications
+        - name: monitoring-config-volume
+          mountPath: /etc/monitoring
+        - name: business-rules-volume
+          mountPath: /etc/business
+        - name: app-scripts-volume
+          mountPath: /etc/scripts
+        - name: tls-certs
+          mountPath: /etc/tls
+          readOnly: true
+        - name: shared-data
+          mountPath: /usr/share/nginx/html
+        - name: nginx-config
+          mountPath: /etc/nginx/conf.d
+        resources:
+          requests:
+            memory: "64Mi"
+            cpu: "100m"
+          limits:
+            memory: "128Mi"
+            cpu: "200m"
+        livenessProbe:
+          httpGet:
+            path: /
+            port: 80
+          initialDelaySeconds: 30
+          periodSeconds: 10
+          timeoutSeconds: 5
+          failureThreshold: 3
+        readinessProbe:
+          httpGet:
+            path: /
+            port: 80
+          initialDelaySeconds: 5
+          periodSeconds: 5
+          timeoutSeconds: 3
+          successThreshold: 1
+        lifecycle:
+          preStop:
+            exec:
+              command: ["/bin/sh", "-c", "nginx -s quit; while killall -0 nginx; do sleep 1; done"]
+      
+      # Sidecar Container (Logging and Monitoring)
+      - name: sidecar-logger
+        image: busybox:1.35
+        command: ['sh', '-c']
+        args:
+          - |
+            echo "Sidecar logger starting..."
+            echo "Verifying all secrets are loaded..."
+            echo "DB Host: ${DB_HOST:0:10}..." >> /shared-data/logs/secrets-check.log
+            echo "AWS Key: ${AWS_ACCESS_KEY_ID:0:10}..." >> /shared-data/logs/secrets-check.log
+            echo "OAuth Client: ${OAUTH_CLIENT_ID:0:10}..." >> /shared-data/logs/secrets-check.log
+            echo "JWT configured: $([ ! -z $JWT_SECRET ] && echo 'YES' || echo 'NO')" >> /shared-data/logs/secrets-check.log
+            echo "Encryption keys loaded: $([ ! -z $AES_KEY ] && echo 'YES' || echo 'NO')" >> /shared-data/logs/secrets-check.log
+            echo "Storage configured: S3=${S3_BUCKET}, Azure=${AZURE_STORAGE_ACCOUNT:0:5}..." >> /shared-data/logs/secrets-check.log
+            echo "Licenses loaded: $([ ! -z $LICENSE_KEY_ENTERPRISE ] && echo 'YES' || echo 'NO')" >> /shared-data/logs/secrets-check.log
+            
+            while true; do
+              timestamp=$(date '+%Y-%m-%d %H:%M:%S')
+              echo "[$timestamp] Checking main app health..."
+              if wget -O- --timeout=2 http://localhost:80 > /dev/null 2>&1; then
+                echo "[$timestamp] Main app is healthy"
+                echo "[$timestamp] Pod: $POD_NAME | IP: $POD_IP" >> /shared-data/logs/health.log
+              else
+                echo "[$timestamp] Main app health check failed" >> /shared-data/logs/health.log
+              fi
+              
+              # Log environment information
+              echo "[$timestamp] Feature Flags Status:" >> /shared-data/logs/features.log
+              echo "  Caching: $FEATURE_CACHING" >> /shared-data/logs/features.log
+              echo "  Debug: $enable_debug" >> /shared-data/logs/features.log
+              echo "  Metrics: $enable_metrics" >> /shared-data/logs/features.log
+              
+              # Check secrets availability (masked for security)
+              echo "[$timestamp] Secrets Status:" >> /shared-data/logs/secrets-status.log
+              echo "  Database: Connected to ${DB_HOST}:${DB_PORT}" >> /shared-data/logs/secrets-status.log
+              echo "  AWS: Region ${S3_REGION}, Bucket ${S3_BUCKET}" >> /shared-data/logs/secrets-status.log
+              echo "  SMTP: Server ${SMTP_HOST}:${SMTP_PORT}" >> /shared-data/logs/secrets-status.log
+              echo "  Licenses: $(echo $LICENSE_KEY_ENTERPRISE $LICENSE_KEY_MONITORING $LICENSE_KEY_BACKUP $LICENSE_KEY_SECURITY | wc -w) active" >> /shared-data/logs/secrets-status.log
+              
+              # Create a comprehensive HTML status page
+              cat > /shared-data/index.html <<EOF
+            <!DOCTYPE html>
+            <html>
+            <head>
+                <title>Kubernetes Sample App - Full Configuration</title>
+                <style>
+                    body { font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; margin: 0; background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); }
+                    .container { max-width: 1200px; margin: 40px auto; padding: 30px; background: white; border-radius: 10px; box-shadow: 0 10px 40px rgba(0,0,0,0.1); }
+                    h1 { color: #333; border-bottom: 3px solid #667eea; padding-bottom: 10px; }
+                    h2 { color: #555; margin-top: 30px; }
+                    .info { background: #f8f9fa; padding: 20px; border-radius: 8px; margin: 20px 0; border-left: 4px solid #667eea; }
+                    .status { color: #28a745; font-weight: bold; font-size: 1.2em; }
+                    code { background: #e9ecef; padding: 3px 8px; border-radius: 3px; font-family: 'Courier New', monospace; }
+                    .grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); gap: 20px; margin: 20px 0; }
+                    .card { background: #f8f9fa; padding: 15px; border-radius: 8px; border: 1px solid #dee2e6; }
+                    .card h3 { margin-top: 0; color: #495057; }
+                    ul { line-height: 1.8; }
+                    .secret-info { background: #fff3cd; padding: 10px; border-radius: 5px; border: 1px solid #ffc107; margin: 10px 0; }
+                    .config-info { background: #d1ecf1; padding: 10px; border-radius: 5px; border: 1px solid #17a2b8; margin: 10px 0; }
+                </style>
+            </head>
+            <body>
+                <div class="container">
+                    <h1>🚀 Kubernetes Sample Application</h1>
+                    <h2>Enhanced Configuration with 10 ConfigMaps & 10 Secrets</h2>
+                    
+                    <div class="info">
+                        <p class="status">✅ Application is running successfully!</p>
+                        <p><strong>Welcome Message:</strong> $WELCOME_MESSAGE</p>
+                        <p><strong>Pod Name:</strong> <code>$POD_NAME</code></p>
+                        <p><strong>Pod IP:</strong> <code>$POD_IP</code></p>
+                        <p><strong>Timestamp:</strong> $timestamp</p>
+                        <p><strong>Namespace:</strong> <code>apps</code></p>
+                        <p><strong>Environment:</strong> <code>$ENVIRONMENT</code></p>
+                        <p><strong>Region:</strong> <code>$REGION</code></p>
+                        <p><strong>Datacenter:</strong> <code>$DATACENTER</code></p>
+                    </div>
+                    
+                    <h2>📋 ConfigMaps (10 Total)</h2>
+                    <div class="grid">
+                        <div class="card config-info">
+                            <h3>1. app-config</h3>
+                            <p>Application properties, database config, welcome message</p>
+                        </div>
+                        <div class="card config-info">
+                            <h3>2. feature-flags</h3>
+                            <p>Feature toggles: Caching=$FEATURE_CACHING, Debug=$enable_debug</p>
+                        </div>
+                        <div class="card config-info">
+                            <h3>3. logging-config</h3>
+                            <p>Log4j properties, Logback XML configuration</p>
+                        </div>
+                        <div class="card config-info">
+                            <h3>4. env-settings</h3>
+                            <p>Environment, region, datacenter, cluster settings</p>
+                        </div>
+                        <div class="card config-info">
+                            <h3>5. cache-config</h3>
+                            <p>Redis config, TTL=$CACHE_TTL seconds</p>
+                        </div>
+                        <div class="card config-info">
+                            <h3>6. security-policies</h3>
+                            <p>CORS settings, rate limiting, security headers</p>
+                        </div>
+                        <div class="card config-info">
+                            <h3>7. notification-templates</h3>
+                            <p>Email templates, Slack/Teams webhooks</p>
+                        </div>
+                        <div class="card config-info">
+                            <h3>8. monitoring-config</h3>
+                            <p>Prometheus, Grafana dashboards, alert rules</p>
+                        </div>
+                        <div class="card config-info">
+                            <h3>9. business-rules</h3>
+                            <p>Pricing tiers, API limits=$API_LIMITS, compliance</p>
+                        </div>
+                        <div class="card config-info">
+                            <h3>10. app-scripts</h3>
+                            <p>Startup, healthcheck, backup scripts</p>
+                        </div>
+                    </div>
+                    
+                    <h2>🔐 Secrets (10 Total)</h2>
+                    <div class="grid">
+                        <div class="card secret-info">
+                            <h3>1. db-credentials</h3>
+                            <p>Database username, password, host (masked)</p>
+                        </div>
+                        <div class="card secret-info">
+                            <h3>2. api-keys</h3>
+                            <p>Stripe, AWS, Google API keys (masked)</p>
+                        </div>
+                        <div class="card secret-info">
+                            <h3>3. oauth-credentials</h3>
+                            <p>OAuth client ID/secret (masked)</p>
+                        </div>
+                        <div class="card secret-info">
+                            <h3>4. tls-certificates</h3>
+                            <p>TLS cert and key files (mounted)</p>
+                        </div>
+                        <div class="card secret-info">
+                            <h3>5. smtp-config</h3>
+                            <p>SMTP host=$SMTP_HOST, credentials (masked)</p>
+                        </div>
+                        <div class="card secret-info">
+                            <h3>6. jwt-tokens</h3>
+                            <p>JWT secrets and keys (masked)</p>
+                        </div>
+                        <div class="card secret-info">
+                            <h3>7. encryption-keys</h3>
+                            <p>AES, RSA, HMAC keys (masked)</p>
+                        </div>
+                        <div class="card secret-info">
+                            <h3>8. third-party-services</h3>
+                            <p>Twilio SID=$TWILIO_SID, tokens (masked)</p>
+                        </div>
+                        <div class="card secret-info">
+                            <h3>9. storage-credentials</h3>
+                            <p>S3 bucket=$S3_BUCKET, Azure, GCS (masked)</p>
+                        </div>
+                        <div class="card secret-info">
+                            <h3>10. license-keys</h3>
+                            <p>Enterprise, monitoring, backup licenses (masked)</p>
+                        </div>
+                    </div>
+                    
+                    <h2>🏗️ Architecture Components</h2>
+                    <ul>
+                        <li>✓ Namespace: <code>apps</code></li>
+                        <li>✓ ServiceAccount: <code>app-service-account</code></li>
+                        <li>✓ RBAC: Role, RoleBinding, ClusterRole, ClusterRoleBinding</li>
+                        <li>✓ Deployment with 3 containers:
+                            <ul>
+                                <li>Init Container (setup and configuration)</li>
+                                <li>Main Container (nginx with all configs/secrets)</li>
+                                <li>Sidecar Container (logging and monitoring)</li>
+                            </ul>
+                        </li>
+                        <li>✓ Services: LoadBalancer & ClusterIP</li>
+                        <li>✓ Volume Mounts: 10 ConfigMaps + 1 Secret mounted as volumes</li>
+                        <li>✓ Environment Variables: From all 10 Secrets + 10 ConfigMaps</li>
+                    </ul>
+                    
+                    <h2>📊 Health Status</h2>
+                    <pre>$(tail -n 10 /shared-data/logs/health.log 2>/dev/null || echo "No health logs yet")</pre>
+                    
+                    <h2>🎚️ Feature Flags Status</h2>
+                    <pre>$(tail -n 5 /shared-data/logs/features.log 2>/dev/null || echo "No feature logs yet")</pre>
+                </div>
+            </body>
+            </html>
+            EOF
+              
+              sleep 30
+            done
+        env:
+        # All Secret references for verification in sidecar
+        - name: DB_HOST
+          valueFrom:
+            secretKeyRef:
+              name: db-credentials
+              key: host
+        - name: DB_PORT
+          valueFrom:
+            secretKeyRef:
+              name: db-credentials
+              key: port
+        - name: AWS_ACCESS_KEY_ID
+          valueFrom:
+            secretKeyRef:
+              name: api-keys
+              key: aws-access-key
+        - name: OAUTH_CLIENT_ID
+          valueFrom:
+            secretKeyRef:
+              name: oauth-credentials
+              key: client-id
+        - name: SMTP_HOST
+          valueFrom:
+            secretKeyRef:
+              name: smtp-config
+              key: smtp-host
+        - name: SMTP_PORT
+          valueFrom:
+            secretKeyRef:
+              name: smtp-config
+              key: smtp-port
+        - name: JWT_SECRET
+          valueFrom:
+            secretKeyRef:
+              name: jwt-tokens
+              key: jwt-secret
+        - name: AES_KEY
+          valueFrom:
+            secretKeyRef:
+              name: encryption-keys
+              key: aes-key
+        - name: TWILIO_SID
+          valueFrom:
+            secretKeyRef:
+              name: third-party-services
+              key: twilio-sid
+        - name: S3_BUCKET
+          valueFrom:
+            secretKeyRef:
+              name: storage-credentials
+              key: s3-bucket
+        - name: S3_REGION
+          valueFrom:
+            secretKeyRef:
+              name: storage-credentials
+              key: s3-region
+        - name: AZURE_STORAGE_ACCOUNT
+          valueFrom:
+            secretKeyRef:
+              name: storage-credentials
+              key: azure-storage-account
+        - name: LICENSE_KEY_ENTERPRISE
+          valueFrom:
+            secretKeyRef:
+              name: license-keys
+              key: enterprise-license
+        - name: LICENSE_KEY_MONITORING
+          valueFrom:
+            secretKeyRef:
+              name: license-keys
+              key: monitoring-license
+        - name: LICENSE_KEY_BACKUP
+          valueFrom:
+            secretKeyRef:
+              name: license-keys
+              key: backup-license
+        - name: LICENSE_KEY_SECURITY
+          valueFrom:
+            secretKeyRef:
+              name: license-keys
+              key: security-license
+        envFrom:
+        - configMapRef:
+            name: env-settings
+        - configMapRef:
+            name: feature-flags
+        volumeMounts:
+        - name: shared-data
+          mountPath: /shared-data
+        resources:
+          requests:
+            memory: "32Mi"
+            cpu: "50m"
+          limits:
+            memory: "64Mi"
+            cpu: "100m"
+      
+      volumes:
+      # ConfigMap Volumes
+      - name: app-config-volume
+        configMap:
+          name: app-config
+      - name: logging-config-volume
+        configMap:
+          name: logging-config
+      - name: cache-config-volume
+        configMap:
+          name: cache-config
+      - name: security-policies-volume
+        configMap:
+          name: security-policies
+      - name: notification-templates-volume
+        configMap:
+          name: notification-templates
+      - name: monitoring-config-volume
+        configMap:
+          name: monitoring-config
+      - name: business-rules-volume
+        configMap:
+          name: business-rules
+      - name: app-scripts-volume
+        configMap:
+          name: app-scripts
+          defaultMode: 0755
+      # Secret Volumes
+      - name: tls-certs
+        secret:
+          secretName: tls-certificates
+      # Other Volumes
+      - name: shared-data
+        emptyDir: {}
+      - name: nginx-config
+        configMap:
+          name: nginx-custom-config
+
+---
+# Additional ConfigMap for Nginx configuration
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: nginx-custom-config
+  namespace: apps
+data:
+  default.conf: |
+    server {
+        listen 80;
+        server_name localhost;
+        
+        location / {
+            root /usr/share/nginx/html;
+            index index.html index.htm;
+            try_files $uri $uri/ =404;
+        }
+        
+        location /health {
+            access_log off;
+            return 200 "healthy\n";
+            add_header Content-Type text/plain;
+        }
+        
+        location /metrics {
+            stub_status on;
+            access_log off;
+        }
+        
+        location /config {
+            default_type text/plain;
+            return 200 "ConfigMaps: 10\nSecrets: 10\nStatus: Active\n";
+        }
+    }
+
+---
+# Service (LoadBalancer)
+apiVersion: v1
+kind: Service
+metadata:
+  name: sample-app-lb
+  namespace: apps
+  labels:
+    app: sample-app
+    type: loadbalancer
+spec:
+  type: LoadBalancer
+  selector:
+    app: sample-app
+  ports:
+    - port: 80
+      targetPort: 80
+      protocol: TCP
+      name: http
+  sessionAffinity: ClientIP
+
+---
+# Service (ClusterIP for internal access)
+apiVersion: v1
+kind: Service
+metadata:
+  name: sample-app-internal
+  namespace: apps
+  labels:
+    app: sample-app
+    type: internal
+spec:
+  type: ClusterIP
+  selector:
+    app: sample-app
+  ports:
+    - port: 8080
+      targetPort: 80
+      protocol: TCP
+      name: http-internal

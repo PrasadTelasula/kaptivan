@@ -1,0 +1,39 @@
+# OS
+.DS_Store
+Thumbs.db
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+# Environment
+.env
+.env.local
+.env.*.local
+
+# Logs
+*.log
+logs/
+
+# Dependencies
+node_modules/
+vendor/
+
+# Build
+dist/
+build/
+tmp/
+
+# Docker
+.docker/
+
+# Testing
+coverage/
+*.test
+
+# Misc
+*.bak
+.cache/

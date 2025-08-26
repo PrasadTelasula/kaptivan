@@ -1,0 +1,824 @@
+---
+# Namespace for CronJobs
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: scheduled-jobs
+  labels:
+    name: scheduled-jobs
+    environment: production
+    type: cronjobs
+
+---
+# ConfigMap 1: CronJob Configuration
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: cronjob-config
+  namespace: scheduled-jobs
+data:
+  job.properties: |
+    job.name=periodic-task
+    job.type=scheduled
+    run.interval=5m
+    max.runtime=240
+    alert.enabled=true
+  task.conf: |
+    task.type=health-check
+    endpoints.to.check=10
+    timeout.seconds=30
+    retry.count=3
+  schedule.message: "Scheduled task running every 5 minutes"
+
+---
+# ConfigMap 2: Health Check URLs
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: health-check-urls
+  namespace: scheduled-jobs
+data:
+  urls.txt: |
+    https://google.com
+    https://github.com
+    https://kubernetes.io
+    https://docker.com
+    https://stackoverflow.com
+  internal-services.txt: |
+    http://app-service.default.svc.cluster.local/health
+    http://api-service.default.svc.cluster.local/health
+    http://db-service.default.svc.cluster.local/health
+
+---
+# ConfigMap 3: Metrics Collection
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: metrics-config
+  namespace: scheduled-jobs
+data:
+  metrics-query.sh: |
+    #!/bin/bash
+    echo "Collecting metrics at $(date)"
+    
+    # CPU metrics
+    echo "CPU Usage:"
+    top -bn1 | head -5
+    
+    # Memory metrics
+    echo "Memory Usage:"
+    free -h
+    
+    # Disk metrics
+    echo "Disk Usage:"
+    df -h
+    
+    # Network metrics
+    echo "Network Statistics:"
+    netstat -s | head -20
+  prometheus-queries.yaml: |
+    queries:
+      - name: cpu_usage
+        query: 'rate(container_cpu_usage_seconds_total[5m])'
+      - name: memory_usage
+        query: 'container_memory_usage_bytes'
+      - name: pod_count
+        query: 'count(kube_pod_info)'
+
+---
+# ConfigMap 4: Cleanup Scripts
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: cleanup-scripts
+  namespace: scheduled-jobs
+data:
+  cleanup-logs.sh: |
+    #!/bin/bash
+    echo "Starting log cleanup..."
+    find /var/log -name "*.log" -mtime +7 -delete 2>/dev/null || true
+    find /tmp -name "cronjob-*" -mmin +60 -delete 2>/dev/null || true
+    echo "Cleanup completed at $(date)"
+  cleanup-data.sh: |
+    #!/bin/bash
+    echo "Cleaning old data files..."
+    find /data -name "*.tmp" -mtime +1 -delete 2>/dev/null || true
+    find /data -name "*.bak" -mtime +3 -delete 2>/dev/null || true
+  cleanup-docker.sh: |
+    #!/bin/bash
+    echo "Cleaning Docker resources..."
+    docker system prune -f 2>/dev/null || true
+
+---
+# ConfigMap 5: Report Templates
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: report-templates
+  namespace: scheduled-jobs
+data:
+  hourly-report.html: |
+    <html>
+    <head><title>Hourly Report</title></head>
+    <body>
+      <h1>Scheduled Job Report</h1>
+      <p>Time: {{.Time}}</p>
+      <p>Status: {{.Status}}</p>
+      <p>Tasks Completed: {{.TasksCompleted}}</p>
+      <p>Next Run: {{.NextRun}}</p>
+    </body>
+    </html>
+  summary.json: |
+    {
+      "report_type": "scheduled_job",
+      "timestamp": "{{.Timestamp}}",
+      "job_name": "{{.JobName}}",
+      "status": "{{.Status}}",
+      "metrics": {{.Metrics}}
+    }
+
+---
+# ConfigMap 6: Database Maintenance
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: db-maintenance
+  namespace: scheduled-jobs
+data:
+  vacuum.sql: |
+    -- PostgreSQL maintenance
+    VACUUM ANALYZE;
+    REINDEX DATABASE mydb;
+  backup.sh: |
+    #!/bin/bash
+    echo "Starting database backup..."
+    DATE=$(date +%Y%m%d_%H%M%S)
+    pg_dump -h $DB_HOST -U $DB_USER -d $DB_NAME > /backup/db_$DATE.sql
+    echo "Backup completed: db_$DATE.sql"
+  optimize.sql: |
+    -- MySQL optimization
+    OPTIMIZE TABLE users;
+    OPTIMIZE TABLE transactions;
+    ANALYZE TABLE users;
+
+---
+# ConfigMap 7: Cache Management
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: cache-management
+  namespace: scheduled-jobs
+data:
+  redis-flush.sh: |
+    #!/bin/bash
+    echo "Managing Redis cache..."
+    redis-cli --scan --pattern "temp:*" | xargs redis-cli DEL
+    redis-cli INFO memory
+  memcached-stats.sh: |
+    #!/bin/bash
+    echo "Memcached statistics..."
+    echo stats | nc localhost 11211
+
+---
+# ConfigMap 8: Security Scans
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: security-scans
+  namespace: scheduled-jobs
+data:
+  vulnerability-check.sh: |
+    #!/bin/bash
+    echo "Running security scan..."
+    # Check for security updates
+    apt list --upgradable 2>/dev/null | grep -i security || echo "No security updates"
+  port-scan.sh: |
+    #!/bin/bash
+    echo "Checking open ports..."
+    netstat -tuln | grep LISTEN
+
+---
+# ConfigMap 9: Notification Config
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: notification-config
+  namespace: scheduled-jobs
+data:
+  email-template.txt: |
+    Subject: CronJob Execution Report
+    
+    Job Name: {{.JobName}}
+    Execution Time: {{.Time}}
+    Status: {{.Status}}
+    
+    Details:
+    {{.Details}}
+  slack-template.json: |
+    {
+      "text": "CronJob Alert",
+      "attachments": [{
+        "color": "{{.Color}}",
+        "title": "{{.Title}}",
+        "text": "{{.Message}}",
+        "timestamp": "{{.Timestamp}}"
+      }]
+    }
+
+---
+# ConfigMap 10: Integration Tests
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: integration-tests
+  namespace: scheduled-jobs
+data:
+  test-api.sh: |
+    #!/bin/bash
+    echo "Testing API endpoints..."
+    curl -f http://api-service/health || exit 1
+    curl -f http://api-service/ready || exit 1
+    echo "API tests passed"
+  test-database.sh: |
+    #!/bin/bash
+    echo "Testing database connection..."
+    pg_isready -h $DB_HOST -p $DB_PORT || exit 1
+    echo "Database connection OK"
+
+---
+# Secret 1: Database Credentials
+apiVersion: v1
+kind: Secret
+metadata:
+  name: db-credentials
+  namespace: scheduled-jobs
+type: Opaque
+data:
+  db-host: cG9zdGdyZXMuc3ZjLmNsdXN0ZXIubG9jYWw=  # postgres.svc.cluster.local
+  db-port: NTQzMg==  # 5432
+  db-user: Y3JvbmpvYnVzZXI=  # cronjobuser
+  db-password: Y3JvbmpvYnBhc3MxMjM=  # cronjobpass123
+  db-name: Y3JvbmpvYmRi  # cronjobdb
+
+---
+# Secret 2: API Keys
+apiVersion: v1
+kind: Secret
+metadata:
+  name: api-keys
+  namespace: scheduled-jobs
+type: Opaque
+data:
+  monitoring-api-key: bW9uaXRvcmluZy1hcGkta2V5LTEyMzQ1Ng==
+  slack-token: eG94Yi0xMjM0NTY3ODkwLWFiY2RlZg==
+  pagerduty-key: cGQta2V5LTEyMzQ1Njc4OTA=
+  datadog-api-key: ZGQtYXBpLWtleS0xMjM0NTY3ODkw
+
+---
+# Secret 3: Cloud Credentials
+apiVersion: v1
+kind: Secret
+metadata:
+  name: cloud-credentials
+  namespace: scheduled-jobs
+type: Opaque
+data:
+  aws-access-key: QUtJQUlPU0ZPRE5ON0VYQU1QTEU=
+  aws-secret-key: d0phbHJYVXRuRkVNSS9LN01ERU5H
+  gcp-service-account: ewogICJ0eXBlIjogInNlcnZpY2VfYWNjb3VudCIKfQ==
+  azure-client-id: YXp1cmUtY2xpZW50LWlk
+  azure-client-secret: YXp1cmUtY2xpZW50LXNlY3JldA==
+
+---
+# Secret 4: Webhook URLs
+apiVersion: v1
+kind: Secret
+metadata:
+  name: webhooks
+  namespace: scheduled-jobs
+type: Opaque
+data:
+  slack-webhook: aHR0cHM6Ly9ob29rcy5zbGFjay5jb20vc2VydmljZXMvVDAwL0IwMC9YWFg=
+  teams-webhook: aHR0cHM6Ly9vdXRsb29rLm9mZmljZS5jb20vd2ViaG9vay8xMjM=
+  discord-webhook: aHR0cHM6Ly9kaXNjb3JkLmNvbS9hcGkvd2ViaG9va3MvMTIzNA==
+
+---
+# Secret 5: Encryption Keys
+apiVersion: v1
+kind: Secret
+metadata:
+  name: encryption-keys
+  namespace: scheduled-jobs
+type: Opaque
+data:
+  aes-key: YWVzMjU2ZW5jcnlwdGlvbmtleQ==
+  rsa-private: LS0tLS1CRUdJTiBSU0EgUFJJVkFURSBLRVktLS0tLQ==
+  rsa-public: LS0tLS1CRUdJTiBQVUJMSUMgS0VZLS0tLS0=
+
+---
+# Secret 6: SSH Keys
+apiVersion: v1
+kind: Secret
+metadata:
+  name: ssh-keys
+  namespace: scheduled-jobs
+type: Opaque
+data:
+  id_rsa: LS0tLS1CRUdJTiBSU0EgUFJJVkFURSBLRVktLS0tLQ==
+  id_rsa.pub: c3NoLXJzYSBBQUFBQjNOemFDMQ==
+
+---
+# Secret 7: Registry Credentials
+apiVersion: v1
+kind: Secret
+metadata:
+  name: registry-creds
+  namespace: scheduled-jobs
+type: kubernetes.io/dockerconfigjson
+data:
+  .dockerconfigjson: eyJhdXRocyI6eyJodHRwczovL2luZGV4LmRvY2tlci5pby92MS8iOnsidXNlcm5hbWUiOiJ1c2VyIiwicGFzc3dvcmQiOiJwYXNzIn19fQ==
+
+---
+# Secret 8: SMTP Configuration
+apiVersion: v1
+kind: Secret
+metadata:
+  name: smtp-config
+  namespace: scheduled-jobs
+type: Opaque
+data:
+  smtp-host: c210cC5nbWFpbC5jb20=  # smtp.gmail.com
+  smtp-port: NTg3  # 587
+  smtp-user: ZW1haWxAZXhhbXBsZS5jb20=
+  smtp-password: ZW1haWxwYXNzMTIz
+
+---
+# Secret 9: Backup Storage
+apiVersion: v1
+kind: Secret
+metadata:
+  name: backup-storage
+  namespace: scheduled-jobs
+type: Opaque
+data:
+  s3-bucket: YmFja3VwLWJ1Y2tldA==
+  s3-region: dXMtZWFzdC0x
+  sftp-host: c2Z0cC5leGFtcGxlLmNvbQ==
+  sftp-user: YmFja3VwdXNlcg==
+  sftp-password: YmFja3VwcGFzczEyMw==
+
+---
+# Secret 10: License Keys
+apiVersion: v1
+kind: Secret
+metadata:
+  name: licenses
+  namespace: scheduled-jobs
+type: Opaque
+data:
+  monitoring-license: TU9OLVRPT0wtTElDRU5TRS0xMjM0
+  backup-license: QkFDS1VQLVRPT0wtTElDRU5TRS01Njc4
+  security-license: U0VDLVRPT0wtTElDRU5TRS05MDEy
+
+---
+# ServiceAccount
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: cronjob-service-account
+  namespace: scheduled-jobs
+
+---
+# Role
+apiVersion: rbac.authorization.k8s.io/v1
+kind: Role
+metadata:
+  name: cronjob-role
+  namespace: scheduled-jobs
+rules:
+  - apiGroups: [""]
+    resources: ["pods", "pods/log", "services", "configmaps", "secrets"]
+    verbs: ["get", "list", "watch"]
+  - apiGroups: ["batch"]
+    resources: ["jobs", "cronjobs"]
+    verbs: ["get", "list", "watch", "create"]
+  - apiGroups: [""]
+    resources: ["events"]
+    verbs: ["create", "patch"]
+
+---
+# RoleBinding
+apiVersion: rbac.authorization.k8s.io/v1
+kind: RoleBinding
+metadata:
+  name: cronjob-role-binding
+  namespace: scheduled-jobs
+subjects:
+  - kind: ServiceAccount
+    name: cronjob-service-account
+    namespace: scheduled-jobs
+roleRef:
+  kind: Role
+  name: cronjob-role
+  apiGroup: rbac.authorization.k8s.io
+
+---
+# CronJob 1: Health Check (Every 5 minutes)
+apiVersion: batch/v1
+kind: CronJob
+metadata:
+  name: health-check-cronjob
+  namespace: scheduled-jobs
+  labels:
+    app: health-checker
+    schedule: every-5-min
+spec:
+  # Run every 5 minutes
+  schedule: "*/5 * * * *"
+  
+  # Job configuration
+  successfulJobsHistoryLimit: 3
+  failedJobsHistoryLimit: 2
+  startingDeadlineSeconds: 100
+  concurrencyPolicy: Replace  # Replace running job if still active
+  
+  jobTemplate:
+    metadata:
+      labels:
+        app: health-checker
+        type: scheduled
+    spec:
+      backoffLimit: 2
+      activeDeadlineSeconds: 240  # 4 minutes max
+      ttlSecondsAfterFinished: 600  # Clean up after 10 minutes
+      
+      template:
+        metadata:
+          labels:
+            app: health-checker
+            cronjob: health-check
+        spec:
+          restartPolicy: OnFailure
+          serviceAccountName: cronjob-service-account
+          
+          initContainers:
+          - name: init-setup
+            image: busybox:1.35
+            command: ['sh', '-c']
+            args:
+              - |
+                echo "Initializing health check job at $(date)"
+                mkdir -p /shared/reports /shared/logs /shared/metrics
+                echo "Schedule: Every 5 minutes" > /shared/job-info.txt
+                echo "Start time: $(date)" >> /shared/job-info.txt
+          
+          containers:
+          # Main container: Health Checker
+          - name: health-checker
+            image: curlimages/curl:8.5.0
+            command: ['sh', '-c']
+            args:
+              - |
+                echo "Starting health checks at $(date)"
+                
+                # Create report
+                cat > /shared/reports/health-report.json <<EOF
+                {
+                  "timestamp": "$(date -Iseconds)",
+                  "job": "health-check",
+                  "checks": []
+                }
+                EOF
+                
+                # Check external URLs
+                echo "Checking external services..."
+                for url in google.com github.com kubernetes.io; do
+                  if curl -s -o /dev/null -w "%{http_code}" "https://$url" | grep -q "200\|301\|302"; then
+                    echo "✓ $url is healthy"
+                    echo "{\"service\":\"$url\",\"status\":\"healthy\",\"time\":\"$(date)\"}" >> /shared/logs/health.log
+                  else
+                    echo "✗ $url is down"
+                    echo "{\"service\":\"$url\",\"status\":\"down\",\"time\":\"$(date)\"}" >> /shared/logs/health.log
+                  fi
+                done
+                
+                # Check internal services (will fail if services don't exist)
+                echo "Checking internal services..."
+                for service in kube-dns metrics-server; do
+                  if nslookup $service.kube-system.svc.cluster.local 2>/dev/null | grep -q "Address"; then
+                    echo "✓ $service is reachable"
+                  else
+                    echo "✗ $service is not reachable"
+                  fi
+                done
+                
+                echo "Health checks completed at $(date)"
+                echo "SUCCESS" > /shared/status.txt
+            env:
+            - name: JOB_NAME
+              value: "health-check"
+            - name: SCHEDULE_MESSAGE
+              valueFrom:
+                configMapKeyRef:
+                  name: cronjob-config
+                  key: schedule.message
+            volumeMounts:
+            - name: shared-data
+              mountPath: /shared
+            - name: health-urls
+              mountPath: /config/urls
+            resources:
+              requests:
+                memory: "32Mi"
+                cpu: "25m"
+              limits:
+                memory: "64Mi"
+                cpu: "50m"
+          
+          # Sidecar: Metrics collector
+          - name: metrics-collector
+            image: alpine:3.18
+            command: ['sh', '-c']
+            args:
+              - |
+                echo "Collecting metrics..."
+                
+                # System metrics
+                cat > /shared/metrics/system.json <<EOF
+                {
+                  "timestamp": "$(date -Iseconds)",
+                  "memory_free": "$(free -m | grep Mem | awk '{print $4}')",
+                  "disk_usage": "$(df -h / | tail -1 | awk '{print $5}')",
+                  "load_average": "$(uptime | awk -F'load average:' '{print $2}')"
+                }
+                EOF
+                
+                # Wait for main container
+                while [ ! -f /shared/status.txt ]; do
+                  sleep 2
+                done
+                
+                echo "Metrics collection completed"
+            volumeMounts:
+            - name: shared-data
+              mountPath: /shared
+            resources:
+              requests:
+                memory: "32Mi"
+                cpu: "25m"
+              limits:
+                memory: "64Mi"
+                cpu: "50m"
+          
+          # Sidecar: Report generator
+          - name: report-generator
+            image: alpine:3.18
+            command: ['sh', '-c']
+            args:
+              - |
+                echo "Generating report..."
+                apk add --no-cache curl
+                
+                # Wait for job completion
+                while [ ! -f /shared/status.txt ]; do
+                  sleep 2
+                done
+                
+                STATUS=$(cat /shared/status.txt)
+                
+                # Generate HTML report
+                cat > /shared/reports/report.html <<EOF
+                <!DOCTYPE html>
+                <html>
+                <head>
+                    <title>CronJob Report - $(date)</title>
+                    <style>
+                        body { font-family: Arial, sans-serif; margin: 40px; background: #f5f5f5; }
+                        .header { background: white; padding: 20px; border-radius: 10px; box-shadow: 0 2px 5px rgba(0,0,0,0.1); }
+                        h1 { color: #333; margin: 0; }
+                        .status { display: inline-block; padding: 5px 15px; border-radius: 20px; margin-top: 10px; }
+                        .success { background: #4CAF50; color: white; }
+                        .info { background: #2196F3; color: white; }
+                        .grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); gap: 20px; margin-top: 20px; }
+                        .card { background: white; padding: 20px; border-radius: 10px; box-shadow: 0 2px 5px rgba(0,0,0,0.1); }
+                        h3 { color: #555; margin-top: 0; }
+                        pre { background: #f4f4f4; padding: 10px; border-radius: 5px; overflow-x: auto; }
+                    </style>
+                </head>
+                <body>
+                    <div class="header">
+                        <h1>⏰ CronJob Execution Report</h1>
+                        <div class="status success">Status: $STATUS</div>
+                        <div class="status info">Schedule: Every 5 minutes</div>
+                    </div>
+                    
+                    <div class="grid">
+                        <div class="card">
+                            <h3>📊 Execution Details</h3>
+                            <p><strong>Job Name:</strong> health-check-cronjob</p>
+                            <p><strong>Namespace:</strong> scheduled-jobs</p>
+                            <p><strong>Execution Time:</strong> $(date)</p>
+                            <p><strong>Next Run:</strong> ~5 minutes</p>
+                        </div>
+                        
+                        <div class="card">
+                            <h3>🔍 Health Check Results</h3>
+                            <pre>$(cat /shared/logs/health.log 2>/dev/null | tail -10 || echo "No health data")</pre>
+                        </div>
+                        
+                        <div class="card">
+                            <h3>📈 System Metrics</h3>
+                            <pre>$(cat /shared/metrics/system.json 2>/dev/null || echo "No metrics data")</pre>
+                        </div>
+                        
+                        <div class="card">
+                            <h3>📝 Recent Logs</h3>
+                            <pre>$(tail -20 /shared/logs/*.log 2>/dev/null | head -20 || echo "No logs available")</pre>
+                        </div>
+                    </div>
+                </body>
+                </html>
+                EOF
+                
+                # Send notification if configured
+                if [ ! -z "$SLACK_WEBHOOK" ]; then
+                  curl -X POST $SLACK_WEBHOOK \
+                    -H 'Content-Type: application/json' \
+                    -d "{\"text\":\"CronJob completed: $STATUS\"}" 2>/dev/null || true
+                fi
+                
+                echo "Report generated successfully"
+            env:
+            - name: SLACK_WEBHOOK
+              valueFrom:
+                secretKeyRef:
+                  name: webhooks
+                  key: slack-webhook
+            volumeMounts:
+            - name: shared-data
+              mountPath: /shared
+            resources:
+              requests:
+                memory: "32Mi"
+                cpu: "25m"
+              limits:
+                memory: "64Mi"
+                cpu: "50m"
+          
+          volumes:
+          - name: shared-data
+            emptyDir: {}
+          - name: health-urls
+            configMap:
+              name: health-check-urls
+
+---
+# CronJob 2: Cleanup Job (Also runs every 5 minutes for demo)
+apiVersion: batch/v1
+kind: CronJob
+metadata:
+  name: cleanup-cronjob
+  namespace: scheduled-jobs
+  labels:
+    app: cleanup
+    schedule: every-5-min
+spec:
+  schedule: "*/5 * * * *"
+  successfulJobsHistoryLimit: 2
+  failedJobsHistoryLimit: 1
+  concurrencyPolicy: Forbid  # Don't run if previous is still running
+  
+  jobTemplate:
+    spec:
+      backoffLimit: 1
+      ttlSecondsAfterFinished: 300
+      
+      template:
+        metadata:
+          labels:
+            app: cleanup
+            cronjob: cleanup
+        spec:
+          restartPolicy: Never
+          serviceAccountName: cronjob-service-account
+          
+          containers:
+          - name: cleanup
+            image: busybox:1.35
+            command: ['sh', '-c']
+            args:
+              - |
+                echo "Starting cleanup job at $(date)"
+                
+                # Clean old files
+                find /tmp -name "*.tmp" -mmin +5 -delete 2>/dev/null || true
+                
+                # Log cleanup action
+                echo "[$(date)] Cleanup completed" >> /shared/cleanup.log
+                
+                echo "Cleanup job finished"
+            volumeMounts:
+            - name: shared-data
+              mountPath: /shared
+            - name: cleanup-scripts
+              mountPath: /scripts
+            resources:
+              requests:
+                memory: "32Mi"
+                cpu: "25m"
+              limits:
+                memory: "64Mi"
+                cpu: "50m"
+          
+          volumes:
+          - name: shared-data
+            emptyDir: {}
+          - name: cleanup-scripts
+            configMap:
+              name: cleanup-scripts
+
+---
+# CronJob 3: Metrics Collection (Every 5 minutes)
+apiVersion: batch/v1
+kind: CronJob
+metadata:
+  name: metrics-cronjob
+  namespace: scheduled-jobs
+  labels:
+    app: metrics
+    schedule: every-5-min
+spec:
+  schedule: "*/5 * * * *"
+  successfulJobsHistoryLimit: 3
+  failedJobsHistoryLimit: 1
+  concurrencyPolicy: Replace
+  
+  jobTemplate:
+    spec:
+      backoffLimit: 2
+      ttlSecondsAfterFinished: 600
+      
+      template:
+        metadata:
+          labels:
+            app: metrics
+            cronjob: metrics
+        spec:
+          restartPolicy: OnFailure
+          serviceAccountName: cronjob-service-account
+          
+          containers:
+          - name: metrics-collector
+            image: alpine:3.18
+            command: ['sh', '-c']
+            args:
+              - |
+                echo "Collecting metrics at $(date)"
+                
+                # Install tools
+                apk add --no-cache curl jq
+                
+                # Create metrics report
+                cat > /tmp/metrics.json <<EOF
+                {
+                  "timestamp": "$(date -Iseconds)",
+                  "type": "scheduled_metrics",
+                  "data": {
+                    "cpu": "$(grep 'cpu ' /proc/stat | awk '{print ($2+$4)*100/($2+$4+$5)}')",
+                    "memory": "$(free -m | awk 'NR==2{printf "%.2f", $3*100/$2}')",
+                    "processes": "$(ps aux | wc -l)",
+                    "uptime": "$(uptime -p)"
+                  }
+                }
+                EOF
+                
+                echo "Metrics collected successfully"
+                cat /tmp/metrics.json
+                
+                # Store metrics
+                cp /tmp/metrics.json /shared/metrics-$(date +%s).json
+            env:
+            - name: DATADOG_API_KEY
+              valueFrom:
+                secretKeyRef:
+                  name: api-keys
+                  key: datadog-api-key
+            volumeMounts:
+            - name: shared-data
+              mountPath: /shared
+            - name: metrics-config
+              mountPath: /config/metrics
+            resources:
+              requests:
+                memory: "64Mi"
+                cpu: "50m"
+              limits:
+                memory: "128Mi"
+                cpu: "100m"
+          
+          volumes:
+          - name: shared-data
+            emptyDir: {}
+          - name: metrics-config
+            configMap:
+              name: metrics-config

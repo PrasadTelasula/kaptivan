@@ -1,0 +1,1064 @@
+# ---
+# # Namespace for Jobs
+# apiVersion: v1
+# kind: Namespace
+# metadata:
+#   name: batch-jobs
+#   labels:
+#     name: batch-jobs
+#     environment: production
+#     type: batch-processing
+
+---
+# ConfigMap 1: Job Configuration
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: job-config
+  namespace: batch-jobs
+data:
+  job.properties: |
+    job.name=data-processor
+    job.version=1.0.0
+    batch.size=1000
+    parallel.workers=4
+    retry.attempts=3
+    timeout.seconds=3600
+  processing.conf: |
+    input.path=/data/input
+    output.path=/data/output
+    format=json
+    compression=gzip
+    validation=strict
+  welcome.message: "Batch Job Processing Started!"
+
+---
+# ConfigMap 2: Database Migration Scripts
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: migration-scripts
+  namespace: batch-jobs
+data:
+  001_create_tables.sql: |
+    CREATE TABLE IF NOT EXISTS users (
+      id SERIAL PRIMARY KEY,
+      username VARCHAR(255) NOT NULL,
+      email VARCHAR(255) UNIQUE NOT NULL,
+      created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+    );
+    CREATE TABLE IF NOT EXISTS products (
+      id SERIAL PRIMARY KEY,
+      name VARCHAR(255) NOT NULL,
+      price DECIMAL(10,2),
+      stock INTEGER DEFAULT 0
+    );
+  002_add_indexes.sql: |
+    CREATE INDEX idx_users_email ON users(email);
+    CREATE INDEX idx_products_name ON products(name);
+    CREATE INDEX idx_products_price ON products(price);
+  003_seed_data.sql: |
+    INSERT INTO users (username, email) VALUES 
+    ('admin', 'admin@example.com'),
+    ('user1', 'user1@example.com');
+
+---
+# ConfigMap 3: ETL Pipeline Configuration
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: etl-config
+  namespace: batch-jobs
+data:
+  extract.yaml: |
+    sources:
+      - type: postgresql
+        host: source-db.example.com
+        port: 5432
+        database: production
+      - type: mongodb
+        uri: mongodb://mongo.example.com:27017
+      - type: s3
+        bucket: data-lake
+        prefix: raw/
+  transform.yaml: |
+    rules:
+      - field: email
+        transform: lowercase
+      - field: phone
+        transform: normalize
+      - field: date
+        format: ISO8601
+  load.yaml: |
+    destinations:
+      - type: elasticsearch
+        index: processed-data
+      - type: s3
+        bucket: processed-data
+        format: parquet
+
+---
+# ConfigMap 4: Backup Configuration
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: backup-config
+  namespace: batch-jobs
+data:
+  backup.conf: |
+    BACKUP_TYPE=full
+    RETENTION_DAYS=30
+    COMPRESSION=true
+    ENCRYPTION=AES256
+    VERIFY_BACKUP=true
+    NOTIFICATION_EMAIL=ops@example.com
+  backup-script.sh: |
+    #!/bin/bash
+    echo "Starting backup job..."
+    DATE=$(date +%Y%m%d_%H%M%S)
+    BACKUP_FILE="backup_${DATE}.tar.gz"
+    tar -czf /backup/${BACKUP_FILE} /data
+    echo "Backup completed: ${BACKUP_FILE}"
+  restore-script.sh: |
+    #!/bin/bash
+    echo "Starting restore job..."
+    tar -xzf /backup/$1 -C /
+    echo "Restore completed"
+
+---
+# ConfigMap 5: Report Generation
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: report-config
+  namespace: batch-jobs
+data:
+  daily-report.sql: |
+    SELECT 
+      DATE(created_at) as date,
+      COUNT(*) as total_transactions,
+      SUM(amount) as total_amount,
+      AVG(amount) as avg_amount
+    FROM transactions
+    WHERE created_at >= CURRENT_DATE - INTERVAL '1 day'
+    GROUP BY DATE(created_at);
+  weekly-report.sql: |
+    SELECT 
+      DATE_TRUNC('week', created_at) as week,
+      COUNT(DISTINCT user_id) as unique_users,
+      COUNT(*) as total_events
+    FROM events
+    WHERE created_at >= CURRENT_DATE - INTERVAL '7 days'
+    GROUP BY DATE_TRUNC('week', created_at);
+  report-template.html: |
+    <html>
+    <head><title>Report</title></head>
+    <body>
+      <h1>Daily Report - {{.Date}}</h1>
+      <p>Total Records: {{.Total}}</p>
+      <p>Processing Time: {{.Duration}}</p>
+    </body>
+    </html>
+
+---
+# ConfigMap 6: Data Validation Rules
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: validation-rules
+  namespace: batch-jobs
+data:
+  schema.json: |
+    {
+      "type": "object",
+      "properties": {
+        "id": {"type": "integer"},
+        "name": {"type": "string", "minLength": 1},
+        "email": {"type": "string", "format": "email"},
+        "age": {"type": "integer", "minimum": 0, "maximum": 150}
+      },
+      "required": ["id", "name", "email"]
+    }
+  validation.py: |
+    import json
+    import jsonschema
+    
+    def validate_data(data, schema):
+        try:
+            jsonschema.validate(data, schema)
+            return True, None
+        except jsonschema.exceptions.ValidationError as e:
+            return False, str(e)
+
+---
+# ConfigMap 7: ML Model Training Config
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: ml-training-config
+  namespace: batch-jobs
+data:
+  model-config.yaml: |
+    model:
+      type: random_forest
+      n_estimators: 100
+      max_depth: 10
+      min_samples_split: 2
+    training:
+      batch_size: 32
+      epochs: 100
+      learning_rate: 0.001
+      validation_split: 0.2
+    features:
+      - age
+      - income
+      - credit_score
+    target: approval
+
+---
+# ConfigMap 8: Monitoring Scripts
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: monitoring-scripts
+  namespace: batch-jobs
+data:
+  health-check.sh: |
+    #!/bin/bash
+    echo "Checking job health..."
+    ps aux | grep -v grep | grep "job-process" && echo "Job is running" || echo "Job is not running"
+  progress-monitor.sh: |
+    #!/bin/bash
+    while true; do
+      PROCESSED=$(cat /tmp/progress 2>/dev/null || echo 0)
+      TOTAL=$(cat /tmp/total 2>/dev/null || echo 1)
+      PERCENT=$((PROCESSED * 100 / TOTAL))
+      echo "Progress: ${PERCENT}% (${PROCESSED}/${TOTAL})"
+      sleep 10
+    done
+
+---
+# ConfigMap 9: Cleanup Scripts
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: cleanup-scripts
+  namespace: batch-jobs
+data:
+  cleanup.sh: |
+    #!/bin/bash
+    echo "Starting cleanup..."
+    # Remove temporary files
+    rm -rf /tmp/job-*
+    # Clean old logs
+    find /var/log -name "*.log" -mtime +7 -delete
+    # Remove processed data
+    rm -rf /data/processed/*
+    echo "Cleanup completed"
+  archive.sh: |
+    #!/bin/bash
+    echo "Archiving old data..."
+    tar -czf /archive/data-$(date +%Y%m%d).tar.gz /data/old/
+    rm -rf /data/old/*
+
+---
+# ConfigMap 10: Notification Templates
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: notification-templates
+  namespace: batch-jobs
+data:
+  success-email.template: |
+    Subject: Job Completed Successfully
+    
+    The batch job has completed successfully.
+    
+    Job Name: {{.JobName}}
+    Start Time: {{.StartTime}}
+    End Time: {{.EndTime}}
+    Duration: {{.Duration}}
+    Records Processed: {{.RecordsProcessed}}
+    
+    No errors were encountered.
+  failure-email.template: |
+    Subject: Job Failed
+    
+    The batch job has failed.
+    
+    Job Name: {{.JobName}}
+    Error: {{.Error}}
+    Time: {{.Time}}
+    
+    Please check the logs for more details.
+  slack-message.json: |
+    {
+      "text": "Job Update",
+      "attachments": [{
+        "color": "{{.Color}}",
+        "title": "{{.Title}}",
+        "text": "{{.Message}}",
+        "fields": [
+          {"title": "Job", "value": "{{.JobName}}", "short": true},
+          {"title": "Status", "value": "{{.Status}}", "short": true}
+        ]
+      }]
+    }
+
+---
+# Secret 1: Database Credentials
+apiVersion: v1
+kind: Secret
+metadata:
+  name: db-credentials
+  namespace: batch-jobs
+type: Opaque
+data:
+  postgres-user: cG9zdGdyZXM=  # postgres
+  postgres-password: cG9zdGdyZXNwYXNzMTIz  # postgrespass123
+  postgres-host: cG9zdGdyZXMuZXhhbXBsZS5jb20=  # postgres.example.com
+  postgres-port: NTQzMg==  # 5432
+  postgres-database: YmF0Y2hkYg==  # batchdb
+  connection-string: cG9zdGdyZXNxbDovL3Bvc3RncmVzOnBvc3RncmVzcGFzczEyM0Bwb3N0Z3Jlcy5leGFtcGxlLmNvbTo1NDMyL2JhdGNoZGI=
+
+---
+# Secret 2: Cloud Storage Credentials
+apiVersion: v1
+kind: Secret
+metadata:
+  name: storage-credentials
+  namespace: batch-jobs
+type: Opaque
+data:
+  aws-access-key: QUtJQUlPU0ZPRE5ON0VYQU1QTEU=  # AKIAIOSFODNN7EXAMPLE
+  aws-secret-key: d0phbHJYVXRuRkVNSS9LN01ERU5HL2JQeFJmaUNZRVhBTVBMRUtFWQ==
+  gcs-service-account: ewogICJ0eXBlIjogInNlcnZpY2VfYWNjb3VudCIKfQ==
+  azure-storage-account: YXp1cmVzdG9yYWdlYWNjb3VudA==
+  azure-storage-key: YXp1cmVzdG9yYWdla2V5MTIzNDU2Nzg5MA==
+
+---
+# Secret 3: API Keys
+apiVersion: v1
+kind: Secret
+metadata:
+  name: api-keys
+  namespace: batch-jobs
+type: Opaque
+data:
+  openai-api-key: c2stMTIzNDU2Nzg5MGFiY2RlZmdoaWprbG0=
+  stripe-api-key: c2tfdGVzdF8xMjM0NTY3ODkw
+  sendgrid-api-key: U0cuMTIzNDU2Nzg5MC5hYmNkZWZnaGlqa2xt
+  twilio-auth-token: YXV0aF90b2tlbl8xMjM0NTY3ODkw
+
+---
+# Secret 4: Encryption Keys
+apiVersion: v1
+kind: Secret
+metadata:
+  name: encryption-keys
+  namespace: batch-jobs
+type: Opaque
+data:
+  master-key: bWFzdGVyX2VuY3J5cHRpb25fa2V5XzI1Ng==
+  data-key: ZGF0YV9lbmNyeXB0aW9uX2tleV8yNTY=
+  backup-key: YmFja3VwX2VuY3J5cHRpb25fa2V5XzI1Ng==
+  signing-key: c2lnbmluZ19rZXlfZm9yX3Rva2Vucw==
+
+---
+# Secret 5: Webhook URLs
+apiVersion: v1
+kind: Secret
+metadata:
+  name: webhook-urls
+  namespace: batch-jobs
+type: Opaque
+data:
+  slack-webhook: aHR0cHM6Ly9ob29rcy5zbGFjay5jb20vc2VydmljZXMvVDAwMDAwMDAwMC9CMDAwMDAwMDAwL1hYWFhYWFhYWFhYWFhYWFhYWFhY
+  discord-webhook: aHR0cHM6Ly9kaXNjb3JkLmNvbS9hcGkvd2ViaG9va3MvMTIzNDU2Nzg5MA==
+  teams-webhook: aHR0cHM6Ly9vdXRsb29rLm9mZmljZS5jb20vd2ViaG9vay8xMjM0NTY3ODkw
+  pagerduty-key: UEQtSU5URUdSQVRJT05fS0VZXzEyMzQ1Njc4OTA=
+
+---
+# Secret 6: SSH Keys
+apiVersion: v1
+kind: Secret
+metadata:
+  name: ssh-keys
+  namespace: batch-jobs
+type: Opaque
+data:
+  id_rsa: LS0tLS1CRUdJTiBSU0EgUFJJVkFURSBLRVktLS0tLQpNSUlFcEFJQkFBS0NBUUE=
+  id_rsa.pub: c3NoLXJzYSBBQUFBQjNOemFDMXljMkVBQUFBREFRQUJBQUFC
+  known_hosts: Z2l0aHViLmNvbSBzc2gtcnNhIEFBQUFCM056YUMx
+
+---
+# Secret 7: Container Registry
+apiVersion: v1
+kind: Secret
+metadata:
+  name: registry-credentials
+  namespace: batch-jobs
+type: kubernetes.io/dockerconfigjson
+data:
+  .dockerconfigjson: eyJhdXRocyI6eyJodHRwczovL2luZGV4LmRvY2tlci5pby92MS8iOnsidXNlcm5hbWUiOiJkb2NrZXJ1c2VyIiwicGFzc3dvcmQiOiJkb2NrZXJwYXNzIiwiYXV0aCI6IlpHOWphMlZ5ZFhObGNqcGtiMk5yWlhKd1lYTnoifX19
+
+---
+# Secret 8: SFTP/FTP Credentials
+apiVersion: v1
+kind: Secret
+metadata:
+  name: ftp-credentials
+  namespace: batch-jobs
+type: Opaque
+data:
+  sftp-host: c2Z0cC5leGFtcGxlLmNvbQ==  # sftp.example.com
+  sftp-port: MjI=  # 22
+  sftp-user: c2Z0cHVzZXI=  # sftpuser
+  sftp-password: c2Z0cHBhc3MxMjM=  # sftppass123
+  ftp-host: ZnRwLmV4YW1wbGUuY29t  # ftp.example.com
+  ftp-user: ZnRwdXNlcg==  # ftpuser
+  ftp-password: ZnRwcGFzczEyMw==  # ftppass123
+
+---
+# Secret 9: Message Queue Credentials
+apiVersion: v1
+kind: Secret
+metadata:
+  name: mq-credentials
+  namespace: batch-jobs
+type: Opaque
+data:
+  rabbitmq-url: YW1xcDovL3VzZXI6cGFzc0ByYWJiaXRtcS5leGFtcGxlLmNvbTo1Njcy
+  kafka-brokers: a2Fma2ExLmV4YW1wbGUuY29tOjkwOTIsa2Fma2EyLmV4YW1wbGUuY29tOjkwOTI=
+  redis-url: cmVkaXM6Ly86cGFzc3dvcmRAcmVkaXMuZXhhbXBsZS5jb206NjM3OQ==
+  sqs-url: aHR0cHM6Ly9zcXMudXMtZWFzdC0xLmFtYXpvbmF3cy5jb20vMTIzNDU2Nzg5MC9teS1xdWV1ZQ==
+
+---
+# Secret 10: License Keys
+apiVersion: v1
+kind: Secret
+metadata:
+  name: license-keys
+  namespace: batch-jobs
+type: Opaque
+data:
+  enterprise-license: RU5ULUxJQy0xMjM0LTU2Nzg5MA==
+  ml-platform-license: TUwtUExBVEZPUk0tMTIzNDU2Nzg5MA==
+  etl-tool-license: RVRMLU1BR0lDLTEyMzQ1Njc4OTA=
+  monitoring-license: TU9OLVBST0QtMTIzNDU2Nzg5MA==
+
+---
+# ServiceAccount for Jobs
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: job-service-account
+  namespace: batch-jobs
+  labels:
+    app: batch-processor
+
+---
+# Role for Job permissions
+apiVersion: rbac.authorization.k8s.io/v1
+kind: Role
+metadata:
+  name: job-role
+  namespace: batch-jobs
+rules:
+  - apiGroups: [""]
+    resources: ["pods", "pods/log"]
+    verbs: ["get", "list", "watch"]
+  - apiGroups: ["batch"]
+    resources: ["jobs", "cronjobs"]
+    verbs: ["get", "list", "watch", "create", "update", "patch"]
+  - apiGroups: [""]
+    resources: ["configmaps", "secrets"]
+    verbs: ["get", "list"]
+  - apiGroups: [""]
+    resources: ["persistentvolumeclaims"]
+    verbs: ["get", "list", "create", "delete"]
+
+---
+# RoleBinding
+apiVersion: rbac.authorization.k8s.io/v1
+kind: RoleBinding
+metadata:
+  name: job-role-binding
+  namespace: batch-jobs
+subjects:
+  - kind: ServiceAccount
+    name: job-service-account
+    namespace: batch-jobs
+roleRef:
+  kind: Role
+  name: job-role
+  apiGroup: rbac.authorization.k8s.io
+
+---
+# PersistentVolume for Docker Desktop (hostPath)
+apiVersion: v1
+kind: PersistentVolume
+metadata:
+  name: job-data-pv
+  labels:
+    type: local
+spec:
+  capacity:
+    storage: 10Gi
+  accessModes:
+    - ReadWriteOnce
+  persistentVolumeReclaimPolicy: Delete
+  storageClassName: manual
+  hostPath:
+    path: /tmp/job-data  # This will work on Docker Desktop
+
+---
+# PersistentVolumeClaim for Job data
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: job-data-pvc
+  namespace: batch-jobs
+spec:
+  accessModes:
+    - ReadWriteOnce
+  resources:
+    requests:
+      storage: 10Gi
+  storageClassName: manual
+
+---
+# Job Definition
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: data-processing-job
+  namespace: batch-jobs
+  labels:
+    app: data-processor
+    type: batch
+    priority: high
+spec:
+  # Job will be retried 3 times before marking as failed
+  backoffLimit: 3
+  
+  # Job should complete within 1 hour
+  activeDeadlineSeconds: 3600
+  
+  # Keep successful job for 24 hours
+  ttlSecondsAfterFinished: 86400
+  
+  # Run 3 parallel pods
+  parallelism: 3
+  
+  # Total of 10 completions needed
+  completions: 10
+  
+  # Pod failure policy (Kubernetes 1.25+)
+  podFailurePolicy:
+    rules:
+    - action: FailJob
+      onExitCodes:
+        operator: In
+        values: [1, 2, 3]
+    - action: Ignore
+      onPodConditions:
+      - type: DisruptionTarget
+  
+  template:
+    metadata:
+      labels:
+        app: data-processor
+        type: batch
+      annotations:
+        prometheus.io/scrape: "true"
+        prometheus.io/port: "9090"
+    spec:
+      # Don't restart on failure (Job controller handles retries)
+      restartPolicy: Never
+      
+      serviceAccountName: job-service-account
+      
+      # Remove node selector for Docker Desktop
+      # nodeSelector:
+      #   workload: batch
+      
+      # Remove tolerations for Docker Desktop
+      # tolerations:
+      # - key: "batch"
+      #   operator: "Equal"
+      #   value: "true"
+      #   effect: "NoSchedule"
+      
+      # Init Container: Setup
+      initContainers:
+      - name: job-init
+        image: busybox:1.35
+        command: ['sh', '-c']
+        args:
+          - |
+            echo "Initializing job environment..."
+            echo "Job Name: $JOB_NAME"
+            echo "Namespace: $NAMESPACE"
+            echo "Node: $NODE_NAME"
+            
+            # Create working directories
+            mkdir -p /data/input /data/output /data/temp
+            mkdir -p /shared/logs /shared/reports
+            
+            # Download input data (simulate)
+            echo "Downloading input data..."
+            for i in $(seq 1 100); do
+              echo "{\"id\": $i, \"data\": \"sample_$i\"}" > /data/input/record_$i.json
+            done
+            
+            # Set up configuration
+            cp /config/job/* /shared/ 2>/dev/null || true
+            
+            echo "Total input files: $(ls /data/input | wc -l)" > /shared/job-info.txt
+            echo "Initialization completed at $(date)" >> /shared/job-info.txt
+        env:
+        - name: JOB_NAME
+          value: "data-processing-job"
+        - name: NAMESPACE
+          valueFrom:
+            fieldRef:
+              fieldPath: metadata.namespace
+        - name: NODE_NAME
+          valueFrom:
+            fieldRef:
+              fieldPath: spec.nodeName
+        volumeMounts:
+        - name: job-data
+          mountPath: /data
+        - name: shared-data
+          mountPath: /shared
+        - name: job-config
+          mountPath: /config/job
+      
+      containers:
+      # Main Container: Data Processor
+      - name: main-processor
+        image: python:3.11-alpine
+        command: ['sh', '-c']
+        args:
+          - |
+            echo "Starting main data processing job..."
+            
+            # Install required packages
+            pip install --quiet pandas numpy requests
+            
+            # Simulate data processing
+            cat > /tmp/process.py <<'EOF'
+            import json
+            import time
+            import os
+            import random
+            
+            def process_file(filepath):
+                """Process a single file"""
+                with open(filepath, 'r') as f:
+                    data = json.load(f)
+                # Simulate processing
+                time.sleep(random.uniform(0.1, 0.5))
+                data['processed'] = True
+                data['timestamp'] = time.time()
+                return data
+            
+            def main():
+                input_dir = '/data/input'
+                output_dir = '/data/output'
+                
+                files = [f for f in os.listdir(input_dir) if f.endswith('.json')]
+                total = len(files)
+                
+                print(f"Processing {total} files...")
+                
+                for i, filename in enumerate(files, 1):
+                    input_path = os.path.join(input_dir, filename)
+                    output_path = os.path.join(output_dir, f'processed_{filename}')
+                    
+                    try:
+                        result = process_file(input_path)
+                        with open(output_path, 'w') as f:
+                            json.dump(result, f)
+                        print(f"Processed {i}/{total}: {filename}")
+                        
+                        # Update progress
+                        with open('/tmp/progress', 'w') as f:
+                            f.write(str(i))
+                        with open('/tmp/total', 'w') as f:
+                            f.write(str(total))
+                    except Exception as e:
+                        print(f"Error processing {filename}: {e}")
+                
+                print("Processing completed!")
+                
+                # Generate summary
+                processed = len(os.listdir(output_dir))
+                summary = {
+                    'total_files': total,
+                    'processed': processed,
+                    'failed': total - processed,
+                    'success_rate': (processed / total * 100) if total > 0 else 0
+                }
+                
+                with open('/shared/reports/summary.json', 'w') as f:
+                    json.dump(summary, f, indent=2)
+                
+                print(f"Summary: {summary}")
+            
+            if __name__ == '__main__':
+                main()
+            EOF
+            
+            python /tmp/process.py
+            
+            echo "Main processing completed at $(date)"
+            
+            # Signal completion
+            echo "SUCCESS" > /shared/job-status.txt
+        env:
+        - name: JOB_NAME
+          value: "data-processing-job"
+        - name: BATCH_SIZE
+          valueFrom:
+            configMapKeyRef:
+              name: job-config
+              key: job.properties
+        - name: DB_HOST
+          valueFrom:
+            secretKeyRef:
+              name: db-credentials
+              key: postgres-host
+        - name: DB_USER
+          valueFrom:
+            secretKeyRef:
+              name: db-credentials
+              key: postgres-user
+        - name: DB_PASSWORD
+          valueFrom:
+            secretKeyRef:
+              name: db-credentials
+              key: postgres-password
+        - name: AWS_ACCESS_KEY_ID
+          valueFrom:
+            secretKeyRef:
+              name: storage-credentials
+              key: aws-access-key
+        - name: AWS_SECRET_ACCESS_KEY
+          valueFrom:
+            secretKeyRef:
+              name: storage-credentials
+              key: aws-secret-key
+        volumeMounts:
+        - name: job-data
+          mountPath: /data
+        - name: shared-data
+          mountPath: /shared
+        - name: job-config
+          mountPath: /config
+        resources:
+          requests:
+            memory: "512Mi"
+            cpu: "500m"
+          limits:
+            memory: "1Gi"
+            cpu: "1000m"
+      
+      # Sidecar Container: Progress Monitor
+      - name: progress-monitor
+        image: busybox:1.35
+        command: ['sh', '-c']
+        args:
+          - |
+            echo "Starting progress monitor..."
+            
+            while true; do
+              if [ -f /shared/job-status.txt ]; then
+                STATUS=$(cat /shared/job-status.txt)
+                if [ "$STATUS" = "SUCCESS" ] || [ "$STATUS" = "FAILED" ]; then
+                  echo "Job completed with status: $STATUS"
+                  break
+                fi
+              fi
+              
+              # Monitor progress
+              if [ -f /tmp/progress ] && [ -f /tmp/total ]; then
+                CURRENT=$(cat /tmp/progress)
+                TOTAL=$(cat /tmp/total)
+                PERCENT=$((CURRENT * 100 / TOTAL))
+                echo "[$(date '+%Y-%m-%d %H:%M:%S')] Progress: ${PERCENT}% (${CURRENT}/${TOTAL})"
+              else
+                echo "[$(date '+%Y-%m-%d %H:%M:%S')] Waiting for job to start..."
+              fi
+              
+              # Check resource usage
+              echo "Memory usage:" >> /shared/logs/resources.log
+              cat /proc/meminfo | grep MemFree >> /shared/logs/resources.log
+              
+              sleep 10
+            done
+            
+            echo "Progress monitor completed"
+        volumeMounts:
+        - name: shared-data
+          mountPath: /shared
+        - name: temp-data
+          mountPath: /tmp
+        resources:
+          requests:
+            memory: "64Mi"
+            cpu: "50m"
+          limits:
+            memory: "128Mi"
+            cpu: "100m"
+      
+      # Sidecar Container: Log Aggregator
+      - name: log-aggregator
+        image: alpine:3.18
+        command: ['sh', '-c']
+        args:
+          - |
+            echo "Starting log aggregator..."
+            
+            # Install tools
+            apk add --no-cache curl jq
+            
+            while true; do
+              if [ -f /shared/job-status.txt ]; then
+                STATUS=$(cat /shared/job-status.txt)
+                if [ "$STATUS" = "SUCCESS" ] || [ "$STATUS" = "FAILED" ]; then
+                  echo "Job completed, sending final logs..."
+                  
+                  # Send completion notification
+                  if [ ! -z "$SLACK_WEBHOOK" ]; then
+                    curl -X POST $SLACK_WEBHOOK \
+                      -H 'Content-Type: application/json' \
+                      -d "{\"text\":\"Job completed: $STATUS\"}" 2>/dev/null || true
+                  fi
+                  
+                  break
+                fi
+              fi
+              
+              # Aggregate logs
+              echo "[$(date)] Collecting logs..." >> /shared/logs/aggregated.log
+              
+              # Simulate sending to logging service
+              if [ -f /shared/reports/summary.json ]; then
+                echo "Summary: $(cat /shared/reports/summary.json)" >> /shared/logs/aggregated.log
+              fi
+              
+              sleep 30
+            done
+            
+            echo "Log aggregator completed"
+        env:
+        - name: SLACK_WEBHOOK
+          valueFrom:
+            secretKeyRef:
+              name: webhook-urls
+              key: slack-webhook
+        volumeMounts:
+        - name: shared-data
+          mountPath: /shared
+        resources:
+          requests:
+            memory: "64Mi"
+            cpu: "50m"
+          limits:
+            memory: "128Mi"
+            cpu: "100m"
+      
+      # Sidecar Container: Report Generator
+      - name: report-generator
+        image: alpine:3.18
+        command: ['sh', '-c']
+        args:
+          - |
+            echo "Starting report generator..."
+            
+            while true; do
+              if [ -f /shared/job-status.txt ]; then
+                STATUS=$(cat /shared/job-status.txt)
+                if [ "$STATUS" = "SUCCESS" ] || [ "$STATUS" = "FAILED" ]; then
+                  echo "Generating final report..."
+                  
+                  # Generate HTML report
+                  cat > /shared/reports/final-report.html <<EOF
+            <!DOCTYPE html>
+            <html>
+            <head>
+                <title>Job Report - ${JOB_NAME}</title>
+                <style>
+                    body { font-family: Arial, sans-serif; margin: 40px; background: #f5f5f5; }
+                    .container { background: white; padding: 30px; border-radius: 10px; box-shadow: 0 2px 10px rgba(0,0,0,0.1); }
+                    h1 { color: #333; border-bottom: 2px solid #4CAF50; padding-bottom: 10px; }
+                    .status { padding: 10px; border-radius: 5px; margin: 20px 0; font-weight: bold; }
+                    .success { background: #d4edda; color: #155724; border: 1px solid #c3e6cb; }
+                    .failed { background: #f8d7da; color: #721c24; border: 1px solid #f5c6cb; }
+                    .info-grid { display: grid; grid-template-columns: repeat(2, 1fr); gap: 20px; margin: 20px 0; }
+                    .info-card { background: #f8f9fa; padding: 15px; border-radius: 5px; border-left: 4px solid #4CAF50; }
+                    code { background: #e9ecef; padding: 2px 5px; border-radius: 3px; }
+                    pre { background: #f4f4f4; padding: 15px; border-radius: 5px; overflow-x: auto; }
+                </style>
+            </head>
+            <body>
+                <div class="container">
+                    <h1>📊 Batch Job Report</h1>
+                    
+                    <div class="status ${STATUS,,}">
+                        Status: ${STATUS}
+                    </div>
+                    
+                    <div class="info-grid">
+                        <div class="info-card">
+                            <h3>Job Information</h3>
+                            <p>Name: <code>${JOB_NAME}</code></p>
+                            <p>Namespace: <code>batch-jobs</code></p>
+                            <p>Completion Time: <code>$(date)</code></p>
+                        </div>
+                        
+                        <div class="info-card">
+                            <h3>Processing Statistics</h3>
+                            <p>Total Files: <code>$(ls /data/input 2>/dev/null | wc -l)</code></p>
+                            <p>Processed: <code>$(ls /data/output 2>/dev/null | wc -l)</code></p>
+                            <p>Duration: <code>N/A</code></p>
+                        </div>
+                        
+                        <div class="info-card">
+                            <h3>Resource Usage</h3>
+                            <p>CPU Request: <code>500m</code></p>
+                            <p>Memory Request: <code>512Mi</code></p>
+                            <p>Parallelism: <code>3</code></p>
+                        </div>
+                        
+                        <div class="info-card">
+                            <h3>Configuration</h3>
+                            <p>Batch Size: <code>1000</code></p>
+                            <p>Retry Attempts: <code>3</code></p>
+                            <p>Timeout: <code>3600s</code></p>
+                        </div>
+                    </div>
+                    
+                    <h2>Summary</h2>
+                    <pre>$(cat /shared/reports/summary.json 2>/dev/null || echo "No summary available")</pre>
+                    
+                    <h2>Recent Logs</h2>
+                    <pre>$(tail -n 50 /shared/logs/*.log 2>/dev/null | head -50 || echo "No logs available")</pre>
+                </div>
+            </body>
+            </html>
+            EOF
+                  
+                  echo "Report generated: /shared/reports/final-report.html"
+                  break
+                fi
+              fi
+              
+              sleep 30
+            done
+            
+            echo "Report generator completed"
+        env:
+        - name: JOB_NAME
+          value: "data-processing-job"
+        volumeMounts:
+        - name: shared-data
+          mountPath: /shared
+        - name: job-data
+          mountPath: /data
+          readOnly: true
+        resources:
+          requests:
+            memory: "32Mi"
+            cpu: "25m"
+          limits:
+            memory: "64Mi"
+            cpu: "50m"
+      
+      volumes:
+      # Persistent volume for job data
+      - name: job-data
+        persistentVolumeClaim:
+          claimName: job-data-pvc
+      # Shared temporary data
+      - name: shared-data
+        emptyDir: {}
+      - name: temp-data
+        emptyDir: {}
+      # ConfigMaps
+      - name: job-config
+        configMap:
+          name: job-config
+      - name: migration-scripts
+        configMap:
+          name: migration-scripts
+      - name: backup-config
+        configMap:
+          name: backup-config
+
+---
+# CronJob Example (Scheduled Job)
+apiVersion: batch/v1
+kind: CronJob
+metadata:
+  name: scheduled-backup-job
+  namespace: batch-jobs
+spec:
+  # Run every day at 2 AM
+  schedule: "0 2 * * *"
+  
+  # Keep last 3 successful jobs
+  successfulJobsHistoryLimit: 3
+  
+  # Keep last 1 failed job
+  failedJobsHistoryLimit: 1
+  
+  # Deadline for starting job (optional)
+  startingDeadlineSeconds: 3600
+  
+  # Concurrency policy
+  concurrencyPolicy: Forbid
+  
+  jobTemplate:
+    spec:
+      backoffLimit: 2
+      ttlSecondsAfterFinished: 86400
+      template:
+        metadata:
+          labels:
+            app: backup-job
+            type: scheduled
+        spec:
+          restartPolicy: Never
+          serviceAccountName: job-service-account
+          containers:
+          - name: backup
+            image: alpine:3.18
+            command: ['sh', '-c']
+            args:
+              - |
+                echo "Starting scheduled backup..."
+                DATE=$(date +%Y%m%d_%H%M%S)
+                echo "Backup timestamp: $DATE"
+                
+                # Simulate backup
+                mkdir -p /backup
+                echo "Backup data for $DATE" > /backup/backup_$DATE.txt
+                
+                echo "Backup completed successfully"
+            volumeMounts:
+            - name: backup-storage
+              mountPath: /backup
+            resources:
+              requests:
+                memory: "128Mi"
+                cpu: "100m"
+              limits:
+                memory: "256Mi"
+                cpu: "200m"
+          volumes:
+          - name: backup-storage
+            emptyDir: {}
