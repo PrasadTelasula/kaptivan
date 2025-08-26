@@ -1,7 +1,5 @@
 import type { DeploymentTopology } from '../types';
-import { encodeClusterName, encodeNamespace, encodeResourceName } from '../../../../utils/url-encoding';
-
-const API_BASE_URL = import.meta.env.VITE_API_URL || 'http://localhost:8080';
+import { apiUrls } from '../../../../utils/api-urls';
 
 export interface DeploymentSummary {
   name: string;
@@ -16,10 +14,8 @@ export interface TopologyAPIResponse<T> {
 }
 
 class TopologyAPI {
-  private baseUrl: string;
-
-  constructor(baseUrl: string = API_BASE_URL) {
-    this.baseUrl = baseUrl;
+  constructor() {
+    // baseUrl is no longer needed as we use apiUrls
   }
 
   private async fetchWithAuth(url: string, options?: RequestInit): Promise<Response> {
@@ -50,7 +46,7 @@ class TopologyAPI {
 
   async getNamespaces(clusterContext: string): Promise<string[]> {
     try {
-      const url = `${this.baseUrl}/api/v1/topology/${encodeClusterName(clusterContext)}/namespaces`;
+      const url = apiUrls.topology.namespaces(clusterContext);
       console.log('Fetching namespaces from:', url);
       
       const response = await this.fetchWithAuth(url);
@@ -72,9 +68,7 @@ class TopologyAPI {
 
   async listDeployments(clusterContext: string, namespace?: string): Promise<DeploymentSummary[]> {
     try {
-      const url = namespace 
-        ? `${this.baseUrl}/api/v1/topology/${encodeClusterName(clusterContext)}/deployments?namespace=${encodeNamespace(namespace)}`
-        : `${this.baseUrl}/api/v1/topology/${encodeClusterName(clusterContext)}/deployments`;
+      const url = apiUrls.topology.deployments.list(clusterContext, namespace);
         
       const response = await this.fetchWithAuth(url);
       
@@ -97,7 +91,7 @@ class TopologyAPI {
   ): Promise<DeploymentTopology | null> {
     try {
       const response = await this.fetchWithAuth(
-        `${this.baseUrl}/api/v1/topology/${encodeClusterName(clusterContext)}/deployment/${encodeNamespace(namespace)}/${encodeResourceName(deploymentName)}`
+        apiUrls.topology.deployments.get(clusterContext, namespace, deploymentName)
       );
       
       if (!response.ok) {

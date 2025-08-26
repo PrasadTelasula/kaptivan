@@ -1,5 +1,4 @@
-import { API_BASE_URL } from '@/config/constants'
-import { encodeClusterName, encodeNamespace, encodeResourceName } from '@/utils/url-encoding'
+import { apiUrls } from '@/utils/api-urls'
 
 export interface PodInfo {
   name: string
@@ -103,9 +102,7 @@ export interface ExecResponse {
 
 class PodsService {
   async getPod(context: string, namespace: string, name: string): Promise<PodDetail> {
-    const response = await fetch(
-      `${API_BASE_URL}/api/v1/pods/${encodeClusterName(context)}/${encodeNamespace(namespace)}/${encodeResourceName(name)}`
-    )
+    const response = await fetch(apiUrls.pods.get(context, namespace, name))
 
     if (!response.ok) {
       throw new Error('Failed to fetch pod details')
@@ -115,9 +112,7 @@ class PodsService {
   }
 
   async getPodEvents(context: string, namespace: string, name: string): Promise<PodEvent[]> {
-    const response = await fetch(
-      `${API_BASE_URL}/api/v1/pods/${encodeClusterName(context)}/${encodeNamespace(namespace)}/${encodeResourceName(name)}/events`
-    )
+    const response = await fetch(apiUrls.pods.events(context, namespace, name))
 
     if (!response.ok) {
       throw new Error('Failed to fetch pod events')
@@ -135,13 +130,8 @@ class PodsService {
     tailLines?: number,
     follow?: boolean
   ): Promise<string> {
-    const params = new URLSearchParams()
-    if (container) params.append('container', container)
-    if (tailLines) params.append('tailLines', tailLines.toString())
-    if (follow) params.append('follow', 'true')
-
     const response = await fetch(
-      `${API_BASE_URL}/api/v1/pods/${encodeClusterName(context)}/${encodeNamespace(namespace)}/${encodeResourceName(name)}/logs?${params}`
+      apiUrls.pods.logs(context, namespace, name, { container, tailLines, follow })
     )
 
     if (!response.ok) {
@@ -153,7 +143,7 @@ class PodsService {
 
   async deletePod(context: string, namespace: string, name: string): Promise<void> {
     const response = await fetch(
-      `${API_BASE_URL}/api/v1/pods/${encodeClusterName(context)}/${encodeNamespace(namespace)}/${encodeResourceName(name)}`,
+      apiUrls.pods.delete(context, namespace, name),
       {
         method: 'DELETE',
       }
@@ -172,7 +162,7 @@ class PodsService {
     command: string[]
   ): Promise<ExecResponse> {
     const response = await fetch(
-      `${API_BASE_URL}/api/v1/pods/${encodeClusterName(context)}/${encodeNamespace(namespace)}/${encodeResourceName(name)}/exec`,
+      apiUrls.pods.exec(context, namespace, name),
       {
         method: 'POST',
         headers: {
