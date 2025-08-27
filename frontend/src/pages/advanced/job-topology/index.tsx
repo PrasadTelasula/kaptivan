@@ -109,28 +109,20 @@ const JobTopologyPage: React.FC = () => {
       <div className="flex flex-1 overflow-hidden">
         <Sidebar className="hidden lg:block border-r shrink-0" />
         <main className="flex-1 flex flex-col p-4 overflow-auto">
-          {/* Header */}
-          <Card className="mb-4">
-            <CardHeader>
-              <div className="flex items-center justify-between">
-                <div className="flex items-center gap-3">
-                  <Briefcase className="h-6 w-6 text-primary" />
-                  <div>
-                    <CardTitle>Job Topology</CardTitle>
-                    <CardDescription>
-                      Visualization of Job resource relationships and completion status
-                    </CardDescription>
-                  </div>
-                </div>
-                
-                <div className="flex items-center gap-2">
+          {/* Ultra Compact Header */}
+          <div className="flex items-center justify-between mb-3 px-4 py-2 bg-card border rounded-lg">
+            <div className="flex items-center gap-2">
+              <Briefcase className="h-4 w-4 text-primary" />
+              <span className="font-semibold text-sm">Job Topology</span>
+            </div>
+            <div className="flex items-center gap-1.5">
                   {/* Cluster selector */}
                   <ClusterSelector />
                   
                   {/* Namespace selector */}
                   <Select value={selectedNamespace} onValueChange={selectNamespace} disabled={!selectedCluster}>
-                    <SelectTrigger className="w-[150px]">
-                      <SelectValue placeholder="Select namespace" />
+                    <SelectTrigger className="w-[140px] h-8">
+                      <SelectValue placeholder="Select..." />
                     </SelectTrigger>
                     <SelectContent>
                       {namespaces.map(ns => (
@@ -147,7 +139,7 @@ const JobTopologyPage: React.FC = () => {
                     onValueChange={selectJob}
                     disabled={!selectedNamespace || jobs.length === 0}
                   >
-                    <SelectTrigger className="w-[200px]">
+                    <SelectTrigger className="w-[180px] h-8">
                       <SelectValue placeholder="Select job" />
                     </SelectTrigger>
                     <SelectContent>
@@ -201,28 +193,29 @@ const JobTopologyPage: React.FC = () => {
                     )}
                   </Button>
                 </div>
-              </div>
-            </CardHeader>
-          </Card>
+          </div>
 
-          {/* Error Alert */}
+          {/* Compact Error */}
           {error && (
-            <Alert variant="destructive" className="mb-4">
-              <AlertCircle className="h-4 w-4" />
-              <AlertDescription>{error}</AlertDescription>
-            </Alert>
+            <div className="flex items-center gap-2 mb-2 px-3 py-1.5 bg-destructive/10 border border-destructive/20 rounded-md text-sm">
+              <AlertCircle className="h-3.5 w-3.5 text-destructive shrink-0" />
+              <span className="text-destructive-foreground">{error}</span>
+            </div>
           )}
 
           {/* Main Content Area */}
           {selectedJob && topology ? (
             <div className="flex-1 flex gap-4">
               {/* Filters Sidebar */}
-              <TopologySidebar
+              <div className="w-52 flex-shrink-0">
+                <TopologySidebar
                 filters={filters}
                 onFiltersChange={setFilters}
                 onLayoutChange={handleLayoutChange}
                 currentLayout={viewOptions.layout}
-              />
+                topologyType="job"
+                />
+              </div>
 
               {/* Topology Graph */}
               <Card className="flex-1">

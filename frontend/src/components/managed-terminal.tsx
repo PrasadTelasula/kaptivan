@@ -1,7 +1,7 @@
 import { useEffect, useRef, memo } from 'react'
 import { terminalManager } from '@/services/terminal-manager'
-
-const API_BASE_URL = import.meta.env.VITE_API_URL || 'http://localhost:8080'
+import { apiUrls } from '@/utils/api-urls'
+import { useTheme } from '@/components/theme-provider'
 
 interface ManagedTerminalProps {
   id: string
@@ -20,6 +20,7 @@ export const ManagedTerminal = memo(({
   containerName,
   isVisible
 }: ManagedTerminalProps) => {
+  const { theme } = useTheme()
   const containerRef = useRef<HTMLDivElement>(null)
   const hasInitialized = useRef(false)
   
@@ -28,7 +29,7 @@ export const ManagedTerminal = memo(({
     
     // Create terminal if it doesn't exist
     if (!terminalManager.hasTerminal(id)) {
-      terminalManager.createTerminal(id)
+      terminalManager.createTerminal(id, theme)
     }
     
     // Attach/detach terminal based on visibility
@@ -40,7 +41,7 @@ export const ManagedTerminal = memo(({
         // Connect WebSocket if not connected
         const terminal = terminalManager.getTerminal(id)
         if (terminal && !terminal.isConnected && !terminal.websocket) {
-          const wsUrl = `${API_BASE_URL.replace('http', 'ws')}/api/v1/pods/${cluster}/${namespace}/${podName}/exec/ws?container=${containerName}`
+          const wsUrl = apiUrls.pods.execWs(cluster, namespace, podName, containerName)
           terminalManager.connectWebSocket(id, wsUrl)
         }
       }, 50)

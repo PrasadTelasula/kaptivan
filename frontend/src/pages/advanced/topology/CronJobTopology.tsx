@@ -129,21 +129,13 @@ const CronJobTopologyPage: React.FC = () => {
       <div className="flex flex-1 overflow-hidden">
         <Sidebar className="hidden lg:block border-r shrink-0" />
         <main className="flex-1 flex flex-col p-4 overflow-auto">
-          {/* Header */}
-          <Card className="mb-4">
-            <CardHeader>
-              <div className="flex items-center justify-between">
-                <div className="flex items-center gap-3">
-                  <Calendar className="h-6 w-6 text-primary" />
-                  <div>
-                    <CardTitle>CronJob Topology</CardTitle>
-                    <CardDescription>
-                      Visualization of scheduled job relationships and dependencies
-                    </CardDescription>
-                  </div>
-                </div>
-                
-                <div className="flex items-center gap-2">
+          {/* Ultra Compact Header */}
+          <div className="flex items-center justify-between mb-3 px-4 py-2 bg-card border rounded-lg">
+            <div className="flex items-center gap-2">
+              <Calendar className="h-4 w-4 text-primary" />
+              <span className="font-semibold text-sm">CronJob Topology</span>
+            </div>
+            <div className="flex items-center gap-1.5">
                   {/* Cluster selector */}
                   <ClusterSelector />
                   
@@ -167,7 +159,7 @@ const CronJobTopologyPage: React.FC = () => {
                     onValueChange={selectCronJob}
                     disabled={!selectedNamespace || cronjobs.length === 0}
                   >
-                    <SelectTrigger className="w-[200px]">
+                    <SelectTrigger className="w-[180px] h-8">
                       <SelectValue placeholder="Select CronJob" />
                     </SelectTrigger>
                     <SelectContent>
@@ -222,35 +214,36 @@ const CronJobTopologyPage: React.FC = () => {
                     )}
                   </Button>
                 </div>
-              </div>
               
               {/* Next Schedule Time */}
               {topology?.cronjob?.nextScheduleTime && (
-                <div className="mt-3 text-sm text-muted-foreground">
-                  Next run: {new Date(topology.cronjob.nextScheduleTime).toLocaleString()}
-                </div>
+                <span className="ml-2 text-xs text-muted-foreground">
+                  Next: {new Date(topology.cronjob.nextScheduleTime).toLocaleString()}
+                </span>
               )}
-            </CardHeader>
-          </Card>
+          </div>
 
-          {/* Error Alert */}
+          {/* Compact Error */}
           {error && (
-            <Alert variant="destructive" className="mb-4">
-              <AlertCircle className="h-4 w-4" />
-              <AlertDescription>{error}</AlertDescription>
-            </Alert>
+            <div className="flex items-center gap-2 mb-2 px-3 py-1.5 bg-destructive/10 border border-destructive/20 rounded-md text-sm">
+              <AlertCircle className="h-3.5 w-3.5 text-destructive shrink-0" />
+              <span className="text-destructive-foreground">{error}</span>
+            </div>
           )}
 
           {/* Main Content Area */}
           {selectedCronJob && topology ? (
             <div className="flex-1 flex gap-4">
               {/* Filters Sidebar */}
-              <TopologySidebar
+              <div className="w-52 flex-shrink-0">
+                <TopologySidebar
                 filters={filters}
                 onFiltersChange={setFilters}
                 onLayoutChange={handleLayoutChange}
                 currentLayout={viewOptions.layout}
-              />
+                topologyType="cronjob"
+                />
+              </div>
 
               {/* Topology Graph */}
               <Card className="flex-1">

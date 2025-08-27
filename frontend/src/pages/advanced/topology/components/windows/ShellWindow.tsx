@@ -4,6 +4,8 @@ import { X, Maximize2, Minimize2, Terminal, Minus, ZoomIn, ZoomOut } from 'lucid
 import { Button } from '@/components/ui/button';
 import { cn } from '@/lib/utils';
 import { terminalManager } from '@/services/terminal-manager';
+import { apiUrls } from '@/utils/api-urls';
+import { useTheme } from '@/components/theme-provider';
 
 interface ShellWindowProps {
   podName: string;
@@ -13,7 +15,6 @@ interface ShellWindowProps {
   onClose: () => void;
 }
 
-const API_BASE_URL = import.meta.env.VITE_API_URL || 'http://localhost:8080';
 
 export const ShellWindow: React.FC<ShellWindowProps> = ({
   podName,
@@ -22,6 +23,7 @@ export const ShellWindow: React.FC<ShellWindowProps> = ({
   containerName,
   onClose
 }) => {
+  const { theme } = useTheme();
   const [isMaximized, setIsMaximized] = useState(false);
   const [isMinimized, setIsMinimized] = useState(false);
   const [fontSize, setFontSize] = useState(14);
@@ -54,10 +56,10 @@ export const ShellWindow: React.FC<ShellWindowProps> = ({
     // Create terminal if it doesn't exist
     if (!terminalManager.hasTerminal(terminalId)) {
       initializedRef.current = true;
-      terminalManager.createTerminal(terminalId);
+      terminalManager.createTerminal(terminalId, theme);
       
       // Connect WebSocket only once when creating
-      const wsUrl = `${API_BASE_URL.replace('http', 'ws')}/api/v1/pods/${context}/${namespace}/${podName}/exec/ws${containerName ? `?container=${containerName}` : ''}`;
+      const wsUrl = apiUrls.pods.execWs(context, namespace, podName, containerName);
       terminalManager.connectWebSocket(terminalId, wsUrl);
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -145,11 +147,11 @@ export const ShellWindow: React.FC<ShellWindowProps> = ({
   if (isMinimized) {
     return (
       <div
-        className="fixed bottom-4 left-4 bg-slate-900 border border-slate-700 rounded-lg p-2 shadow-2xl flex items-center gap-2 cursor-pointer hover:bg-slate-800 transition-colors z-50"
+        className="fixed bottom-4 left-4 bg-card border rounded-lg p-2 shadow-2xl flex items-center gap-2 cursor-pointer hover:bg-accent transition-colors z-50"
         onClick={toggleMinimize}
       >
-        <Terminal className="h-4 w-4 text-cyan-400" />
-        <span className="text-sm text-slate-300">Shell: {containerName || podName}</span>
+        <Terminal className="h-4 w-4 text-primary" />
+        <span className="text-sm text-card-foreground">Shell: {containerName || podName}</span>
       </div>
     );
   }
@@ -182,27 +184,27 @@ export const ShellWindow: React.FC<ShellWindowProps> = ({
     >
       <div
         className={cn(
-          "h-full bg-slate-900 border border-slate-700 rounded-lg shadow-2xl flex flex-col"
+          "h-full bg-card border rounded-lg shadow-2xl flex flex-col"
         )}
         onClick={(e) => e.stopPropagation()}
       >
         {/* Header */}
         <div
-          className="shell-window-header bg-slate-800 border-b border-slate-700 px-4 py-2 flex items-center justify-between cursor-move select-none"
+          className="shell-window-header bg-muted border-b px-4 py-2 flex items-center justify-between cursor-move select-none"
         >
           <div className="flex items-center gap-2">
-            <Terminal className="h-4 w-4 text-cyan-400" />
-            <span className="text-sm font-medium text-slate-200">
+            <Terminal className="h-4 w-4 text-primary" />
+            <span className="text-sm font-medium text-foreground">
               Shell: {podName}/{containerName || 'default'}
             </span>
           </div>
           <div className="flex items-center gap-1">
             {/* Font size controls */}
-            <div className="flex items-center gap-0.5 mr-2 border-r border-slate-700 pr-2">
+            <div className="flex items-center gap-0.5 mr-2 border-r pr-2">
               <Button
                 size="icon"
                 variant="ghost"
-                className="h-6 w-6 hover:bg-slate-700"
+                className="h-6 w-6 hover:bg-accent"
                 onClick={(e) => {
                   e.stopPropagation();
                   decreaseFontSize();
@@ -211,11 +213,11 @@ export const ShellWindow: React.FC<ShellWindowProps> = ({
               >
                 <ZoomOut className="h-3 w-3" />
               </Button>
-              <span className="text-[10px] text-slate-400 min-w-[20px] text-center">{fontSize}</span>
+              <span className="text-[10px] text-muted-foreground min-w-[20px] text-center">{fontSize}</span>
               <Button
                 size="icon"
                 variant="ghost"
-                className="h-6 w-6 hover:bg-slate-700"
+                className="h-6 w-6 hover:bg-accent"
                 onClick={(e) => {
                   e.stopPropagation();
                   increaseFontSize();
@@ -251,7 +253,7 @@ export const ShellWindow: React.FC<ShellWindowProps> = ({
             <Button
               size="icon"
               variant="ghost"
-              className="h-6 w-6 hover:bg-slate-700 hover:text-red-400"
+              className="h-6 w-6 hover:bg-accent hover:text-destructive"
               onClick={(e) => {
                 e.stopPropagation();
                 handleClose();
@@ -265,7 +267,7 @@ export const ShellWindow: React.FC<ShellWindowProps> = ({
         {/* Terminal Container */}
         <div 
           ref={terminalContainerRef} 
-          className="flex-1 bg-[#1e1e1e] overflow-hidden"
+          className="flex-1 bg-background overflow-hidden"
         />
       </div>
     </Rnd>

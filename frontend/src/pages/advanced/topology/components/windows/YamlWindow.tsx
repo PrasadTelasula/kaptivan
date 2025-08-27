@@ -6,6 +6,8 @@ import { cn } from '@/lib/utils';
 import Editor from '@monaco-editor/react';
 import type { OnMount } from '@monaco-editor/react';
 import type { editor } from 'monaco-editor';
+import { apiUrls } from '@/utils/api-urls';
+import { useTheme } from '@/components/theme-provider';
 
 interface YamlWindowProps {
   resourceName: string;
@@ -15,8 +17,6 @@ interface YamlWindowProps {
   onClose: () => void;
 }
 
-const API_BASE_URL = import.meta.env.VITE_API_URL || 'http://localhost:8080';
-
 export const YamlWindow: React.FC<YamlWindowProps> = ({
   resourceName,
   resourceType,
@@ -24,6 +24,7 @@ export const YamlWindow: React.FC<YamlWindowProps> = ({
   context,
   onClose
 }) => {
+  const { theme } = useTheme();
   const [yamlContent, setYamlContent] = useState<string>('');
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -33,6 +34,17 @@ export const YamlWindow: React.FC<YamlWindowProps> = ({
   const [decodedYaml, setDecodedYaml] = useState<string>('');
   const [fontSize, setFontSize] = useState(13);
   const [editorInstance, setEditorInstance] = useState<editor.IStandaloneCodeEditor | null>(null);
+  
+  // Determine the effective theme (resolve 'system' to actual theme)
+  const getEffectiveTheme = () => {
+    if (theme === 'system') {
+      return window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light';
+    }
+    return theme;
+  };
+  
+  const effectiveTheme = getEffectiveTheme();
+  const monacoTheme = effectiveTheme === 'dark' ? 'vs-dark' : 'vs';
   
   const [size, setSize] = useState({ width: 800, height: 600 });
   const [position, setPosition] = useState({ 
@@ -71,18 +83,14 @@ export const YamlWindow: React.FC<YamlWindowProps> = ({
       const resourceMapping = kindMapping[resourceType.toLowerCase()] || 
         { kind: resourceType, apiVersion: 'v1' };
 
-      // Build query parameters
-      const params = new URLSearchParams();
-      params.append('kind', resourceMapping.kind);
-      params.append('apiVersion', resourceMapping.apiVersion);
-      if (namespace) {
-        params.append('namespace', namespace);
-      }
-
-      // Construct the endpoint URL - matching the manifest-viewer pattern
-      const endpoint = `/api/v1/manifests/${context}/${resourceName}?${params.toString()}`;
+      // Use centralized API URL builder
+      const endpoint = apiUrls.manifests.get(context, resourceName, {
+        kind: resourceMapping.kind,
+        apiVersion: resourceMapping.apiVersion,
+        namespace: namespace
+      });
       
-      const response = await fetch(`${API_BASE_URL}${endpoint}`);
+      const response = await fetch(endpoint);
       
       if (!response.ok) {
         throw new Error(`Failed to fetch YAML: ${response.statusText}`);
@@ -171,12 +179,12 @@ export const YamlWindow: React.FC<YamlWindowProps> = ({
   if (isMinimized) {
     return (
       <div
-        className="fixed bottom-4 left-4 bg-slate-900 border border-slate-700 rounded-lg p-2 shadow-2xl flex items-center gap-2 cursor-pointer hover:bg-slate-800 transition-colors"
+        className="fixed bottom-4 left-4 bg-card border rounded-lg p-2 shadow-2xl flex items-center gap-2 cursor-pointer hover:bg-accent transition-colors"
         style={{ zIndex: 99999 }}
         onClick={toggleMinimize}
       >
-        <FileText className="h-4 w-4 text-cyan-400" />
-        <span className="text-sm text-slate-300">YAML: {resourceName}</span>
+        <FileText className="h-4 w-4 text-primary" />
+        <span className="text-sm text-card-foreground">YAML: {resourceName}</span>
       </div>
     );
   }
@@ -293,24 +301,24 @@ export const YamlWindow: React.FC<YamlWindowProps> = ({
       >
       <div
         className={cn(
-          "h-full bg-slate-900 border border-slate-700 rounded-lg shadow-2xl flex flex-col"
+          "h-full bg-card border rounded-lg shadow-2xl flex flex-col"
         )}
         onClick={(e) => e.stopPropagation()}
       >
         {/* Header */}
         <div
-          className="yaml-window-header bg-slate-800 border-b border-slate-700 px-4 py-2 flex items-center justify-between cursor-move select-none"
+          className="yaml-window-header bg-muted border-b px-4 py-2 flex items-center justify-between cursor-move select-none"
         >
           <div className="flex items-center gap-2">
-            <FileText className="h-4 w-4 text-cyan-400" />
-            <span className="text-sm font-medium text-slate-200">
+            <FileText className="h-4 w-4 text-primary" />
+            <span className="text-sm font-medium text-foreground">
               {resourceType}: {resourceName}
             </span>
             {resourceType === 'Secret' && (
               <Button
                 size="icon"
                 variant="ghost"
-                className="h-6 w-6 hover:bg-slate-700"
+                className="h-6 w-6 hover:bg-accent"
                 onClick={(e) => {
                   e.stopPropagation();
                   setShowDecoded(!showDecoded);
@@ -323,11 +331,11 @@ export const YamlWindow: React.FC<YamlWindowProps> = ({
           </div>
           <div className="flex items-center gap-1">
             {/* Font size controls */}
-            <div className="flex items-center gap-0.5 mr-2 border-r border-slate-700 pr-2">
+            <div className="flex items-center gap-0.5 mr-2 border-r pr-2">
               <Button
                 size="icon"
                 variant="ghost"
-                className="h-6 w-6 hover:bg-slate-700"
+                className="h-6 w-6 hover:bg-accent"
                 onClick={(e) => {
                   e.stopPropagation();
                   decreaseFontSize();
@@ -336,11 +344,11 @@ export const YamlWindow: React.FC<YamlWindowProps> = ({
               >
                 <ZoomOut className="h-3 w-3" />
               </Button>
-              <span className="text-[10px] text-slate-400 min-w-[20px] text-center">{fontSize}</span>
+              <span className="text-[10px] text-muted-foreground min-w-[20px] text-center">{fontSize}</span>
               <Button
                 size="icon"
                 variant="ghost"
-                className="h-6 w-6 hover:bg-slate-700"
+                className="h-6 w-6 hover:bg-accent"
                 onClick={(e) => {
                   e.stopPropagation();
                   increaseFontSize();
@@ -377,7 +385,7 @@ export const YamlWindow: React.FC<YamlWindowProps> = ({
             <Button
               size="icon"
               variant="ghost"
-              className="h-6 w-6 hover:bg-slate-700 hover:text-red-400"
+              className="h-6 w-6 hover:bg-accent hover:text-destructive"
               onClick={(e) => {
                 e.stopPropagation();
                 onClose();
@@ -393,13 +401,13 @@ export const YamlWindow: React.FC<YamlWindowProps> = ({
           {isLoading ? (
             <div className="flex items-center justify-center h-full">
               <div className="text-center">
-                <div className="h-8 w-8 border-2 border-cyan-400 border-t-transparent rounded-full animate-spin mx-auto mb-2" />
-                <p className="text-sm text-slate-400">Loading YAML...</p>
+                <div className="h-8 w-8 border-2 border-primary border-t-transparent rounded-full animate-spin mx-auto mb-2" />
+                <p className="text-sm text-muted-foreground">Loading YAML...</p>
               </div>
             </div>
           ) : error ? (
             <div className="flex items-center justify-center h-full">
-              <div className="text-center text-red-400">
+              <div className="text-center text-destructive">
                 <p className="text-sm">{error}</p>
                 <Button
                   size="sm"
@@ -419,7 +427,7 @@ export const YamlWindow: React.FC<YamlWindowProps> = ({
                 language="yaml"
                 value={displayContent || '# No content available'}
                 onMount={handleEditorDidMount}
-                theme="vs-dark"
+                theme={monacoTheme}
                 loading={<div className="flex items-center justify-center h-full">Loading editor...</div>}
                 options={{
                   readOnly: true,

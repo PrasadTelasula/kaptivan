@@ -503,13 +503,100 @@ export function buildCronJobTopologyGraph(
 
   // Apply status filter
   if (filters.statusFilter !== 'all') {
+    console.log('CronJob topology - Applying status filter:', filters.statusFilter);
+    console.log('CronJob data:', topology.cronjob);
+    console.log('Jobs data:', topology.jobs);
+    
     const filteredNodes = nodes.filter(node => {
-      if (node.type === 'pod') {
+      if (node.type === 'cronjob') {
+        const cronjob = topology.cronjob;
+        // Filter by CronJob status
+        let matches = false;
+        switch (filters.statusFilter) {
+          case 'Active':
+            matches = cronjob.active && cronjob.active.length > 0;
+            break;
+          case 'Suspended':
+            matches = cronjob.suspend === true;
+            break;
+          case 'Scheduled':
+            matches = !cronjob.suspend && (!cronjob.active || cronjob.active.length === 0);
+            break;
+          case 'Succeeded':
+            // Check if the last job succeeded
+            if (topology.jobs && topology.jobs.length > 0) {
+              const lastJob = topology.jobs[topology.jobs.length - 1];
+              matches = lastJob.succeeded > 0 && lastJob.active === 0;
+            }
+            break;
+          case 'Failed':
+            // Check if the last job failed
+            if (topology.jobs && topology.jobs.length > 0) {
+              const lastJob = topology.jobs[topology.jobs.length - 1];
+              matches = lastJob.failed > 0 && lastJob.active === 0;
+            }
+            break;
+          case 'Unknown':
+            // CronJob is unknown if it has never been scheduled
+            matches = !cronjob.lastScheduleTime && !cronjob.active;
+            break;
+          default:
+            matches = true;
+        }
+        console.log(`CronJob node ${node.id} matches filter ${filters.statusFilter}:`, matches);
+        return matches;
+      } else if (node.type === 'job') {
+        // Filter jobs by their status
+        const job = node.data.resource;
+        if (job) {
+          switch (filters.statusFilter) {
+            case 'Succeeded':
+              return job.succeeded > 0 && job.active === 0;
+            case 'Running':
+            case 'Active':
+              return job.active > 0;
+            case 'Failed':
+              return job.failed > 0 && job.active === 0;
+            case 'Pending':
+              return job.active === 0 && job.succeeded === 0 && job.failed === 0;
+            case 'Unknown':
+              // Job with unknown status (shouldn't normally happen)
+              return !job.active && !job.succeeded && !job.failed;
+            default:
+              return false; // Don't show jobs for other status filters
+          }
+        }
+        return false;
+      } else if (node.type === 'pod') {
+        // Filter pods by their phase
         const phase = node.data.resource?.phase;
-        if (filters.statusFilter === 'running') return phase === 'Running';
-        if (filters.statusFilter === 'pending') return phase === 'Pending';
-        if (filters.statusFilter === 'failed') return phase === 'Failed';
-        if (filters.statusFilter === 'succeeded') return phase === 'Succeeded';
+        if (phase) {
+          switch (filters.statusFilter) {
+            case 'Running':
+            case 'Active':
+              return phase === 'Running';
+            case 'Pending':
+              return phase === 'Pending';
+            case 'Failed':
+              return phase === 'Failed';
+            case 'Succeeded':
+              return phase === 'Succeeded';
+            case 'Unknown':
+              return phase === 'Unknown' || !phase;
+            default:
+              return false; // Don't show pods for other status filters
+          }
+        }
+        // If no phase, only show for Unknown filter
+        return filters.statusFilter === 'Unknown';
+      }
+      // For other node types (services, configmaps, roles, etc.)
+      // Only show them when no specific status filter is applied or "all" is selected
+      // Hide them for any specific status filter including Unknown
+      const jobSpecificStatuses = ['Succeeded', 'Running', 'Failed', 'Pending', 'Active', 'Suspended', 'Scheduled', 'Unknown'];
+      if (jobSpecificStatuses.includes(filters.statusFilter as string)) {
+        // Don't show auxiliary resources when filtering by specific statuses
+        return false;
       }
       return true;
     });

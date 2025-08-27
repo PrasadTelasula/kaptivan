@@ -92,27 +92,19 @@ const DaemonSetTopologyPage: React.FC = () => {
         <Sidebar className="hidden lg:block border-r shrink-0" />
         <main className="flex-1 flex flex-col p-4 overflow-auto">
           {/* Header */}
-          <Card className="mb-4">
-            <CardHeader>
-              <div className="flex items-center justify-between">
-                <div className="flex items-center gap-3">
-                  <Server className="h-6 w-6 text-primary" />
-                  <div>
-                    <CardTitle>DaemonSet Topology</CardTitle>
-                    <CardDescription>
-                      Visualization of DaemonSet resource relationships
-                    </CardDescription>
-                  </div>
-                </div>
-                
-                <div className="flex items-center gap-2">
+          <div className="flex items-center justify-between mb-3 px-4 py-2 bg-card border rounded-lg">
+            <div className="flex items-center gap-2">
+              <Server className="h-4 w-4 text-primary" />
+              <span className="font-semibold text-sm">DaemonSet Topology</span>
+            </div>
+            <div className="flex items-center gap-1.5">
                   {/* Cluster selector */}
                   <ClusterSelector />
                   
                   {/* Namespace selector */}
                   <Select value={selectedNamespace} onValueChange={selectNamespace} disabled={!selectedCluster}>
-                    <SelectTrigger className="w-[150px]">
-                      <SelectValue placeholder="Select namespace" />
+                    <SelectTrigger className="w-[140px] h-8">
+                      <SelectValue placeholder="Select..." />
                     </SelectTrigger>
                     <SelectContent>
                       {namespaces.map(ns => (
@@ -129,7 +121,7 @@ const DaemonSetTopologyPage: React.FC = () => {
                     onValueChange={selectDaemonSet}
                     disabled={!selectedNamespace || daemonsets.length === 0}
                   >
-                    <SelectTrigger className="w-[200px]">
+                    <SelectTrigger className="w-[180px] h-8">
                       <SelectValue placeholder="Select daemonset" />
                     </SelectTrigger>
                     <SelectContent>
@@ -158,7 +150,7 @@ const DaemonSetTopologyPage: React.FC = () => {
                     value={viewOptions.layout} 
                     onValueChange={(value) => handleLayoutChange(value as 'horizontal' | 'vertical' | 'radial')}
                   >
-                    <SelectTrigger className="w-[120px]">
+                    <SelectTrigger className="w-[110px] h-8">
                       <SelectValue />
                     </SelectTrigger>
                     <SelectContent>
@@ -190,27 +182,26 @@ const DaemonSetTopologyPage: React.FC = () => {
                     <Download className="h-4 w-4" />
                   </Button>
                 </div>
-              </div>
-            </CardHeader>
-          </Card>
+          </div>
           
-          {/* Error state */}
+          {/* Compact Error state */}
           {error && (
-            <Alert variant="destructive" className="mb-4">
-              <AlertCircle className="h-4 w-4" />
-              <AlertDescription>{error}</AlertDescription>
-            </Alert>
+            <div className="flex items-center gap-2 mb-2 px-3 py-1.5 bg-destructive/10 border border-destructive/20 rounded-md text-sm">
+              <AlertCircle className="h-3.5 w-3.5 text-destructive shrink-0" />
+              <span className="text-destructive-foreground">{error}</span>
+            </div>
           )}
           
           {/* Main content */}
           <div className="flex-1 flex gap-4 min-h-0">
             {/* Sidebar */}
-            <div className="w-64 flex-shrink-0">
+            <div className="w-52 flex-shrink-0">
               <TopologySidebar
                 filters={filters}
                 onFiltersChange={setFilters}
                 namespace={topology?.namespace || selectedNamespace}
                 hiddenFilters={['showReplicaSets']}
+                topologyType="daemonset"
               />
             </div>
             

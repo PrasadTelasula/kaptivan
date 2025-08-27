@@ -14,6 +14,7 @@ import Editor from '@monaco-editor/react'
 import { YamlOutline } from '@/components/yaml-outline'
 import { useTheme } from '@/components/theme-provider'
 import { cn } from '@/utils/cn'
+import { apiUrls } from '@/utils/api-urls'
 import {
   Tooltip,
   TooltipContent,
@@ -201,14 +202,11 @@ export function ManifestViewer({ selectedClusters = [], isFullscreen = false, on
     if (!clusterContext) return ''
 
     try {
-      const params = new URLSearchParams()
-      params.append('kind', resource.kind)
-      params.append('apiVersion', resource.apiVersion)
-      if (resource.namespace) {
-        params.append('namespace', resource.namespace)
-      }
-      
-      const endpoint = `/api/v1/manifests/${clusterContext}/${resource.name}?${params.toString()}`
+      const endpoint = apiUrls.manifests.get(clusterContext, resource.name, {
+        kind: resource.kind,
+        apiVersion: resource.apiVersion,
+        namespace: resource.namespace
+      })
       
       const response = await fetch(endpoint)
       if (response.ok) {
@@ -536,7 +534,7 @@ export function ManifestViewer({ selectedClusters = [], isFullscreen = false, on
                 <Tooltip>
                   <TooltipTrigger asChild>
                     <Button variant="ghost" size="icon" className="h-7 w-7">
-                      <Info className="h-3.5 w-3.5" />
+                      <Info className="h-3.5 w-3.5 text-blue-500 dark:text-blue-400" />
                     </Button>
                   </TooltipTrigger>
                   <TooltipContent className="max-w-xs">
@@ -559,7 +557,7 @@ export function ManifestViewer({ selectedClusters = [], isFullscreen = false, on
                 onClick={() => setTemplateLibraryOpen(true)}
                 title="Template library"
               >
-                <BookOpen className="h-3.5 w-3.5" />
+                <BookOpen className="h-3.5 w-3.5 text-purple-500 dark:text-purple-400" />
               </Button>
               <Button
                 variant="ghost"
@@ -569,9 +567,9 @@ export function ManifestViewer({ selectedClusters = [], isFullscreen = false, on
                 title={showOutline ? "Hide outline" : "Show outline"}
               >
                 {showOutline ? (
-                  <SidebarClose className="h-3.5 w-3.5" />
+                  <SidebarClose className="h-3.5 w-3.5 text-slate-500 dark:text-slate-400" />
                 ) : (
-                  <SidebarOpen className="h-3.5 w-3.5" />
+                  <SidebarOpen className="h-3.5 w-3.5 text-slate-500 dark:text-slate-400" />
                 )}
               </Button>
               <RelatedResourcesPopover
@@ -601,7 +599,7 @@ export function ManifestViewer({ selectedClusters = [], isFullscreen = false, on
                 disabled={tab.loading}
                 title="Compare with another manifest"
               >
-                <GitCompare className="h-3.5 w-3.5" />
+                <GitCompare className="h-3.5 w-3.5 text-emerald-500 dark:text-emerald-400" />
               </Button>
               <Button
                 variant="ghost"
@@ -611,7 +609,7 @@ export function ManifestViewer({ selectedClusters = [], isFullscreen = false, on
                 disabled={tab.loading}
                 title="Copy to clipboard"
               >
-                <Copy className="h-3.5 w-3.5" />
+                <Copy className="h-3.5 w-3.5 text-cyan-500 dark:text-cyan-400" />
               </Button>
               <Button
                 variant="ghost"
@@ -621,7 +619,7 @@ export function ManifestViewer({ selectedClusters = [], isFullscreen = false, on
                 disabled={tab.loading}
                 title="Download YAML"
               >
-                <Download className="h-3.5 w-3.5" />
+                <Download className="h-3.5 w-3.5 text-orange-500 dark:text-orange-400" />
               </Button>
             </div>
           </div>
@@ -770,7 +768,7 @@ export function ManifestViewer({ selectedClusters = [], isFullscreen = false, on
               onClick={() => setShowTabManager(!showTabManager)}
               title="Toggle tab manager"
             >
-              <Info className="h-3.5 w-3.5" />
+              <Info className="h-3.5 w-3.5 text-blue-500 dark:text-blue-400" />
             </Button>
             {onToggleFullscreen && (
               <Button
@@ -780,9 +778,9 @@ export function ManifestViewer({ selectedClusters = [], isFullscreen = false, on
                 onClick={onToggleFullscreen}
               >
                 {isFullscreen ? (
-                  <Minimize2 className="h-3.5 w-3.5" />
+                  <Minimize2 className="h-3.5 w-3.5 text-slate-500 dark:text-slate-400" />
                 ) : (
-                  <Maximize2 className="h-3.5 w-3.5" />
+                  <Maximize2 className="h-3.5 w-3.5 text-slate-500 dark:text-slate-400" />
                 )}
               </Button>
             )}

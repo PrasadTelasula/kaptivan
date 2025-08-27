@@ -57,7 +57,7 @@ export function buildJobTopologyGraph(
   const allPods = topology.pods || [];
   if (filters.showPods && allPods.length > 0) {
     allPods.forEach((pod, index) => {
-      const podNode = buildPodNode(pod, topology.namespace, index, context);
+      const podNode = buildPodNode(pod, topology.namespace, `job-${topology.job.name}`, index, context);
       nodes.push(podNode);
       
       // Connect Job to Pod
@@ -320,19 +320,45 @@ export function buildJobTopologyGraph(
   
   // Apply status filter
   if (filters.statusFilter && filters.statusFilter !== 'all') {
+    console.log('Job topology - Applying status filter:', filters.statusFilter);
+    const jobStatus = getJobStatus(topology.job);
+    console.log('Job status:', jobStatus, 'Job data:', topology.job);
+    
     const filteredNodes = nodes.filter(node => {
       if (node.type === 'job') {
-        const status = node.data.status;
-        switch (filters.statusFilter) {
-          case 'healthy':
-            return status === 'Completed';
-          case 'warning':
-            return status === 'Active';
-          case 'error':
-            return status === 'Failed';
-          default:
-            return true;
+        // Direct comparison with the filter value
+        const matches = jobStatus === filters.statusFilter;
+        console.log(`Job node ${node.id} status matches filter:`, matches);
+        return matches;
+      } else if (node.type === 'pod') {
+        // Filter pods by their phase
+        const pod = node.data.pod || node.data.resource;
+        if (pod && pod.phase) {
+          // Map pod phases to job statuses
+          switch (filters.statusFilter) {
+            case 'Running':
+              return pod.phase === 'Running';
+            case 'Pending':
+              return pod.phase === 'Pending';
+            case 'Failed':
+              return pod.phase === 'Failed';
+            case 'Succeeded':
+              return pod.phase === 'Succeeded';
+            case 'Unknown':
+              return pod.phase === 'Unknown' || !pod.phase;
+            default:
+              return false;
+          }
         }
+        // If no phase, only show for Unknown filter
+        return filters.statusFilter === 'Unknown';
+      }
+      // For other node types (services, configmaps, secrets, etc.)
+      // Only show them when "all" is selected, hide for specific status filters
+      const jobSpecificStatuses = ['Succeeded', 'Running', 'Failed', 'Pending', 'Unknown'];
+      if (jobSpecificStatuses.includes(filters.statusFilter as string)) {
+        // Don't show auxiliary resources when filtering by specific statuses
+        return false;
       }
       return true;
     });
@@ -349,13 +375,15 @@ export function buildJobTopologyGraph(
 }
 
 // Helper function to determine Job status
-function getJobStatus(job: any): 'Completed' | 'Failed' | 'Active' | 'Unknown' {
+function getJobStatus(job: any): 'Succeeded' | 'Failed' | 'Running' | 'Pending' | 'Unknown' {
   if (job.completionTime && job.succeeded > 0) {
-    return 'Completed';
-  } else if (job.failed > 0) {
+    return 'Succeeded';
+  } else if (job.failed > 0 && job.active === 0) {
     return 'Failed';
   } else if (job.active > 0) {
-    return 'Active';
+    return 'Running';
+  } else if (job.active === 0 && job.succeeded === 0 && job.failed === 0) {
+    return 'Pending';
   }
   return 'Unknown';
 }

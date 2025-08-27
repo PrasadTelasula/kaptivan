@@ -3,8 +3,9 @@ import { Terminal } from '@xterm/xterm'
 import { FitAddon } from '@xterm/addon-fit'
 import { WebLinksAddon } from '@xterm/addon-web-links'
 import '@xterm/xterm/css/xterm.css'
-import { API_BASE_URL } from '@/config/constants'
+import { apiUrls } from '@/utils/api-urls'
 import { Loader2 } from 'lucide-react'
+import { useTheme } from '@/components/theme-provider'
 
 interface EmbeddedTerminalProps {
   cluster: string
@@ -21,6 +22,7 @@ export function EmbeddedTerminal({
   containerName,
   onConnectionChange
 }: EmbeddedTerminalProps) {
+  const { theme } = useTheme()
   const terminalRef = useRef<HTMLDivElement>(null)
   const terminal = useRef<Terminal | null>(null)
   const fitAddon = useRef<FitAddon | null>(null)
@@ -29,6 +31,16 @@ export function EmbeddedTerminal({
   const [isConnecting, setIsConnecting] = useState(true)
   const [isConnected, setIsConnected] = useState(false)
   const [error, setError] = useState<string | null>(null)
+  
+  // Determine the effective theme
+  const getEffectiveTheme = () => {
+    if (theme === 'system') {
+      return window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light'
+    }
+    return theme
+  }
+  
+  const effectiveTheme = getEffectiveTheme()
 
   const connectWebSocket = () => {
     if (ws.current?.readyState === WebSocket.OPEN) {
@@ -38,13 +50,7 @@ export function EmbeddedTerminal({
     setIsConnecting(true)
     setError(null)
 
-    const wsUrl = `${API_BASE_URL.replace('http', 'ws')}/api/v1/pods/${cluster}/${namespace}/${podName}/exec/ws`
-    const params = new URLSearchParams()
-    if (containerName) {
-      params.append('container', containerName)
-    }
-    
-    const fullUrl = params.toString() ? `${wsUrl}?${params}` : wsUrl
+    const fullUrl = apiUrls.pods.execWs(cluster, namespace, podName, containerName)
     
     ws.current = new WebSocket(fullUrl)
 
@@ -111,33 +117,61 @@ export function EmbeddedTerminal({
     if (!terminalRef.current || terminal.current) {
       return
     }
+    
+    // Get the current effective theme
+    const currentTheme = theme === 'system' 
+      ? (window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light')
+      : theme
 
+    // Terminal theme based on app theme
+    const terminalTheme = currentTheme === 'dark' ? {
+      background: '#020817',  // Matches dark mode background
+      foreground: '#e2e8f0',
+      cursor: '#e2e8f0',
+      black: '#1e293b',
+      red: '#ef4444',
+      green: '#10b981',
+      yellow: '#f59e0b',
+      blue: '#3b82f6',
+      magenta: '#a855f7',
+      cyan: '#06b6d4',
+      white: '#f8fafc',
+      brightBlack: '#475569',
+      brightRed: '#f87171',
+      brightGreen: '#34d399',
+      brightYellow: '#fbbf24',
+      brightBlue: '#60a5fa',
+      brightMagenta: '#c084fc',
+      brightCyan: '#22d3ee',
+      brightWhite: '#f1f5f9'
+    } : {
+      background: '#ffffff',
+      foreground: '#1e293b',
+      cursor: '#1e293b',
+      black: '#f1f5f9',
+      red: '#dc2626',
+      green: '#059669',
+      yellow: '#d97706',
+      blue: '#2563eb',
+      magenta: '#9333ea',
+      cyan: '#0891b2',
+      white: '#1e293b',
+      brightBlack: '#cbd5e1',
+      brightRed: '#ef4444',
+      brightGreen: '#10b981',
+      brightYellow: '#f59e0b',
+      brightBlue: '#3b82f6',
+      brightMagenta: '#a855f7',
+      brightCyan: '#06b6d4',
+      brightWhite: '#0f172a'
+    }
+    
     // Create terminal instance
     terminal.current = new Terminal({
       cursorBlink: true,
       fontSize: 13,
       fontFamily: 'JetBrains Mono, Menlo, Monaco, Consolas, monospace',
-      theme: {
-        background: '#000000',
-        foreground: '#d4d4d4',
-        cursor: '#d4d4d4',
-        black: '#000000',
-        red: '#cd3131',
-        green: '#0dbc79',
-        yellow: '#e5e510',
-        blue: '#2472c8',
-        magenta: '#bc3fbc',
-        cyan: '#11a8cd',
-        white: '#e5e5e5',
-        brightBlack: '#666666',
-        brightRed: '#f14c4c',
-        brightGreen: '#23d18b',
-        brightYellow: '#f5f543',
-        brightBlue: '#3b8eea',
-        brightMagenta: '#d670d6',
-        brightCyan: '#29b8db',
-        brightWhite: '#e5e5e5'
-      },
+      theme: terminalTheme,
       scrollback: 10000,
       convertEol: true,
     })
@@ -238,8 +272,8 @@ export function EmbeddedTerminal({
 
   if (isConnecting) {
     return (
-      <div className="h-full flex items-center justify-center bg-black">
-        <div className="flex items-center gap-2 text-green-400">
+      <div className="h-full flex items-center justify-center bg-background">
+        <div className="flex items-center gap-2 text-primary">
           <Loader2 className="h-4 w-4 animate-spin" />
           <span className="text-sm">Connecting to {containerName}...</span>
         </div>
@@ -249,10 +283,10 @@ export function EmbeddedTerminal({
 
   if (error) {
     return (
-      <div className="h-full flex items-center justify-center bg-black">
-        <div className="text-red-400 text-sm text-center">
+      <div className="h-full flex items-center justify-center bg-background">
+        <div className="text-destructive text-sm text-center">
           <div>Failed to connect</div>
-          <div className="text-xs mt-1 text-red-400/70">{error}</div>
+          <div className="text-xs mt-1 text-destructive/70">{error}</div>
         </div>
       </div>
     )
@@ -261,7 +295,7 @@ export function EmbeddedTerminal({
   return (
     <div 
       ref={terminalRef} 
-      className="h-full w-full bg-black"
+      className="h-full w-full bg-background"
       style={{ padding: '4px' }}
     />
   )

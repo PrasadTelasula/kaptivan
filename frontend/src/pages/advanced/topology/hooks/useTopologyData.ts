@@ -46,7 +46,7 @@ export const useTopologyData = (selectedCluster: string | null = null): UseTopol
     const fetchNamespaces = async () => {
       if (!selectedCluster) {
         console.log('No cluster selected, clearing data');
-        setError('No Kubernetes cluster selected. Please select a cluster first.');
+        setError('Select a cluster to view topology');
         setNamespaces([]);
         setDeployments([]);
         setTopology(null);
