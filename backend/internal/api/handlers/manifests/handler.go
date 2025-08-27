@@ -219,8 +219,8 @@ func ListResources(c *gin.Context) {
 
 // GetManifest returns the YAML manifest for any resource type
 func GetManifest(c *gin.Context) {
-	clusterContext := c.Param("context")
-	name := c.Param("name")
+	clusterContext := c.Query("context")
+	name := c.Query("name")
 	
 	// Accept resource info either from path params or query params
 	group := c.Query("group")
@@ -244,7 +244,11 @@ func GetManifest(c *gin.Context) {
 
 	conn, err := clusterManager.GetConnection(clusterContext)
 	if err != nil || conn == nil {
-		c.JSON(http.StatusNotFound, gin.H{"error": "cluster not connected"})
+		errMsg := "cluster not connected"
+		if err != nil {
+			errMsg = fmt.Sprintf("cluster not connected: %v", err)
+		}
+		c.JSON(http.StatusNotFound, gin.H{"error": errMsg, "context": clusterContext})
 		return
 	}
 
@@ -371,8 +375,8 @@ func isResourceNamespaced(conn *kubernetes.ClusterConnection, gvr schema.GroupVe
 
 // GetRelatedResources returns resources related to a given resource (owners and children)
 func GetRelatedResources(c *gin.Context) {
-	clusterContext := c.Param("context")
-	name := c.Param("name")
+	clusterContext := c.Query("context")
+	name := c.Query("name")
 	namespace := c.Query("namespace")
 	kind := c.Query("kind")
 	// apiVersion is provided but not currently used as we handle known resource types
@@ -386,7 +390,11 @@ func GetRelatedResources(c *gin.Context) {
 
 	conn, err := clusterManager.GetConnection(clusterContext)
 	if err != nil || conn == nil {
-		c.JSON(http.StatusNotFound, gin.H{"error": "cluster not connected"})
+		errMsg := "cluster not connected"
+		if err != nil {
+			errMsg = fmt.Sprintf("cluster not connected: %v", err)
+		}
+		c.JSON(http.StatusNotFound, gin.H{"error": errMsg, "context": clusterContext})
 		return
 	}
 

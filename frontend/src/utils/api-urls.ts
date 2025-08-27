@@ -39,26 +39,53 @@ export const apiUrls = {
         ? `${API_BASE_URL}/api/v1/pods/${encode(context)}/${encode(namespace)}`
         : `${API_BASE_URL}/api/v1/pods/${encode(context)}`,
     
-    get: (context: string, namespace: string, name: string) => 
-      `${API_BASE_URL}/api/v1/pods/${encode(context)}/${encode(namespace)}/${encode(name)}`,
+    get: (context: string, namespace: string, name: string) => {
+      const params = new URLSearchParams({
+        context: context,
+        namespace: namespace,
+        name: name
+      })
+      return `${API_BASE_URL}/api/v1/pods/get?${params.toString()}`
+    },
     
     logs: (context: string, namespace: string, name: string, container?: string) => {
-      const base = `${API_BASE_URL}/api/v1/pods/${encode(context)}/${encode(namespace)}/${encode(name)}/logs`
-      return container ? `${base}?container=${encode(container)}` : base
+      const params = new URLSearchParams({
+        context: context,
+        namespace: namespace,
+        name: name
+      })
+      if (container) params.append('container', container)
+      return `${API_BASE_URL}/api/v1/pods/logs?${params.toString()}`
     },
     
     exec: (context: string, namespace: string, name: string, container?: string) => {
-      const base = `${API_BASE_URL}/api/v1/pods/${encode(context)}/${encode(namespace)}/${encode(name)}/exec`
-      return container ? `${base}?container=${encode(container)}` : base
+      const params = new URLSearchParams({
+        context: context,
+        namespace: namespace,
+        name: name
+      })
+      if (container) params.append('container', container)
+      return `${API_BASE_URL}/api/v1/pods/exec?${params.toString()}`
     },
     
     execWs: (context: string, namespace: string, name: string, container?: string) => {
-      const base = `${getWsBaseUrl()}/api/v1/pods/${encode(context)}/${encode(namespace)}/${encode(name)}/exec/ws`
-      return container ? `${base}?container=${encode(container)}` : base
+      const params = new URLSearchParams({
+        context: context,
+        namespace: namespace,
+        name: name
+      })
+      if (container) params.append('container', container)
+      return `${getWsBaseUrl()}/api/v1/pods/exec/ws?${params.toString()}`
     },
     
-    delete: (context: string, namespace: string, name: string) =>
-      `${API_BASE_URL}/api/v1/pods/${encode(context)}/${encode(namespace)}/${encode(name)}`,
+    delete: (context: string, namespace: string, name: string) => {
+      const params = new URLSearchParams({
+        context: context,
+        namespace: namespace,
+        name: name
+      })
+      return `${API_BASE_URL}/api/v1/pods/delete?${params.toString()}`
+    },
   },
   
   // Deployment endpoints
@@ -158,20 +185,24 @@ export const apiUrls = {
   manifests: {
     get: (context: string, name: string, params: { kind: string; apiVersion: string; namespace?: string }) => {
       const queryParams = new URLSearchParams()
+      queryParams.append('context', context)
+      queryParams.append('name', name)
       queryParams.append('kind', params.kind)
       queryParams.append('apiVersion', params.apiVersion)
       if (params.namespace) {
         queryParams.append('namespace', params.namespace)
       }
-      return `${API_BASE_URL}/api/v1/manifests/${encode(context)}/${encode(name)}?${queryParams.toString()}`
+      return `${API_BASE_URL}/api/v1/manifests/get?${queryParams.toString()}`
     },
   },
   
   // Cluster endpoints
   clusters: {
     list: () => `${API_BASE_URL}/api/v1/clusters`,
+    config: () => `${API_BASE_URL}/api/v1/clusters/config`,
     connect: () => `${API_BASE_URL}/api/v1/clusters/connect`,
     disconnect: () => `${API_BASE_URL}/api/v1/clusters/disconnect`,
+    get: (context: string) => `${API_BASE_URL}/api/v1/clusters/info?context=${encode(context)}`,
     version: (context: string) => `${API_BASE_URL}/api/v1/clusters/${encode(context)}/version`,
   },
 }

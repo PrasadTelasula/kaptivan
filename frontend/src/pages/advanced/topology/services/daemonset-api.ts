@@ -5,7 +5,8 @@ const API_BASE_URL = import.meta.env.VITE_API_URL || 'http://localhost:8080';
 export const daemonsetAPI = {
   // Get list of namespaces
   async getNamespaces(context: string): Promise<string[]> {
-    const response = await fetch(`${API_BASE_URL}/api/v1/topology/${context}/namespaces`);
+    const params = new URLSearchParams({ context });
+    const response = await fetch(`${API_BASE_URL}/api/v1/topology/namespaces?${params.toString()}`);
     if (!response.ok) {
       throw new Error('Failed to fetch namespaces');
     }
@@ -15,7 +16,8 @@ export const daemonsetAPI = {
 
   // List all DaemonSets in a namespace
   async listDaemonSets(context: string, namespace: string): Promise<DaemonSetSummary[]> {
-    const response = await fetch(`${API_BASE_URL}/api/v1/topology/${context}/daemonsets?namespace=${namespace}`);
+    const params = new URLSearchParams({ context, namespace });
+    const response = await fetch(`${API_BASE_URL}/api/v1/topology/daemonsets/list?${params.toString()}`);
     if (!response.ok) {
       throw new Error('Failed to fetch daemonsets');
     }
@@ -25,7 +27,8 @@ export const daemonsetAPI = {
 
   // Get DaemonSet topology
   async getDaemonSetTopology(context: string, namespace: string, name: string): Promise<DaemonSetTopology> {
-    const response = await fetch(`${API_BASE_URL}/api/v1/topology/${context}/daemonset/${namespace}/${name}`);
+    const params = new URLSearchParams({ context, namespace, name });
+    const response = await fetch(`${API_BASE_URL}/api/v1/topology/daemonset?${params.toString()}`);
     if (!response.ok) {
       throw new Error('Failed to fetch daemonset topology');
     }

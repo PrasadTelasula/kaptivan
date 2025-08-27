@@ -67,9 +67,9 @@ func List(c *gin.Context) {
 
 // Get handles getting a specific pod with full details
 func Get(c *gin.Context) {
-	context := c.Param("context")
-	namespace := c.Param("namespace")
-	name := c.Param("name")
+	context := c.Query("context")
+	namespace := c.Query("namespace")
+	name := c.Query("name")
 
 	if context == "" || namespace == "" || name == "" {
 		c.JSON(http.StatusBadRequest, gin.H{"error": "context, namespace and name are required"})
@@ -96,9 +96,9 @@ func Get(c *gin.Context) {
 
 // GetLogs handles getting pod logs
 func GetLogs(c *gin.Context) {
-	context := c.Param("context")
-	namespace := c.Param("namespace")
-	name := c.Param("name")
+	context := c.Query("context")
+	namespace := c.Query("namespace")
+	name := c.Query("name")
 	container := c.Query("container")
 	lines := c.DefaultQuery("lines", "100")
 	previous := c.DefaultQuery("previous", "false") == "true"
@@ -149,9 +149,9 @@ func GetLogs(c *gin.Context) {
 
 // GetEvents handles getting pod events
 func GetEvents(c *gin.Context) {
-	context := c.Param("context")
-	namespace := c.Param("namespace")
-	name := c.Param("name")
+	context := c.Query("context")
+	namespace := c.Query("namespace")
+	name := c.Query("name")
 
 	if context == "" || namespace == "" || name == "" {
 		c.JSON(http.StatusBadRequest, gin.H{"error": "context, namespace and name are required"})
@@ -184,9 +184,9 @@ func GetEvents(c *gin.Context) {
 
 // Delete handles deleting a pod
 func Delete(c *gin.Context) {
-	context := c.Param("context")
-	namespace := c.Param("namespace")
-	name := c.Param("name")
+	context := c.Query("context")
+	namespace := c.Query("namespace")
+	name := c.Query("name")
 
 	if context == "" || namespace == "" || name == "" {
 		c.JSON(http.StatusBadRequest, gin.H{"error": "context, namespace and name are required"})
@@ -216,9 +216,9 @@ func Delete(c *gin.Context) {
 
 // Exec handles executing commands in a pod
 func Exec(c *gin.Context) {
-	context := c.Param("context")
-	namespace := c.Param("namespace")
-	name := c.Param("name")
+	context := c.Query("context")
+	namespace := c.Query("namespace")
+	name := c.Query("name")
 	
 	var req struct {
 		Container string   `json:"container"`

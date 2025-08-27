@@ -49,9 +49,9 @@ func (h *Handler) getClusterClient(context string) (k8s.Interface, error) {
 
 // GetDeploymentTopology handles GET /api/topology/:context/deployment/:namespace/:name
 func (h *Handler) GetDeploymentTopology(c *gin.Context) {
-	context := c.Param("context")
-	namespace := c.Param("namespace")
-	deploymentName := c.Param("name")
+	context := c.Query("context")
+	namespace := c.Query("namespace")
+	deploymentName := c.Query("name")
 	
 	if context == "" || namespace == "" || deploymentName == "" {
 		c.JSON(http.StatusBadRequest, gin.H{
@@ -83,7 +83,7 @@ func (h *Handler) GetDeploymentTopology(c *gin.Context) {
 // ListDeployments handles GET /api/topology/:context/deployments
 // Query params: namespace (optional)
 func (h *Handler) ListDeployments(c *gin.Context) {
-	context := c.Param("context")
+	context := c.Query("context")
 	namespace := c.Query("namespace")
 	
 	if context == "" {
@@ -117,7 +117,7 @@ func (h *Handler) ListDeployments(c *gin.Context) {
 
 // ListNamespaces handles GET /api/topology/:context/namespaces
 func (h *Handler) ListNamespaces(c *gin.Context) {
-	context := c.Param("context")
+	context := c.Query("context")
 	
 	if context == "" {
 		c.JSON(http.StatusBadRequest, gin.H{
@@ -154,9 +154,9 @@ func (h *Handler) ListNamespaces(c *gin.Context) {
 
 // GetDaemonSetTopology handles GET /api/topology/:context/daemonset/:namespace/:name
 func (h *Handler) GetDaemonSetTopology(c *gin.Context) {
-	context := c.Param("context")
-	namespace := c.Param("namespace")
-	daemonsetName := c.Param("name")
+	context := c.Query("context")
+	namespace := c.Query("namespace")
+	daemonsetName := c.Query("name")
 	
 	if context == "" || namespace == "" || daemonsetName == "" {
 		c.JSON(http.StatusBadRequest, gin.H{
@@ -188,7 +188,7 @@ func (h *Handler) GetDaemonSetTopology(c *gin.Context) {
 // ListDaemonSets handles GET /api/topology/:context/daemonsets
 // Query params: namespace (optional)
 func (h *Handler) ListDaemonSets(c *gin.Context) {
-	context := c.Param("context")
+	context := c.Query("context")
 	namespace := c.Query("namespace")
 	
 	if context == "" {
@@ -222,9 +222,9 @@ func (h *Handler) ListDaemonSets(c *gin.Context) {
 
 // GetJobTopology handles GET /api/topology/:context/job/:namespace/:name
 func (h *Handler) GetJobTopology(c *gin.Context) {
-	contextName := c.Param("context")
-	namespace := c.Param("namespace")
-	jobName := c.Param("name")
+	contextName := c.Query("context")
+	namespace := c.Query("namespace")
+	jobName := c.Query("name")
 	
 	if contextName == "" || namespace == "" || jobName == "" {
 		c.JSON(http.StatusBadRequest, gin.H{
@@ -249,7 +249,7 @@ func (h *Handler) GetJobTopology(c *gin.Context) {
 // ListJobs handles GET /api/topology/:context/jobs
 // Query params: namespace (optional)
 func (h *Handler) ListJobs(c *gin.Context) {
-	contextName := c.Param("context")
+	contextName := c.Query("context")
 	namespace := c.Query("namespace")
 	
 	if contextName == "" {

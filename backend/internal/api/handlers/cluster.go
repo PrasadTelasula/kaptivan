@@ -100,7 +100,7 @@ func DisconnectCluster(c *gin.Context) {
 
 // GetClusterInfo gets information about a specific cluster
 func GetClusterInfo(c *gin.Context) {
-	context := c.Param("context")
+	context := c.Query("context")
 	if context == "" {
 		c.JSON(http.StatusBadRequest, gin.H{
 			"error": "Context parameter is required",
