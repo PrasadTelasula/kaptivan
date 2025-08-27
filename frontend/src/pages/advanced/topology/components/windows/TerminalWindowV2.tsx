@@ -5,6 +5,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { cn } from '@/lib/utils';
 import { terminalManager } from '@/services/terminal-manager';
+import { apiUrls } from '@/utils/api-urls';
 
 interface TerminalWindowProps {
   podName: string;
@@ -55,7 +56,7 @@ export const TerminalWindow: React.FC<TerminalWindowProps> = ({
       terminalManager.createTerminal(terminalId);
       
       // Connect WebSocket only once when creating
-      const wsUrl = `${API_BASE_URL.replace('http', 'ws')}/api/v1/pods/${context}/${namespace}/${podName}/exec/ws${containerName ? `?container=${containerName}` : ''}`;
+      const wsUrl = apiUrls.pods.execWs(context, namespace, podName, containerName);
       terminalManager.connectWebSocket(terminalId, wsUrl);
     }
   }, [terminalId, context, namespace, podName, containerName]);
@@ -116,8 +117,9 @@ export const TerminalWindow: React.FC<TerminalWindowProps> = ({
   const fetchLogs = async () => {
     setIsLoadingLogs(true);
     try {
-      const containerParam = containerName ? `&container=${containerName}` : '';
-      const response = await fetch(`${API_BASE_URL}/api/v1/pods/${context}/${namespace}/${podName}/logs?tailLines=1000${containerParam}`);
+      let url = apiUrls.pods.logs(context, namespace, podName, containerName);
+      url += (url.includes('?') ? '&' : '?') + 'tailLines=1000';
+      const response = await fetch(url);
       if (response.ok) {
         const data = await response.json();
         setLogs(data.logs || 'No logs available');
