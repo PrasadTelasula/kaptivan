@@ -539,14 +539,14 @@ export function AdvancedTerminalsPage() {
 
   const getStatusIcon = (status?: string, ready?: boolean) => {
     if (ready !== undefined) {
-      return ready ? <CheckCircle className="h-3 w-3 text-green-500" /> : <XCircle className="h-3 w-3 text-red-500" />
+      return ready ? <CheckCircle className="h-3 w-3 text-green-500 dark:text-green-400" /> : <XCircle className="h-3 w-3 text-red-500 dark:text-red-400" />
     }
     switch (status?.toLowerCase()) {
-      case 'running': return <CheckCircle className="h-3 w-3 text-green-500" />
-      case 'pending': return <AlertCircle className="h-3 w-3 text-yellow-500" />
-      case 'failed': return <XCircle className="h-3 w-3 text-red-500" />
-      case 'terminating': return <AlertTriangle className="h-3 w-3 text-orange-500" />
-      default: return <Circle className="h-3 w-3 text-gray-400" />
+      case 'running': return <CheckCircle className="h-3 w-3 text-green-500 dark:text-green-400" />
+      case 'pending': return <AlertCircle className="h-3 w-3 text-yellow-500 dark:text-yellow-400" />
+      case 'failed': return <XCircle className="h-3 w-3 text-red-500 dark:text-red-400" />
+      case 'terminating': return <AlertTriangle className="h-3 w-3 text-orange-500 dark:text-orange-400" />
+      default: return <Circle className="h-3 w-3 text-gray-400 dark:text-gray-500" />
     }
   }
 
@@ -585,15 +585,21 @@ export function AdvancedTerminalsPage() {
               className="p-0.5 hover:bg-background rounded"
             >
               {isExpanded ? (
-                <ChevronDown className="h-3 w-3" />
+                <ChevronDown className="h-3 w-3 text-gray-500 dark:text-gray-400" />
               ) : (
-                <ChevronRight className="h-3 w-3" />
+                <ChevronRight className="h-3 w-3 text-gray-500 dark:text-gray-400" />
               )}
             </button>
           )}
           {!hasChildren && <div className="w-4" />}
           
-          <Icon className="h-4 w-4 text-muted-foreground flex-shrink-0" />
+          <Icon className={cn(
+            "h-4 w-4 flex-shrink-0",
+            node.type === 'cluster' && "text-cyan-500 dark:text-cyan-400",
+            node.type === 'namespace' && "text-purple-500 dark:text-purple-400",
+            node.type === 'pod' && "text-blue-500 dark:text-blue-400",
+            node.type === 'container' && "text-emerald-500 dark:text-emerald-400"
+          )} />
           
           <span className="text-sm truncate flex-1">{node.label}</span>
           
@@ -620,9 +626,9 @@ export function AdvancedTerminalsPage() {
                   className="h-3.5 w-3.5"
                 />
               ) : node.ready === false ? (
-                <XCircle className="h-3 w-3 text-red-500" />
+                <XCircle className="h-3 w-3 text-red-500 dark:text-red-400" />
               ) : (
-                <Terminal className="h-3 w-3 text-muted-foreground" />
+                <Terminal className="h-3 w-3 text-orange-500 dark:text-orange-400" />
               )}
             </div>
           )}
@@ -658,7 +664,7 @@ export function AdvancedTerminalsPage() {
               <ResizablePanel defaultSize={35} minSize={20} maxSize={50}>
               <div className="h-full flex flex-col">
                 {/* Tree Header */}
-                <div className="p-4 border-b space-y-3">
+                <div className="p-3 border-b space-y-2">
                   <div className="flex items-center justify-between">
                     <h2 className="text-lg font-semibold">Pods Explorer</h2>
                     <div className="flex items-center gap-1">
@@ -681,7 +687,11 @@ export function AdvancedTerminalsPage() {
                         onClick={refreshData}
                         disabled={isLoading}
                       >
-                        <RefreshCw className={cn("h-4 w-4", isLoading && "animate-spin")} />
+                        <RefreshCw className={cn(
+                          "h-4 w-4",
+                          isLoading && "animate-spin",
+                          "text-blue-500 dark:text-blue-400"
+                        )} />
                       </Button>
                     </div>
                   </div>
@@ -705,7 +715,7 @@ export function AdvancedTerminalsPage() {
                   
                   {/* Search */}
                   <div className="relative">
-                    <Search className="absolute left-2 top-2.5 h-4 w-4 text-muted-foreground" />
+                    <Search className="absolute left-2 top-2.5 h-4 w-4 text-gray-500 dark:text-gray-400" />
                     <Input
                       placeholder="Search pods, namespaces, containers..."
                       value={searchQuery}
@@ -747,11 +757,27 @@ export function AdvancedTerminalsPage() {
                   </div>
                   
                   {/* Stats */}
-                  <div className="flex items-center gap-4 text-xs text-muted-foreground">
-                    <span>{clusters.filter(c => c.connected).length} clusters</span>
-                    <span>{namespaces.length} namespaces</span>
-                    <span>{pods.length} pods</span>
-                    <span>{pods.reduce((acc, p) => acc + p.containers.length, 0)} containers</span>
+                  <div className="flex items-center gap-1.5">
+                    <Badge variant="secondary" className="gap-1 px-1.5 py-0 h-5">
+                      <Cloud className="h-2.5 w-2.5 text-cyan-500 dark:text-cyan-400" />
+                      <span className="text-[10px] font-medium">{clusters.filter(c => c.connected).length}</span>
+                      <span className="text-[10px] text-muted-foreground">clusters</span>
+                    </Badge>
+                    <Badge variant="secondary" className="gap-1 px-1.5 py-0 h-5">
+                      <Layers className="h-2.5 w-2.5 text-purple-500 dark:text-purple-400" />
+                      <span className="text-[10px] font-medium">{namespaces.length}</span>
+                      <span className="text-[10px] text-muted-foreground">namespaces</span>
+                    </Badge>
+                    <Badge variant="secondary" className="gap-1 px-1.5 py-0 h-5">
+                      <Box className="h-2.5 w-2.5 text-blue-500 dark:text-blue-400" />
+                      <span className="text-[10px] font-medium">{pods.length}</span>
+                      <span className="text-[10px] text-muted-foreground">pods</span>
+                    </Badge>
+                    <Badge variant="secondary" className="gap-1 px-1.5 py-0 h-5">
+                      <Container className="h-2.5 w-2.5 text-emerald-500 dark:text-emerald-400" />
+                      <span className="text-[10px] font-medium">{pods.reduce((acc, p) => acc + p.containers.length, 0)}</span>
+                      <span className="text-[10px] text-muted-foreground">containers</span>
+                    </Badge>
                   </div>
                 </div>
                 
@@ -774,7 +800,7 @@ export function AdvancedTerminalsPage() {
                       </div>
                     ) : isLoading ? (
                       <div className="flex flex-col items-center justify-center py-8 text-muted-foreground">
-                        <RefreshCw className="h-8 w-8 mb-2 animate-spin" />
+                        <RefreshCw className="h-8 w-8 mb-2 animate-spin text-blue-500 dark:text-blue-400" />
                         <p className="text-sm">Loading pods...</p>
                       </div>
                     ) : treeData.length === 0 ? (
@@ -820,7 +846,7 @@ export function AdvancedTerminalsPage() {
                       onClick={() => setIsFullscreen(!isFullscreen)}
                       title={isFullscreen ? "Exit fullscreen" : "Enter fullscreen"}
                     >
-                      {isFullscreen ? <Minimize2 className="h-3.5 w-3.5" /> : <Maximize2 className="h-3.5 w-3.5" />}
+                      {isFullscreen ? <Minimize2 className="h-3.5 w-3.5 text-blue-500 dark:text-blue-400" /> : <Maximize2 className="h-3.5 w-3.5 text-blue-500 dark:text-blue-400" />}
                     </Button>
                     {terminals.length > 0 && (
                       <>
@@ -835,7 +861,7 @@ export function AdvancedTerminalsPage() {
                           onClick={toggleSyncInput}
                           title={syncInputEnabled ? "Disable synchronized input" : "Enable synchronized input (like tmux)"}
                         >
-                          {syncInputEnabled ? <Link className="h-3.5 w-3.5" /> : <Unlink className="h-3.5 w-3.5" />}
+                          {syncInputEnabled ? <Link className="h-3.5 w-3.5 text-green-500 dark:text-green-400" /> : <Unlink className="h-3.5 w-3.5 text-gray-500 dark:text-gray-400" />}
                         </Button>
                         <Button
                           variant="ghost"
@@ -844,7 +870,7 @@ export function AdvancedTerminalsPage() {
                           onClick={() => setShowBroadcast(!showBroadcast)}
                           title="Broadcast command to all terminals"
                         >
-                          <Command className="h-3.5 w-3.5" />
+                          <Command className="h-3.5 w-3.5 text-purple-500 dark:text-purple-400" />
                         </Button>
                         <div className="w-px h-4 bg-border mx-1" />
                         <Button
@@ -854,7 +880,7 @@ export function AdvancedTerminalsPage() {
                           onClick={() => setShowCloseAllDialog(true)}
                           title="Close all terminals"
                         >
-                          <X className="h-3.5 w-3.5" />
+                          <X className="h-3.5 w-3.5 text-red-500 dark:text-red-400" />
                         </Button>
                         <div className="w-px h-4 bg-border mx-1" />
                         <Button
@@ -864,7 +890,7 @@ export function AdvancedTerminalsPage() {
                           onClick={() => setViewMode('tabs')}
                           title="Tab view"
                         >
-                          <List className="h-3.5 w-3.5" />
+                          <List className="h-3.5 w-3.5 text-cyan-500 dark:text-cyan-400" />
                         </Button>
                         <Button
                           variant={viewMode === 'grid' ? 'secondary' : 'ghost'}
@@ -873,7 +899,7 @@ export function AdvancedTerminalsPage() {
                           onClick={() => setViewMode('grid')}
                           title="Grid view"
                         >
-                          <Grid3x3 className="h-3.5 w-3.5" />
+                          <Grid3x3 className="h-3.5 w-3.5 text-cyan-500 dark:text-cyan-400" />
                         </Button>
                       </>
                     )}
@@ -882,7 +908,7 @@ export function AdvancedTerminalsPage() {
 
                 {terminals.length === 0 ? (
                   <div className="flex-1 flex flex-col items-center justify-center text-muted-foreground">
-                    <Terminal className="h-12 w-12 mb-4" />
+                    <Terminal className="h-12 w-12 mb-4 text-orange-500 dark:text-orange-400" />
                     <p className="text-lg font-medium">No Active Terminals</p>
                     <p className="text-sm mt-2">
                       {isSelectionMode 
@@ -909,7 +935,7 @@ export function AdvancedTerminalsPage() {
                       <div className="border-b px-3 py-1.5 bg-muted/30">
                         <div className="flex items-center gap-2">
                           <div className="flex items-center gap-2 text-sm text-muted-foreground">
-                            <Send className="h-3 w-3" />
+                            <Send className="h-3 w-3 text-blue-500 dark:text-blue-400" />
                             <span className="text-xs">Broadcast:</span>
                           </div>
                           <Input
@@ -925,7 +951,7 @@ export function AdvancedTerminalsPage() {
                             onClick={handleBroadcastCommand}
                             disabled={!broadcastCommand.trim()}
                           >
-                            <Send className="h-3 w-3" />
+                            <Send className="h-3 w-3 text-blue-500 dark:text-blue-400" />
                           </Button>
                         </div>
                       </div>
@@ -953,6 +979,7 @@ export function AdvancedTerminalsPage() {
                                       )}
                                     >
                                       <Terminal className={cn(
+                                        "text-orange-500 dark:text-orange-400",
                                         "h-3 w-3",
                                         isActive ? "text-foreground" : "text-muted-foreground"
                                       )} />
@@ -1057,7 +1084,7 @@ export function AdvancedTerminalsPage() {
                                   {/* Terminal Header with Close Button */}
                                   <div className="border-b px-3 py-2 flex items-center justify-between bg-muted/30">
                                     <div className="flex items-center gap-2">
-                                      <Terminal className="h-3 w-3" />
+                                      <Terminal className="h-3 w-3 text-orange-500 dark:text-orange-400" />
                                       <span className="text-xs font-medium truncate">
                                         {terminal.title}
                                       </span>

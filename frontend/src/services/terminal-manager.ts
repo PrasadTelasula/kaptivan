@@ -33,11 +33,60 @@ class TerminalManager {
     return this.terminals.get(id)
   }
   
-  createTerminal(id: string): TerminalInstance {
+  createTerminal(id: string, theme?: 'light' | 'dark' | 'system'): TerminalInstance {
     // If terminal already exists, return it
     const existing = this.terminals.get(id)
     if (existing) {
       return existing
+    }
+    
+    // Determine effective theme
+    let effectiveTheme = theme || 'system'
+    if (effectiveTheme === 'system') {
+      effectiveTheme = window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light'
+    }
+    
+    // Terminal theme based on app theme
+    const terminalTheme = effectiveTheme === 'dark' ? {
+      background: '#020817',  // Matches dark mode background
+      foreground: '#e2e8f0',
+      cursor: '#e2e8f0',
+      black: '#1e293b',
+      red: '#ef4444',
+      green: '#10b981',
+      yellow: '#f59e0b',
+      blue: '#3b82f6',
+      magenta: '#a855f7',
+      cyan: '#06b6d4',
+      white: '#f8fafc',
+      brightBlack: '#475569',
+      brightRed: '#f87171',
+      brightGreen: '#34d399',
+      brightYellow: '#fbbf24',
+      brightBlue: '#60a5fa',
+      brightMagenta: '#c084fc',
+      brightCyan: '#22d3ee',
+      brightWhite: '#f1f5f9'
+    } : {
+      background: '#ffffff',
+      foreground: '#1e293b',
+      cursor: '#1e293b',
+      black: '#f1f5f9',
+      red: '#dc2626',
+      green: '#059669',
+      yellow: '#d97706',
+      blue: '#2563eb',
+      magenta: '#9333ea',
+      cyan: '#0891b2',
+      white: '#1e293b',
+      brightBlack: '#cbd5e1',
+      brightRed: '#ef4444',
+      brightGreen: '#10b981',
+      brightYellow: '#f59e0b',
+      brightBlue: '#3b82f6',
+      brightMagenta: '#a855f7',
+      brightCyan: '#06b6d4',
+      brightWhite: '#0f172a'
     }
     
     // Create new terminal
@@ -45,27 +94,7 @@ class TerminalManager {
       cursorBlink: true,
       fontSize: 14,
       fontFamily: 'JetBrains Mono, Menlo, Monaco, Consolas, monospace',
-      theme: {
-        background: '#1e1e1e',
-        foreground: '#d4d4d4',
-        cursor: '#d4d4d4',
-        black: '#000000',
-        red: '#cd3131',
-        green: '#0dbc79',
-        yellow: '#e5e510',
-        blue: '#2472c8',
-        magenta: '#bc3fbc',
-        cyan: '#11a8cd',
-        white: '#e5e5e5',
-        brightBlack: '#666666',
-        brightRed: '#f14c4c',
-        brightGreen: '#23d18b',
-        brightYellow: '#f5f543',
-        brightBlue: '#3b8eea',
-        brightMagenta: '#d670d6',
-        brightCyan: '#29b8db',
-        brightWhite: '#e5e5e5'
-      },
+      theme: terminalTheme,
       scrollback: 10000,
       convertEol: true,
     })

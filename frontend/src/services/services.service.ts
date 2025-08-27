@@ -1,4 +1,4 @@
-import { API_BASE_URL } from '@/config/constants'
+import { apiUrls } from '@/utils/api-urls'
 
 export interface ServiceInfo {
   name: string
@@ -111,9 +111,7 @@ class ServicesService {
   }
 
   async getService(context: string, namespace: string, name: string): Promise<ServiceDetail> {
-    const response = await fetch(
-      `${API_BASE_URL}/api/v1/services/${context}/${namespace}/${name}`
-    )
+    const response = await fetch(apiUrls.services.get(context, namespace, name))
 
     if (!response.ok) {
       throw new Error('Failed to fetch service details')
@@ -123,9 +121,7 @@ class ServicesService {
   }
 
   async getServiceEndpoints(context: string, namespace: string, name: string): Promise<EndpointInfo[]> {
-    const response = await fetch(
-      `${API_BASE_URL}/api/v1/services/${context}/${namespace}/${name}/endpoints`
-    )
+    const response = await fetch(apiUrls.services.endpoints(context, namespace, name))
 
     if (!response.ok) {
       throw new Error('Failed to fetch service endpoints')
@@ -145,7 +141,7 @@ class ServicesService {
     }
   ): Promise<void> {
     const response = await fetch(
-      `${API_BASE_URL}/api/v1/services/${context}/${namespace}/${name}`,
+      apiUrls.services.update(context, namespace, name),
       {
         method: 'PUT',
         headers: {
@@ -166,7 +162,7 @@ class ServicesService {
     name: string
   ): Promise<void> {
     const response = await fetch(
-      `${API_BASE_URL}/api/v1/services/${context}/${namespace}/${name}`,
+      apiUrls.services.delete(context, namespace, name),
       {
         method: 'DELETE',
       }

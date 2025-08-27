@@ -314,9 +314,61 @@ export const buildTopologyNodesEdges = (
   
   // Apply status filter
   if (filters.statusFilter !== 'all') {
-    const filteredNodes = nodes.filter(node =>
-      node.data.status === filters.statusFilter
-    );
+    const filteredNodes = nodes.filter(node => {
+      if (node.type === 'deployment') {
+        const deployment = topology.deployment;
+        // Filter by Deployment status
+        switch (filters.statusFilter) {
+          case 'Available':
+            return deployment.available === deployment.replicas;
+          case 'Progressing':
+            return deployment.available < deployment.replicas && deployment.available > 0;
+          case 'Failed':
+            return deployment.available === 0 && deployment.replicas > 0;
+          case 'Unknown':
+            return deployment.status === 'Unknown';
+          case 'Healthy':
+            return deployment.status === 'Healthy';
+          case 'Warning':
+            return deployment.status === 'Warning';
+          case 'Error':
+            return deployment.status === 'Error';
+          default:
+            return true;
+        }
+      } else if (node.type === 'pod') {
+        // Filter pods by their phase
+        const pod = node.data.resource;
+        if (pod && pod.phase) {
+          switch (filters.statusFilter) {
+            case 'Running':
+            case 'Available':
+              return pod.phase === 'Running';
+            case 'Pending':
+            case 'Progressing':
+              return pod.phase === 'Pending';
+            case 'Failed':
+              return pod.phase === 'Failed';
+            case 'Succeeded':
+              return pod.phase === 'Succeeded';
+            case 'Unknown':
+              return pod.phase === 'Unknown' || !pod.phase;
+            default:
+              return false;
+          }
+        }
+        // If no phase, only show for Unknown filter
+        return filters.statusFilter === 'Unknown';
+      }
+      // For other node types (services, configmaps, secrets, etc.)
+      // Only show them when "all" is selected, hide for specific status filters
+      const deploymentSpecificStatuses = ['Available', 'Progressing', 'Failed', 'Unknown', 'Healthy', 'Warning', 'Error'];
+      if (deploymentSpecificStatuses.includes(filters.statusFilter as string)) {
+        // Don't show auxiliary resources when filtering by specific statuses
+        return false;
+      }
+      return true;
+    });
     
     const nodeIds = new Set(filteredNodes.map(n => n.id));
     const filteredEdges = uniqueEdges.filter(edge =>

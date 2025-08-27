@@ -4,6 +4,15 @@ export type K8sStatus = "Healthy" | "Warning" | "Error" | "Unknown";
 
 export type PodPhase = "Running" | "Pending" | "Failed" | "Succeeded" | "Unknown" | "Terminating" | "CrashLoopBackOff";
 
+// Resource-specific status types
+export type DeploymentStatus = "Available" | "Progressing" | "Failed" | "Unknown";
+export type DaemonSetStatus = "Available" | "Unavailable" | "Updating" | "Unknown";
+export type JobStatus = "Succeeded" | "Running" | "Failed" | "Pending" | "Unknown";
+export type CronJobStatus = "Active" | "Suspended" | "Scheduled" | "Succeeded" | "Failed" | "Unknown";
+
+// Union type for all possible statuses
+export type ResourceStatus = K8sStatus | DeploymentStatus | DaemonSetStatus | JobStatus | CronJobStatus | PodPhase | "all";
+
 export interface ContainerRef {
   name: string;
   image: string;
@@ -193,9 +202,11 @@ export interface TopologyFilters {
   showConfigMaps: boolean;
   showServiceAccount: boolean;
   showRBAC: boolean;
-  statusFilter: "all" | K8sStatus;
+  statusFilter: ResourceStatus;
   searchTerm: string;
   showContainers: boolean;
+  showReplicaSets?: boolean;
+  showPods?: boolean;
 }
 
 export interface TopologyViewOptions {

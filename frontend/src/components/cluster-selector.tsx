@@ -16,6 +16,12 @@ import {
 } from '@/components/ui/popover'
 import { Badge } from '@/components/ui/badge'
 import { Checkbox } from '@/components/ui/checkbox'
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipProvider,
+  TooltipTrigger,
+} from '@/components/ui/tooltip'
 import { useClusterStore } from '@/stores/cluster.store'
 
 export function ClusterSelector() {
@@ -64,38 +70,58 @@ export function ClusterSelector() {
 
   const currentCluster = clusters.find(c => c.context === currentContext)
 
+  const displayText = currentContext 
+    ? clusters.find(c => c.context === currentContext)?.name || currentContext
+    : selectedContexts.length > 0
+      ? selectedContexts.length === 1 
+        ? clusters.find(c => c.context === selectedContexts[0])?.name || ''
+        : `${selectedContexts.length} clusters selected`
+      : '';
+
   return (
-    <Popover open={open} onOpenChange={setOpen}>
-      <PopoverTrigger asChild>
-        <Button
-          variant="outline"
-          role="combobox"
-          aria-expanded={open}
-          className="w-[250px] justify-between"
-        >
-          {currentContext ? (
-            <div className="flex items-center gap-2">
-              <div className="h-2 w-2 rounded-full bg-green-500" />
-              <span className="truncate">
-                {clusters.find(c => c.context === currentContext)?.name || currentContext}
-              </span>
-            </div>
-          ) : selectedContexts.length > 0 ? (
-            <div className="flex items-center gap-2">
-              <div className="h-2 w-2 rounded-full bg-green-500" />
-              <span className="truncate">
-                {selectedContexts.length === 1 
-                  ? clusters.find(c => c.context === selectedContexts[0])?.name
-                  : `${selectedContexts.length} clusters selected`}
-              </span>
-            </div>
-          ) : (
-            <span className="text-muted-foreground">Select cluster...</span>
+    <TooltipProvider>
+      <Popover open={open} onOpenChange={setOpen}>
+        <Tooltip>
+          <TooltipTrigger asChild>
+            <PopoverTrigger asChild>
+              <Button
+                variant="outline"
+                role="combobox"
+                aria-expanded={open}
+                className="min-w-[250px] max-w-[350px] justify-between"
+              >
+                <div className="flex items-center gap-2 flex-1 min-w-0">
+                  {currentContext ? (
+                    <>
+                      <div className="h-2 w-2 rounded-full bg-green-500 shrink-0" />
+                      <span className="truncate block">
+                        {clusters.find(c => c.context === currentContext)?.name || currentContext}
+                      </span>
+                    </>
+                  ) : selectedContexts.length > 0 ? (
+                    <>
+                      <div className="h-2 w-2 rounded-full bg-green-500 shrink-0" />
+                      <span className="truncate block">
+                        {selectedContexts.length === 1 
+                          ? clusters.find(c => c.context === selectedContexts[0])?.name
+                          : `${selectedContexts.length} clusters selected`}
+                      </span>
+                    </>
+                  ) : (
+                    <span className="text-muted-foreground">Select cluster...</span>
+                  )}
+                </div>
+                <ChevronsUpDown className="h-4 w-4 shrink-0 opacity-50 ml-2" />
+              </Button>
+            </PopoverTrigger>
+          </TooltipTrigger>
+          {displayText && displayText.length > 25 && (
+            <TooltipContent>
+              <p>{displayText}</p>
+            </TooltipContent>
           )}
-          <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
-        </Button>
-      </PopoverTrigger>
-      <PopoverContent className="w-[350px] p-0 max-h-[400px]">
+        </Tooltip>
+      <PopoverContent className="w-[400px] p-0 max-h-[500px]">
         <Command>
           <CommandInput placeholder="Search clusters..." className="h-9 border-0" />
           <CommandEmpty>No cluster found.</CommandEmpty>
@@ -119,7 +145,7 @@ export function ClusterSelector() {
               </Button>
             </div>
           </div>
-          <CommandGroup className="max-h-[250px] overflow-y-auto">
+          <CommandGroup className="max-h-[300px] overflow-y-auto overflow-x-hidden">
             {clusters.map((cluster) => (
               <CommandItem
                 key={cluster.context}
@@ -131,9 +157,9 @@ export function ClusterSelector() {
                     setCurrentContext(cluster.context)
                   }
                 }}
-                className="flex items-center justify-between"
+                className="flex items-center justify-between gap-2 pr-2"
               >
-                <div className="flex items-center gap-2">
+                <div className="flex items-center gap-2 flex-1 min-w-0">
                   {cluster.connected && (
                     <Checkbox
                       checked={isClusterSelected(cluster.context)}
@@ -143,22 +169,37 @@ export function ClusterSelector() {
                         setCurrentContext(cluster.context)
                       }}
                       onClick={(e) => e.stopPropagation()}
+                      className="shrink-0"
                     />
                   )}
                   <div
                     className={cn(
-                      "h-2 w-2 rounded-full",
+                      "h-2 w-2 rounded-full shrink-0",
                       cluster.connected ? "bg-green-500" : "bg-gray-400"
                     )}
                   />
-                  <div>
-                    <div className="font-medium">{cluster.name}</div>
-                    <div className="text-xs text-muted-foreground">
-                      {cluster.context}
-                    </div>
-                  </div>
+                  <TooltipProvider>
+                    <Tooltip>
+                      <TooltipTrigger asChild>
+                        <div className="min-w-0 flex-1">
+                          <div className="font-medium truncate">{cluster.name}</div>
+                          <div className="text-xs text-muted-foreground truncate">
+                            {cluster.context}
+                          </div>
+                        </div>
+                      </TooltipTrigger>
+                      {(cluster.name.length > 30 || cluster.context.length > 35) && (
+                        <TooltipContent side="left" align="center">
+                          <div>
+                            <div className="font-medium">{cluster.name}</div>
+                            <div className="text-xs opacity-90">{cluster.context}</div>
+                          </div>
+                        </TooltipContent>
+                      )}
+                    </Tooltip>
+                  </TooltipProvider>
                 </div>
-                <div className="flex items-center gap-1">
+                <div className="flex items-center gap-1 shrink-0">
                   {cluster.connected ? (
                     <Button
                       size="sm"
@@ -200,5 +241,6 @@ export function ClusterSelector() {
         )}
       </PopoverContent>
     </Popover>
+    </TooltipProvider>
   )
 }

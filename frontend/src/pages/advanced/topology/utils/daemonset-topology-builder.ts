@@ -303,9 +303,59 @@ export const buildDaemonSetTopologyNodesEdges = (
   
   // Apply status filter
   if (filters.statusFilter !== 'all') {
-    const filteredNodes = nodes.filter(node =>
-      node.data.status === filters.statusFilter
-    );
+    const filteredNodes = nodes.filter(node => {
+      if (node.type === 'daemonset') {
+        const ds = topology.daemonset;
+        // Filter by DaemonSet status
+        switch (filters.statusFilter) {
+          case 'Available':
+            return ds.numberReady === ds.desiredNumberScheduled;
+          case 'Unavailable':
+            return ds.numberReady < ds.desiredNumberScheduled && ds.numberReady === 0;
+          case 'Updating':
+            return ds.updatedNumberScheduled < ds.desiredNumberScheduled;
+          case 'Unknown':
+            return ds.status === 'Unknown';
+          case 'Healthy':
+            return ds.status === 'Healthy';
+          case 'Warning':
+            return ds.status === 'Warning';
+          case 'Error':
+            return ds.status === 'Error';
+          default:
+            return true;
+        }
+      } else if (node.type === 'pod') {
+        // Filter pods by their phase
+        const pod = node.data.resource;
+        if (pod && pod.phase) {
+          switch (filters.statusFilter) {
+            case 'Running':
+            case 'Available':
+              return pod.phase === 'Running';
+            case 'Pending':
+            case 'Unavailable':
+              return pod.phase === 'Pending' || pod.phase === 'Failed';
+            case 'Failed':
+              return pod.phase === 'Failed';
+            case 'Unknown':
+              return pod.phase === 'Unknown' || !pod.phase;
+            default:
+              return false;
+          }
+        }
+        // If no phase, only show for Unknown filter
+        return filters.statusFilter === 'Unknown';
+      }
+      // For other node types (services, configmaps, etc.)
+      // Only show them when "all" is selected, hide for specific status filters
+      const daemonsetSpecificStatuses = ['Available', 'Unavailable', 'Updating', 'Unknown', 'Healthy', 'Warning', 'Error'];
+      if (daemonsetSpecificStatuses.includes(filters.statusFilter as string)) {
+        // Don't show auxiliary resources when filtering by specific statuses
+        return false;
+      }
+      return true;
+    });
     
     const filteredNodeIds = new Set(filteredNodes.map(n => n.id));
     const filteredEdges = validEdges.filter(edge =>

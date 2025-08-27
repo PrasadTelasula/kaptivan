@@ -350,11 +350,11 @@ export const LogsWindow: React.FC<LogsWindowProps> = ({
   if (isMinimized) {
     return (
       <div
-        className="fixed bottom-4 left-4 bg-slate-900 border border-slate-700 rounded-lg p-2 shadow-2xl flex items-center gap-2 cursor-pointer hover:bg-slate-800 transition-colors z-50"
+        className="fixed bottom-4 left-4 bg-card border rounded-lg p-2 shadow-2xl flex items-center gap-2 cursor-pointer hover:bg-muted transition-colors z-50"
         onClick={toggleMinimize}
       >
-        <ScrollText className="h-4 w-4 text-cyan-400" />
-        <span className="text-sm text-slate-300">Logs: {containerName || podName}</span>
+        <ScrollText className="h-4 w-4 text-primary" />
+        <span className="text-sm text-card-foreground">Logs: {containerName || podName}</span>
       </div>
     );
   }
@@ -371,17 +371,17 @@ export const LogsWindow: React.FC<LogsWindowProps> = ({
             if (el) lineRefs.current.set(index, el);
           }}
           className={cn(
-            "font-mono hover:bg-slate-800/50 px-2 transition-all duration-500",
+            "font-mono hover:bg-muted/50 px-2 transition-all duration-500",
             searchResults.includes(index) && "bg-yellow-500/10",
             searchResults[currentSearchIndex] === index && "bg-yellow-500/20",
             isNewLine && "bg-green-500/20 border-l-2 border-green-400 animate-pulse"
           )}
           style={{ minHeight: '20px', fontSize: `${fontSize}px` }}
         >
-          <span className="text-slate-500 select-none mr-2 inline-block w-12">{String(index + 1).padStart(4, '0')}</span>
+          <span className="text-muted-foreground select-none mr-2 inline-block w-12">{String(index + 1).padStart(4, '0')}</span>
           <span className={cn(
             "whitespace-pre-wrap break-all",
-            isNewLine ? "text-green-300" : "text-slate-300"
+            isNewLine ? "text-green-500" : "text-foreground"
           )}>{line || '\u00A0'}</span>
         </div>
       );
@@ -410,32 +410,32 @@ export const LogsWindow: React.FC<LogsWindowProps> = ({
     >
       <div
         className={cn(
-          "h-full bg-slate-900 border border-slate-700 rounded-lg shadow-2xl flex flex-col"
+          "h-full bg-card border rounded-lg shadow-2xl flex flex-col"
         )}
         onClick={(e) => e.stopPropagation()}
       >
         {/* Header */}
         <div
-          className="logs-window-header bg-slate-800 border-b border-slate-700 px-4 py-2 flex items-center justify-between cursor-move select-none"
+          className="logs-window-header bg-muted border-b px-4 py-2 flex items-center justify-between cursor-move select-none"
         >
           <div className="flex items-center gap-2">
-            <ScrollText className="h-4 w-4 text-cyan-400" />
-            <span className="text-sm font-medium text-slate-200">
+            <ScrollText className="h-4 w-4 text-primary" />
+            <span className="text-sm font-medium text-foreground">
               Logs: {podName}/{containerName || 'default'}
             </span>
             {autoRefresh && (
-              <span className="text-xs bg-green-500/20 text-green-400 px-2 py-0.5 rounded">
+              <span className="text-xs bg-green-500/20 text-green-500 px-2 py-0.5 rounded">
                 Live
               </span>
             )}
           </div>
           <div className="flex items-center gap-1">
             {/* Font size controls */}
-            <div className="flex items-center gap-0.5 mr-2 border-r border-slate-700 pr-2">
+            <div className="flex items-center gap-0.5 mr-2 border-r pr-2">
               <Button
                 size="icon"
                 variant="ghost"
-                className="h-6 w-6 hover:bg-slate-700"
+                className="h-6 w-6"
                 onClick={(e) => {
                   e.stopPropagation();
                   decreaseFontSize();
@@ -444,11 +444,11 @@ export const LogsWindow: React.FC<LogsWindowProps> = ({
               >
                 <ZoomOut className="h-3 w-3" />
               </Button>
-              <span className="text-[10px] text-slate-400 min-w-[20px] text-center">{fontSize}</span>
+              <span className="text-[10px] text-muted-foreground min-w-[20px] text-center">{fontSize}</span>
               <Button
                 size="icon"
                 variant="ghost"
-                className="h-6 w-6 hover:bg-slate-700"
+                className="h-6 w-6"
                 onClick={(e) => {
                   e.stopPropagation();
                   increaseFontSize();
@@ -462,7 +462,7 @@ export const LogsWindow: React.FC<LogsWindowProps> = ({
             <Button
               size="icon"
               variant="ghost"
-              className="h-6 w-6 hover:bg-slate-700"
+              className="h-6 w-6"
               onClick={(e) => {
                 e.stopPropagation();
                 setShowSearch(!showSearch);
@@ -474,7 +474,7 @@ export const LogsWindow: React.FC<LogsWindowProps> = ({
             <Button
               size="icon"
               variant="ghost"
-              className="h-6 w-6 hover:bg-slate-700"
+              className="h-6 w-6"
               onClick={(e) => {
                 e.stopPropagation();
                 fetchLogs();
@@ -487,8 +487,8 @@ export const LogsWindow: React.FC<LogsWindowProps> = ({
               size="icon"
               variant="ghost"
               className={cn(
-                "h-6 w-6 hover:bg-slate-700",
-                autoRefresh && "text-green-400"
+                "h-6 w-6",
+                autoRefresh && "text-green-500"
               )}
               onClick={(e) => {
                 e.stopPropagation();
@@ -501,7 +501,7 @@ export const LogsWindow: React.FC<LogsWindowProps> = ({
             <Button
               size="icon"
               variant="ghost"
-              className="h-6 w-6 hover:bg-slate-700"
+              className="h-6 w-6"
               onClick={(e) => {
                 e.stopPropagation();
                 handleDownload();
@@ -513,7 +513,7 @@ export const LogsWindow: React.FC<LogsWindowProps> = ({
             <Button
               size="icon"
               variant="ghost"
-              className="h-6 w-6 hover:bg-slate-700"
+              className="h-6 w-6"
               onClick={(e) => {
                 e.stopPropagation();
                 toggleMinimize();
@@ -524,7 +524,7 @@ export const LogsWindow: React.FC<LogsWindowProps> = ({
             <Button
               size="icon"
               variant="ghost"
-              className="h-6 w-6 hover:bg-slate-700"
+              className="h-6 w-6"
               onClick={(e) => {
                 e.stopPropagation();
                 toggleMaximize();
@@ -535,7 +535,7 @@ export const LogsWindow: React.FC<LogsWindowProps> = ({
             <Button
               size="icon"
               variant="ghost"
-              className="h-6 w-6 hover:bg-slate-700 hover:text-red-400"
+              className="h-6 w-6 hover:text-destructive"
               onClick={(e) => {
                 e.stopPropagation();
                 onClose();
@@ -548,13 +548,13 @@ export const LogsWindow: React.FC<LogsWindowProps> = ({
 
         {/* Search bar */}
         {showSearch && (
-          <div className="bg-slate-800 border-b border-slate-700 px-4 py-2 flex items-center gap-2">
+          <div className="bg-muted border-b px-4 py-2 flex items-center gap-2">
             <Input
               type="text"
               placeholder="Search logs..."
               value={searchTerm}
               onChange={(e) => handleSearch(e.target.value)}
-              className="flex-1 h-7 text-xs bg-slate-900 border-slate-700"
+              className="flex-1 h-7 text-xs"
             />
             <div className="flex items-center gap-1">
               <Button
@@ -575,7 +575,7 @@ export const LogsWindow: React.FC<LogsWindowProps> = ({
               >
                 <ChevronDown className="h-3 w-3" />
               </Button>
-              <span className="text-xs text-slate-400 ml-2">
+              <span className="text-xs text-muted-foreground ml-2">
                 {searchResults.length > 0 ? `${currentSearchIndex + 1}/${searchResults.length}` : '0/0'}
               </span>
             </div>
@@ -583,17 +583,17 @@ export const LogsWindow: React.FC<LogsWindowProps> = ({
         )}
 
         {/* Logs container */}
-        <div className="flex-1 overflow-hidden bg-slate-950">
+        <div className="flex-1 overflow-hidden bg-background">
           {isLoading ? (
             <div className="flex items-center justify-center h-full">
               <div className="text-center">
-                <div className="h-8 w-8 border-2 border-cyan-400 border-t-transparent rounded-full animate-spin mx-auto mb-2" />
-                <p className="text-sm text-slate-400">Loading logs...</p>
+                <div className="h-8 w-8 border-2 border-primary border-t-transparent rounded-full animate-spin mx-auto mb-2" />
+                <p className="text-sm text-muted-foreground">Loading logs...</p>
               </div>
             </div>
           ) : error ? (
             <div className="flex items-center justify-center h-full">
-              <div className="text-center text-red-400">
+              <div className="text-center text-destructive">
                 <p className="text-sm">{error}</p>
                 <Button
                   size="sm"
@@ -608,7 +608,7 @@ export const LogsWindow: React.FC<LogsWindowProps> = ({
           ) : (
             <div
               ref={logsContainerRef}
-              className="h-full overflow-auto scrollbar-thin scrollbar-thumb-slate-700 scrollbar-track-slate-900"
+              className="h-full overflow-auto"
             >
               {renderLogs()}
             </div>
@@ -616,19 +616,19 @@ export const LogsWindow: React.FC<LogsWindowProps> = ({
         </div>
 
         {/* Footer with stats */}
-        <div className="bg-slate-800 border-t border-slate-700 px-4 py-1 flex items-center justify-between text-xs">
-          <div className="flex items-center gap-4 text-slate-400">
+        <div className="bg-muted border-t px-4 py-1 flex items-center justify-between text-xs">
+          <div className="flex items-center gap-4 text-muted-foreground">
             <span>Lines: {logs.split('\n').length}</span>
             <span>Size: {(new Blob([logs]).size / 1024).toFixed(1)} KB</span>
             {autoRefresh && (
               <>
-                <span className="text-green-400">● Live Stream (WebSocket)</span>
+                <span className="text-green-500">● Live Stream (WebSocket)</span>
                 <span>Last: {lastRefreshTime.toLocaleTimeString()}</span>
               </>
             )}
           </div>
           <div className="flex items-center gap-2">
-            <span className="text-slate-500">Tail: {tailLines} lines</span>
+            <span className="text-muted-foreground">Tail: {tailLines} lines</span>
             <Button
               size="sm"
               variant="ghost"
