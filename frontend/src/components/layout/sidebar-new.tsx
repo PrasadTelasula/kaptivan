@@ -4,8 +4,14 @@ import { Button } from "@/components/ui/button"
 import { ScrollArea } from "@/components/ui/scroll-area"
 import { Separator } from "@/components/ui/separator"
 import {
+  Collapsible,
+  CollapsibleContent,
+  CollapsibleTrigger,
+} from "@/components/ui/collapsible"
+import {
   ChevronLeft,
   ChevronRight,
+  ChevronDown,
   Box,
   Cloud,
   Database,
@@ -26,10 +32,32 @@ import {
   FileText,
   Briefcase,
   Calendar,
+  Workflow,
+  LogOut,
+  User,
 } from "lucide-react"
 import { useLocation, useNavigate } from 'react-router-dom'
+import { useAuthStore } from '@/stores/auth.store'
 
-const menuItems = [
+interface MenuItem {
+  icon: any;
+  label: string;
+  href: string;
+}
+
+interface MenuGroup {
+  icon: any;
+  label: string;
+  items: MenuItem[];
+}
+
+interface MenuSection {
+  title: string;
+  items?: MenuItem[];
+  groups?: MenuGroup[];
+}
+
+const menuItems: MenuSection[] = [
   {
     title: "Overview",
     items: [
@@ -95,10 +123,18 @@ const menuItems = [
     items: [
       { icon: Terminal, label: "Multi-Container Terminals", href: "/advanced/terminals" },
       { icon: FileText, label: "Manifest Viewer", href: "/advanced/manifests" },
-      { icon: Network, label: "Deployment Topology", href: "/advanced/topology" },
-      { icon: Server, label: "DaemonSet Topology", href: "/advanced/daemonset-topology" },
-      { icon: Briefcase, label: "Job Topology", href: "/advanced/job-topology" },
-      { icon: Calendar, label: "CronJob Topology", href: "/advanced/cronjob-topology" },
+    ],
+    groups: [
+      {
+        icon: Workflow,
+        label: "Topology",
+        items: [
+          { icon: Network, label: "Deployment Topology", href: "/advanced/topology" },
+          { icon: Server, label: "DaemonSet Topology", href: "/advanced/daemonset-topology" },
+          { icon: Briefcase, label: "Job Topology", href: "/advanced/job-topology" },
+          { icon: Calendar, label: "CronJob Topology", href: "/advanced/cronjob-topology" },
+        ],
+      },
     ],
   },
 ]
@@ -109,14 +145,30 @@ interface SidebarProps extends React.HTMLAttributes<HTMLDivElement> {
 
 export function Sidebar({ className, defaultCollapsed = false }: SidebarProps) {
   const [collapsed, setCollapsed] = useState(defaultCollapsed)
+  const [expandedGroups, setExpandedGroups] = useState<Record<string, boolean>>({
+    'Advanced-Topology': true, // Default expanded
+  })
   const location = useLocation()
   const navigate = useNavigate()
+  const { user, logout } = useAuthStore()
+  
+  const toggleGroup = (groupKey: string) => {
+    setExpandedGroups(prev => ({
+      ...prev,
+      [groupKey]: !prev[groupKey],
+    }))
+  }
+  
+  const handleLogout = () => {
+    logout()
+    navigate('/login')
+  }
 
   return (
     <div 
       className={cn(
         "relative h-full bg-background transition-all duration-300",
-        collapsed ? "w-12 overflow-x-visible" : "w-64",
+        collapsed ? "w-12 overflow-x-visible" : "w-58",
         className
       )}
     >
@@ -135,8 +187,9 @@ export function Sidebar({ className, defaultCollapsed = false }: SidebarProps) {
         </Button>
       </div>
 
-      <div className="h-full overflow-y-auto overflow-x-visible pb-12">
-        <div className="space-y-4 py-4">
+      <ScrollArea className="h-full">
+        <div className="flex flex-col h-full">
+          <div className="flex-1 space-y-4 py-4">
           {menuItems.map((section, idx) => (
             <div key={idx} className={cn("py-2", collapsed ? "px-1" : "px-3")}>
               {!collapsed && (
@@ -145,7 +198,7 @@ export function Sidebar({ className, defaultCollapsed = false }: SidebarProps) {
                 </h2>
               )}
               <div className="space-y-1">
-                {section.items.map((item) => {
+                {section.items?.map((item) => {
                   const isActive = location.pathname === item.href
                   return (
                     <Button
@@ -158,16 +211,160 @@ export function Sidebar({ className, defaultCollapsed = false }: SidebarProps) {
                       onClick={() => navigate(item.href)}
                       title={collapsed ? item.label : undefined}
                     >
-                      <item.icon className={cn("h-4 w-4 flex-shrink-0", !collapsed && "mr-2")} />
+                      <item.icon className={cn(
+                        "h-4 w-4 flex-shrink-0",
+                        !collapsed && "mr-2",
+                        // Add colors based on section
+                        section.title === "Overview" && "text-blue-500 dark:text-blue-400",
+                        section.title === "Workloads" && "text-violet-500 dark:text-violet-400",
+                        section.title === "Networking" && "text-emerald-500 dark:text-emerald-400",
+                        section.title === "Storage" && "text-orange-500 dark:text-orange-400",
+                        section.title === "Configuration" && "text-purple-500 dark:text-purple-400",
+                        section.title === "Security" && "text-red-500 dark:text-red-400",
+                        section.title === "Cluster" && "text-cyan-500 dark:text-cyan-400",
+                        section.title === "Tools" && "text-yellow-500 dark:text-yellow-400",
+                        section.title === "Advanced" && "text-pink-500 dark:text-pink-400"
+                      )} />
                       {!collapsed && item.label}
                     </Button>
+                  )
+                })}
+                
+                {/* Render collapsible groups */}
+                {section.groups?.map((group) => {
+                  const groupKey = `${section.title}-${group.label}`
+                  const isExpanded = expandedGroups[groupKey]
+                  const hasActiveItem = group.items.some(item => location.pathname === item.href)
+                  
+                  if (collapsed) {
+                    // In collapsed mode, just show the group icon
+                    return (
+                      <div key={groupKey} className="space-y-1">
+                        <Button
+                          variant="ghost"
+                          className="w-full justify-center px-2 py-2"
+                          onClick={() => {
+                            setCollapsed(false)
+                            toggleGroup(groupKey)
+                          }}
+                          title={group.label}
+                        >
+                          <group.icon className={cn(
+                            "h-4 w-4 flex-shrink-0",
+                            // Advanced section gets pink color
+                            "text-pink-500 dark:text-pink-400"
+                          )} />
+                        </Button>
+                      </div>
+                    )
+                  }
+                  
+                  return (
+                    <Collapsible
+                      key={groupKey}
+                      open={isExpanded}
+                      onOpenChange={() => toggleGroup(groupKey)}
+                    >
+                      <CollapsibleTrigger asChild>
+                        <Button
+                          variant={hasActiveItem ? "secondary" : "ghost"}
+                          className="w-full justify-start"
+                        >
+                          <group.icon className={cn(
+                            "h-4 w-4 mr-2 flex-shrink-0",
+                            // Advanced section gets pink color
+                            "text-pink-500 dark:text-pink-400"
+                          )} />
+                          <span className="flex-1 text-left">{group.label}</span>
+                          <ChevronDown
+                            className={cn(
+                              "h-3 w-3 transition-transform duration-200",
+                              isExpanded && "rotate-180"
+                            )}
+                          />
+                        </Button>
+                      </CollapsibleTrigger>
+                      <CollapsibleContent className="ml-4 space-y-1">
+                        {group.items.map((item) => {
+                          const isActive = location.pathname === item.href
+                          return (
+                            <Button
+                              key={item.href}
+                              variant={isActive ? "secondary" : "ghost"}
+                              className="w-full justify-start pl-2"
+                              onClick={() => navigate(item.href)}
+                            >
+                              <item.icon className={cn(
+                                "h-3.5 w-3.5 mr-2 flex-shrink-0",
+                                // Topology items get specific colors
+                                item.label.includes("Deployment") && "text-blue-500 dark:text-blue-400",
+                                item.label.includes("DaemonSet") && "text-green-500 dark:text-green-400",
+                                item.label.includes("Job") && !item.label.includes("CronJob") && "text-orange-500 dark:text-orange-400",
+                                item.label.includes("CronJob") && "text-purple-500 dark:text-purple-400"
+                              )} />
+                              <span className="text-sm">{item.label}</span>
+                            </Button>
+                          )
+                        })}
+                      </CollapsibleContent>
+                    </Collapsible>
                   )
                 })}
               </div>
             </div>
           ))}
         </div>
-      </div>
+        
+        {/* User section at bottom */}
+        <div className={cn(
+          "border-t mt-auto",
+          collapsed ? "px-1 py-2" : "p-3"
+        )}>
+          {!collapsed ? (
+            <div className="space-y-2">
+              {user && (
+                <div className="flex items-center gap-2 px-2 py-1.5 rounded-md text-sm">
+                  <User className="h-4 w-4 text-slate-500 dark:text-slate-400" />
+                  <span className="text-muted-foreground truncate flex-1">
+                    {user.email}
+                  </span>
+                </div>
+              )}
+              <Button
+                variant="ghost"
+                className="w-full justify-start"
+                onClick={handleLogout}
+              >
+                <LogOut className="h-4 w-4 mr-2 text-red-500 dark:text-red-400" />
+                Sign Out
+              </Button>
+            </div>
+          ) : (
+            <div className="space-y-2">
+              {user && (
+                <Button
+                  variant="ghost"
+                  size="icon"
+                  className="w-full"
+                  title={user.email}
+                >
+                  <User className="h-4 w-4 text-slate-500 dark:text-slate-400" />
+                </Button>
+              )}
+              <Button
+                variant="ghost"
+                size="icon"
+                className="w-full"
+                onClick={handleLogout}
+                title="Sign Out"
+              >
+                <LogOut className="h-4 w-4 text-red-500 dark:text-red-400" />
+              </Button>
+            </div>
+          )}
+        </div>
+        </div>
+      </ScrollArea>
     </div>
   )
 }

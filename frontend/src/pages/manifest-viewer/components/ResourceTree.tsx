@@ -115,9 +115,29 @@ export function ResourceTree({
     }
   }
 
-  const renderResourceItem = (item: ResourceItem) => {
+  const renderResourceItem = (item: ResourceItem, category: string) => {
     const resourceId = getResourceId(item)
     const isSelected = selectedResources.has(resourceId)
+    
+    // Determine icon color based on category
+    const getIconColor = () => {
+      switch(category) {
+        case 'Workloads':
+          return 'text-violet-500 dark:text-violet-400'
+        case 'Networking':
+          return 'text-emerald-500 dark:text-emerald-400'
+        case 'Configuration':
+          return 'text-purple-500 dark:text-purple-400'
+        case 'Storage':
+          return 'text-orange-500 dark:text-orange-400'
+        case 'Security':
+          return 'text-red-500 dark:text-red-400'
+        case 'Cluster':
+          return 'text-cyan-500 dark:text-cyan-400'
+        default:
+          return 'text-muted-foreground'
+      }
+    }
     
     return (
       <div
@@ -136,7 +156,7 @@ export function ResourceTree({
             className="h-3 w-3"
           />
         )}
-        <FileText className="h-3 w-3 flex-shrink-0" />
+        <FileText className={cn("h-3 w-3 flex-shrink-0", getIconColor())} />
         <span className="truncate flex-1 text-left">
           {selectedClusters.length > 1 && item.clusterName && (
             <Badge variant="outline" className="h-3.5 px-1 text-[10px] mr-1">
@@ -152,9 +172,29 @@ export function ResourceTree({
     )
   }
   
-  const renderResourceGroup = (group: any) => {
+  const renderResourceGroup = (group: any, category: string) => {
     const groupData = resourceGroups.get(group.name)
     const Icon = group.icon
+    
+    // Determine icon color based on category
+    const getIconColor = () => {
+      switch(category) {
+        case 'Workloads':
+          return 'text-violet-500 dark:text-violet-400'
+        case 'Networking':
+          return 'text-emerald-500 dark:text-emerald-400'
+        case 'Configuration':
+          return 'text-purple-500 dark:text-purple-400'
+        case 'Storage':
+          return 'text-orange-500 dark:text-orange-400'
+        case 'Security':
+          return 'text-red-500 dark:text-red-400'
+        case 'Cluster':
+          return 'text-cyan-500 dark:text-cyan-400'
+        default:
+          return ''
+      }
+    }
     
     return (
       <div key={group.name}>
@@ -168,7 +208,7 @@ export function ResourceTree({
           ) : (
             <ChevronRight className="h-3 w-3 mr-1" />
           )}
-          <Icon className="h-3 w-3 mr-2" />
+          <Icon className={cn("h-3 w-3 mr-2", getIconColor())} />
           <span className="flex-1 text-left">{group.name}</span>
           {groupData?.loading && (
             <RefreshCw className="h-3 w-3 animate-spin ml-2" />
@@ -182,7 +222,7 @@ export function ResourceTree({
         
         {groupData?.expanded && (
           <div className="ml-6">
-            {groupData.items.map(renderResourceItem)}
+            {groupData.items.map((item) => renderResourceItem(item, category))}
           </div>
         )}
       </div>
@@ -428,7 +468,7 @@ export function ResourceTree({
 
                 {expandedCategories.has(category.category) && (
                   <div className="ml-2">
-                    {category.groups.map(renderResourceGroup)}
+                    {category.groups.map(group => renderResourceGroup(group, category.category))}
                   </div>
                 )}
               </div>
