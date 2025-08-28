@@ -98,6 +98,8 @@ func SetupRoutes(r *gin.Engine) {
 			manifestsGroup.POST("/list", manifests.ListResources)
 			manifestsGroup.GET("/get", manifests.GetManifest)
 			manifestsGroup.GET("/related", manifests.GetRelatedResources)
+			// Add path-based route for related resources to match frontend expectations
+			manifestsGroup.GET("/:context/:name/related", manifests.GetRelatedResourcesWithPath)
 		}
 		
 		// Topology endpoints
