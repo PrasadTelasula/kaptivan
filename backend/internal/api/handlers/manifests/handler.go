@@ -629,6 +629,265 @@ func GetRelatedResources(c *gin.Context) {
 	})
 }
 
+// GetRelatedResourcesWithPath handles path-based related resources endpoint
+func GetRelatedResourcesWithPath(c *gin.Context) {
+	// Extract from path parameters
+	clusterContext := c.Param("context")
+	name := c.Param("name")
+	
+	// Extract from query parameters
+	namespace := c.Query("namespace")
+	kind := c.Query("kind")
+	// apiVersion is provided but not currently used as we handle known resource types
+	// It could be used in the future for more dynamic resource discovery
+	_ = c.Query("apiVersion")
+	
+	if clusterContext == "" || name == "" || kind == "" {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "context, name, and kind are required"})
+		return
+	}
+
+	conn, err := clusterManager.GetConnection(clusterContext)
+	if err != nil || conn == nil {
+		errMsg := "cluster not connected"
+		if err != nil {
+			errMsg = fmt.Sprintf("cluster not connected: %v", err)
+		}
+		c.JSON(http.StatusNotFound, gin.H{"error": errMsg, "context": clusterContext})
+		return
+	}
+
+	dynamicClient := dynamic.NewForConfigOrDie(conn.Config)
+	
+	type RelatedResource struct {
+		Name         string `json:"name"`
+		Namespace    string `json:"namespace,omitempty"`
+		Kind         string `json:"kind"`
+		APIVersion   string `json:"apiVersion"`
+		Relationship string `json:"relationship"` // "owner" or "child"
+	}
+
+	var relatedResources []RelatedResource
+	ctx := context.TODO()
+
+	// Handle different resource relationships
+	switch strings.ToLower(kind) {
+	case "deployment":
+		// Get ReplicaSets owned by this Deployment
+		rsGVR := schema.GroupVersionResource{
+			Group:    "apps",
+			Version:  "v1",
+			Resource: "replicasets",
+		}
+		
+		rsList, err := dynamicClient.Resource(rsGVR).Namespace(namespace).List(ctx, metav1.ListOptions{})
+		if err == nil {
+			for _, rs := range rsList.Items {
+				// Check if this ReplicaSet is owned by our Deployment
+				ownerRefs, found, _ := unstructured.NestedSlice(rs.Object, "metadata", "ownerReferences")
+				if found {
+					for _, ownerRef := range ownerRefs {
+						if owner, ok := ownerRef.(map[string]interface{}); ok {
+							if owner["kind"] == "Deployment" && owner["name"] == name {
+								rsName, _, _ := unstructured.NestedString(rs.Object, "metadata", "name")
+								relatedResources = append(relatedResources, RelatedResource{
+									Name:       rsName,
+									Namespace:  namespace,
+									Kind:       "ReplicaSet",
+									APIVersion: "apps/v1",
+									Relationship: "child",
+								})
+							}
+						}
+					}
+				}
+			}
+		}
+
+	case "replicaset":
+		// Get owner Deployment
+		rsGVR := schema.GroupVersionResource{
+			Group:    "apps",
+			Version:  "v1",
+			Resource: "replicasets",
+		}
+		
+		rs, err := dynamicClient.Resource(rsGVR).Namespace(namespace).Get(ctx, name, metav1.GetOptions{})
+		if err == nil {
+			ownerRefs, found, _ := unstructured.NestedSlice(rs.Object, "metadata", "ownerReferences")
+			if found {
+				for _, ownerRef := range ownerRefs {
+					if owner, ok := ownerRef.(map[string]interface{}); ok {
+						if owner["kind"] == "Deployment" {
+							ownerName, _ := owner["name"].(string)
+							relatedResources = append(relatedResources, RelatedResource{
+								Name:       ownerName,
+								Namespace:  namespace,
+								Kind:       "Deployment",
+								APIVersion: "apps/v1",
+								Relationship: "owner",
+							})
+						}
+					}
+				}
+			}
+		}
+
+		// Get Pods owned by this ReplicaSet
+		podGVR := schema.GroupVersionResource{
+			Group:    "",
+			Version:  "v1",
+			Resource: "pods",
+		}
+		
+		podList, err := dynamicClient.Resource(podGVR).Namespace(namespace).List(ctx, metav1.ListOptions{})
+		if err == nil {
+			for _, pod := range podList.Items {
+				ownerRefs, found, _ := unstructured.NestedSlice(pod.Object, "metadata", "ownerReferences")
+				if found {
+					for _, ownerRef := range ownerRefs {
+						if owner, ok := ownerRef.(map[string]interface{}); ok {
+							if owner["kind"] == "ReplicaSet" && owner["name"] == name {
+								podName, _, _ := unstructured.NestedString(pod.Object, "metadata", "name")
+								relatedResources = append(relatedResources, RelatedResource{
+									Name:       podName,
+									Namespace:  namespace,
+									Kind:       "Pod",
+									APIVersion: "v1",
+									Relationship: "child",
+								})
+							}
+						}
+					}
+				}
+			}
+		}
+
+	case "pod":
+		// Get owner (could be ReplicaSet, DaemonSet, StatefulSet, Job, etc.)
+		podGVR := schema.GroupVersionResource{
+			Group:    "",
+			Version:  "v1",
+			Resource: "pods",
+		}
+		
+		pod, err := dynamicClient.Resource(podGVR).Namespace(namespace).Get(ctx, name, metav1.GetOptions{})
+		if err == nil {
+			ownerRefs, found, _ := unstructured.NestedSlice(pod.Object, "metadata", "ownerReferences")
+			if found {
+				for _, ownerRef := range ownerRefs {
+					if owner, ok := ownerRef.(map[string]interface{}); ok {
+						ownerKind, _ := owner["kind"].(string)
+						ownerName, _ := owner["name"].(string)
+						ownerAPIVersion, _ := owner["apiVersion"].(string)
+						
+						if ownerAPIVersion == "" {
+							// Default API versions for common owners
+							switch ownerKind {
+							case "ReplicaSet", "DaemonSet", "StatefulSet", "Deployment":
+								ownerAPIVersion = "apps/v1"
+							case "Job":
+								ownerAPIVersion = "batch/v1"
+							case "CronJob":
+								ownerAPIVersion = "batch/v1"
+							}
+						}
+						
+						relatedResources = append(relatedResources, RelatedResource{
+							Name:       ownerName,
+							Namespace:  namespace,
+							Kind:       ownerKind,
+							APIVersion: ownerAPIVersion,
+							Relationship: "owner",
+						})
+					}
+				}
+			}
+		}
+
+	case "statefulset", "daemonset":
+		// Get Pods owned by this StatefulSet/DaemonSet
+		podGVR := schema.GroupVersionResource{
+			Group:    "",
+			Version:  "v1",
+			Resource: "pods",
+		}
+		
+		podList, err := dynamicClient.Resource(podGVR).Namespace(namespace).List(ctx, metav1.ListOptions{})
+		if err == nil {
+			for _, pod := range podList.Items {
+				ownerRefs, found, _ := unstructured.NestedSlice(pod.Object, "metadata", "ownerReferences")
+				if found {
+					for _, ownerRef := range ownerRefs {
+						if owner, ok := ownerRef.(map[string]interface{}); ok {
+							ownerKind, _ := owner["kind"].(string)
+							ownerName, _ := owner["name"].(string)
+							if strings.EqualFold(ownerKind, kind) && ownerName == name {
+								podName, _, _ := unstructured.NestedString(pod.Object, "metadata", "name")
+								relatedResources = append(relatedResources, RelatedResource{
+									Name:       podName,
+									Namespace:  namespace,
+									Kind:       "Pod",
+									APIVersion: "v1",
+									Relationship: "child",
+								})
+							}
+						}
+					}
+				}
+			}
+		}
+
+	case "service":
+		// Get Pods selected by this Service
+		svcGVR := schema.GroupVersionResource{
+			Group:    "",
+			Version:  "v1",
+			Resource: "services",
+		}
+		
+		svc, err := dynamicClient.Resource(svcGVR).Namespace(namespace).Get(ctx, name, metav1.GetOptions{})
+		if err == nil {
+			selector, found, _ := unstructured.NestedStringMap(svc.Object, "spec", "selector")
+			if found && len(selector) > 0 {
+				// Build label selector
+				var labelSelectors []string
+				for k, v := range selector {
+					labelSelectors = append(labelSelectors, fmt.Sprintf("%s=%s", k, v))
+				}
+				labelSelector := strings.Join(labelSelectors, ",")
+				
+				// Get pods matching the selector
+				podGVR := schema.GroupVersionResource{
+					Group:    "",
+					Version:  "v1",
+					Resource: "pods",
+				}
+				
+				podList, err := dynamicClient.Resource(podGVR).Namespace(namespace).List(ctx, metav1.ListOptions{
+					LabelSelector: labelSelector,
+				})
+				if err == nil {
+					for _, pod := range podList.Items {
+						podName, _, _ := unstructured.NestedString(pod.Object, "metadata", "name")
+						relatedResources = append(relatedResources, RelatedResource{
+							Name:       podName,
+							Namespace:  namespace,
+							Kind:       "Pod",
+							APIVersion: "v1",
+							Relationship: "child",
+						})
+					}
+				}
+			}
+		}
+	}
+
+	c.JSON(http.StatusOK, gin.H{
+		"resources": relatedResources,
+	})
+}
+
 // cleanManifest removes unnecessary fields from the manifest
 func cleanManifest(obj *unstructured.Unstructured) {
 	// Remove managed fields
