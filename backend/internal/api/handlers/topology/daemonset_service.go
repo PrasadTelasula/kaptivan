@@ -23,14 +23,18 @@ func (s *Service) GetDaemonSetTopology(ctx context.Context, namespace, name stri
 		DaemonSet: s.buildDaemonSetInfo(daemonSet),
 	}
 
-	// Fetch pods for this DaemonSet
-	pods, err := s.getPodsForDaemonSet(ctx, namespace, daemonSet)
+	// OPTIMIZATION: Fetch all pods in namespace once, then filter locally
+	// This avoids multiple API calls for DaemonSet pods
+	allPods, err := s.clientset.CoreV1().Pods(namespace).List(ctx, metav1.ListOptions{})
 	if err != nil {
-		return nil, fmt.Errorf("failed to get pods for daemonset %s: %w", daemonSet.Name, err)
+		return nil, fmt.Errorf("failed to get pods: %w", err)
 	}
 
-	for _, pod := range pods {
-		topology.Pods = append(topology.Pods, s.buildPodRef(&pod))
+	// Filter pods owned by this DaemonSet
+	for _, pod := range allPods.Items {
+		if owner := metav1.GetControllerOf(&pod); owner != nil && owner.Kind == "DaemonSet" && owner.UID == daemonSet.UID {
+			topology.Pods = append(topology.Pods, s.buildPodRef(&pod))
+		}
 	}
 
 	// Fetch Services that might select these pods

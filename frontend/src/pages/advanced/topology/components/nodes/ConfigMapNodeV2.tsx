@@ -52,49 +52,47 @@ const ConfigMapNodeV2: React.FC<ConfigMapNodeProps> = ({ data }) => {
           </div>
         </div>
         
-        {/* Data Stats */}
-        <div className="space-y-1.5">
-          {dataCount > 0 && (
-            <div className="flex items-center justify-between bg-slate-50 dark:bg-slate-900/20 rounded-lg px-2 py-1">
-              <div className="flex items-center gap-1.5">
-                <FileText className="h-3 w-3 text-slate-600 dark:text-slate-400" />
-                <span className="text-xs text-slate-700 dark:text-slate-300">
-                  {dataCount} key{dataCount !== 1 ? 's' : ''}
-                </span>
-              </div>
-              <Hash className="h-3 w-3 text-slate-400 opacity-50" />
-            </div>
-          )}
-          
-          {binaryDataCount > 0 && (
-            <div className="flex items-center gap-1.5 px-2 py-1 bg-gray-50 dark:bg-gray-800/50 rounded-lg">
-              <Database className="h-3 w-3 text-gray-600 dark:text-gray-400" />
-              <span className="text-xs text-gray-700 dark:text-gray-300">
-                {binaryDataCount} binary
+        {/* Data Keys */}
+        {(dataCount > 0 || binaryDataCount > 0) && (
+          <div className="space-y-1">
+            <div className="flex items-center justify-between text-xs">
+              <span className="text-gray-500 dark:text-gray-400">Keys</span>
+              <span className="font-medium text-gray-700 dark:text-gray-300">
+                {dataCount + binaryDataCount}
               </span>
             </div>
-          )}
-          
-          {/* Key Preview */}
-          {dataCount > 0 && (
-            <div className="mt-1 space-y-0.5">
-              {Object.keys(resource.data || {}).slice(0, 2).map((key) => (
+            
+            <div className="space-y-0.5">
+              {Object.keys(resource.data || {}).slice(0, 3).map((key) => (
                 <div 
                   key={key}
-                  className="text-[10px] px-1.5 py-0.5 bg-slate-100 dark:bg-slate-800 rounded text-slate-600 dark:text-slate-400 truncate"
-                  title={key}
+                  className="flex items-center gap-1 text-[10px] px-1.5 py-0.5 bg-slate-50 dark:bg-slate-900/20 rounded"
                 >
-                  {key}
+                  <FileText className="h-2.5 w-2.5 text-slate-500" />
+                  <span className="text-slate-700 dark:text-slate-400 truncate">
+                    {key}
+                  </span>
                 </div>
               ))}
-              {dataCount > 2 && (
+              {Object.keys(resource.binaryData || {}).slice(0, Math.max(0, 3 - dataCount)).map((key) => (
+                <div 
+                  key={key}
+                  className="flex items-center gap-1 text-[10px] px-1.5 py-0.5 bg-gray-50 dark:bg-gray-900/20 rounded"
+                >
+                  <Database className="h-2.5 w-2.5 text-gray-500" />
+                  <span className="text-gray-700 dark:text-gray-400 truncate">
+                    {key} (binary)
+                  </span>
+                </div>
+              ))}
+              {(dataCount + binaryDataCount) > 3 && (
                 <div className="text-[10px] text-gray-500 dark:text-gray-400 px-1.5">
-                  +{dataCount - 2} more
+                  +{dataCount + binaryDataCount - 3} more
                 </div>
               )}
             </div>
-          )}
-        </div>
+          </div>
+        )}
         
         {/* YAML button - positioned in top-right corner, visible on hover */}
         <div className="absolute top-2 right-2 opacity-0 group-hover:opacity-100 transition-opacity duration-200">
