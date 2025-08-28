@@ -1,5 +1,6 @@
 import { create } from 'zustand'
 import { persist } from 'zustand/middleware'
+import { apiUrls } from '@/utils/api-urls'
 
 interface Cluster {
   name: string
@@ -38,7 +39,7 @@ interface ClusterState {
   isClusterSelected: (context: string) => boolean
 }
 
-const API_BASE = 'http://localhost:8080/api/v1'
+// API URLs are now centralized in utils/api-urls.ts
 
 export const useClusterStore = create<ClusterState>()(
   persist(
@@ -53,7 +54,7 @@ export const useClusterStore = create<ClusterState>()(
       fetchClusters: async () => {
         set({ isLoading: true, error: null })
         try {
-          const response = await fetch(`${API_BASE}/clusters/config`)
+          const response = await fetch(apiUrls.clusters.config())
           if (!response.ok) {
             throw new Error('Failed to fetch clusters')
           }
@@ -76,7 +77,7 @@ export const useClusterStore = create<ClusterState>()(
       connectCluster: async (context: string) => {
         set({ isLoading: true, error: null })
         try {
-          const response = await fetch(`${API_BASE}/clusters/connect`, {
+          const response = await fetch(apiUrls.clusters.connect(), {
             method: 'POST',
             headers: {
               'Content-Type': 'application/json',
@@ -104,7 +105,7 @@ export const useClusterStore = create<ClusterState>()(
       disconnectCluster: async (context: string) => {
         set({ isLoading: true, error: null })
         try {
-          const response = await fetch(`${API_BASE}/clusters/disconnect`, {
+          const response = await fetch(apiUrls.clusters.disconnect(), {
             method: 'POST',
             headers: {
               'Content-Type': 'application/json',
@@ -140,7 +141,9 @@ export const useClusterStore = create<ClusterState>()(
 
       fetchClusterInfo: async (context: string) => {
         try {
-          const response = await fetch(`${API_BASE}/clusters/${context}`)
+          const url = apiUrls.clusters.get(context)
+          console.log('Fetching cluster info from:', url)
+          const response = await fetch(url)
           if (!response.ok) {
             throw new Error('Failed to fetch cluster info')
           }

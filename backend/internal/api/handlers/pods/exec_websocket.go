@@ -43,9 +43,9 @@ type ResizeMessage struct {
 
 // ExecWebSocket handles WebSocket connections for pod exec
 func ExecWebSocket(c *gin.Context) {
-	contextName := c.Param("context")
-	namespace := c.Param("namespace")
-	podName := c.Param("name")
+	contextName := c.Query("context")
+	namespace := c.Query("namespace")
+	podName := c.Query("name")
 	container := c.Query("container")
 
 

@@ -34,7 +34,8 @@ export const useCronJobTopologyData = (context: string | null): UseCronJobTopolo
       }
 
       try {
-        const response = await fetch(`${API_BASE_URL}/api/v1/topology/${context}/namespaces`);
+        const params = new URLSearchParams({ context });
+        const response = await fetch(`${API_BASE_URL}/api/v1/topology/namespaces?${params.toString()}`);
         if (!response.ok) throw new Error('Failed to fetch namespaces');
         const data = await response.json();
         setNamespaces(data.namespaces || []);
@@ -62,7 +63,8 @@ export const useCronJobTopologyData = (context: string | null): UseCronJobTopolo
       }
 
       try {
-        const response = await fetch(`${API_BASE_URL}/api/v1/topology/${context}/cronjobs?namespace=${selectedNamespace}`);
+        const params = new URLSearchParams({ context, namespace: selectedNamespace });
+        const response = await fetch(`${API_BASE_URL}/api/v1/topology/cronjobs/list?${params.toString()}`);
         if (!response.ok) throw new Error('Failed to fetch CronJobs');
         const data = await response.json();
         setCronJobs(data.cronjobs || []);
@@ -97,8 +99,9 @@ export const useCronJobTopologyData = (context: string | null): UseCronJobTopolo
     setError(null);
 
     try {
+      const params = new URLSearchParams({ context, namespace: selectedNamespace, name: selectedCronJob });
       const response = await fetch(
-        `${API_BASE_URL}/api/v1/topology/${context}/cronjob/${selectedNamespace}/${selectedCronJob}`
+        `${API_BASE_URL}/api/v1/topology/cronjob?${params.toString()}`
       );
       
       if (!response.ok) throw new Error('Failed to fetch CronJob topology');

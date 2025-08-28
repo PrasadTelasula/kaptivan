@@ -5,6 +5,7 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { cn } from '@/lib/utils';
 import { LogsWebSocketClient } from '@/services/logs-websocket';
+import { apiUrls } from '@/utils/api-urls';
 
 interface LogsWindowProps {
   podName: string;
@@ -57,12 +58,15 @@ export const LogsWindow: React.FC<LogsWindowProps> = ({
     setError(null);
     
     try {
-      let url = `${API_BASE_URL}/api/v1/pods/${context}/${namespace}/${podName}/logs?tailLines=${tailLines}`;
-      if (containerName) {
-        url += `&container=${containerName}`;
-      }
+      let url = apiUrls.pods.logs(context, namespace, podName, containerName);
+      const params = new URLSearchParams();
+      params.append('tailLines', tailLines.toString());
       if (since && lastTimestamp && !initial) {
-        url += `&sinceTime=${encodeURIComponent(lastTimestamp)}`;
+        params.append('sinceTime', lastTimestamp);
+      }
+      
+      if (params.toString()) {
+        url += (url.includes('?') ? '&' : '?') + params.toString();
       }
 
       const response = await fetch(url);
@@ -246,7 +250,8 @@ export const LogsWindow: React.FC<LogsWindowProps> = ({
     }
 
     // Create WebSocket connection for log streaming
-    const wsUrl = `${API_BASE_URL.replace('http', 'ws')}/api/v1/pods/${context}/${namespace}/${podName}/logs/ws?tailLines=${tailLines}${containerName ? `&container=${containerName}` : ''}&follow=true`;
+    const baseWsUrl = apiUrls.pods.execWs(context, namespace, podName, containerName).replace('/exec/ws', '/logs/ws');
+    const wsUrl = `${baseWsUrl}${baseWsUrl.includes('?') ? '&' : '?'}tailLines=${tailLines}&follow=true`;
     
     const wsClient = new LogsWebSocketClient(
       wsUrl,

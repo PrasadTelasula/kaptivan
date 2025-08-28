@@ -66,27 +66,35 @@ func (s *CronJobService) GetCronJobTopology(ctx context.Context, namespace, name
 		return nil, fmt.Errorf("failed to get jobs for cronjob %s: %w", cronJob.Name, err)
 	}
 
-	// Process jobs and collect pods
-	var allPods []corev1.Pod
-	for _, job := range jobs {
-		topology.Jobs = append(topology.Jobs, s.buildJobRef(&job))
-
-		// Get pods for this job
-		pods, err := s.getPodsForJob(ctx, namespace, &job)
-		if err != nil {
-			log.Printf("Failed to get pods for job %s: %v", job.Name, err)
-			continue
-		}
-		allPods = append(allPods, pods...)
+	// OPTIMIZATION: Fetch all pods in namespace once, then filter locally
+	// This reduces API calls from N (number of Jobs) to 1
+	allPods, err := s.clientset.CoreV1().Pods(namespace).List(ctx, metav1.ListOptions{})
+	if err != nil {
+		return nil, fmt.Errorf("failed to get pods: %w", err)
 	}
 
-	// Add pods to topology
-	for _, pod := range allPods {
-		topology.Pods = append(topology.Pods, s.service.buildPodRef(&pod))
+	// Create a map of Job UID to pods for efficient lookup
+	jobPodMap := make(map[string][]corev1.Pod)
+	for _, pod := range allPods.Items {
+		if owner := metav1.GetControllerOf(&pod); owner != nil && owner.Kind == "Job" {
+			jobPodMap[string(owner.UID)] = append(jobPodMap[string(owner.UID)], pod)
+		}
+	}
+
+	// Process jobs and add their pods
+	for _, job := range jobs {
+		topology.Jobs = append(topology.Jobs, s.buildJobRef(&job))
+		
+		// Get pods for this job from our pre-fetched map
+		if pods, exists := jobPodMap[string(job.UID)]; exists {
+			for _, pod := range pods {
+				topology.Pods = append(topology.Pods, s.service.buildPodRef(&pod))
+			}
+		}
 	}
 
 	// Fetch Services that might select these pods
-	if len(allPods) > 0 {
+	if len(jobPodMap) > 0 {
 		services, err := s.getServicesForCronJob(ctx, namespace, cronJob)
 		if err != nil {
 			return nil, fmt.Errorf("failed to get services: %w", err)

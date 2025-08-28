@@ -49,7 +49,8 @@ class TopologyAPI {
 
   async getNamespaces(clusterContext: string): Promise<string[]> {
     try {
-      const url = `${this.baseUrl}/api/v1/topology/${clusterContext}/namespaces`;
+      const params = new URLSearchParams({ context: clusterContext });
+      const url = `${this.baseUrl}/api/v1/topology/namespaces?${params.toString()}`;
       console.log('Fetching namespaces from:', url);
       
       const response = await this.fetchWithAuth(url);
@@ -71,9 +72,9 @@ class TopologyAPI {
 
   async listDeployments(clusterContext: string, namespace?: string): Promise<DeploymentSummary[]> {
     try {
-      const url = namespace 
-        ? `${this.baseUrl}/api/v1/topology/${clusterContext}/deployments?namespace=${namespace}`
-        : `${this.baseUrl}/api/v1/topology/${clusterContext}/deployments`;
+      const params = new URLSearchParams({ context: clusterContext });
+      if (namespace) params.append('namespace', namespace);
+      const url = `${this.baseUrl}/api/v1/topology/deployments/list?${params.toString()}`;
         
       const response = await this.fetchWithAuth(url);
       
@@ -95,8 +96,13 @@ class TopologyAPI {
     deploymentName: string
   ): Promise<DeploymentTopology | null> {
     try {
+      const params = new URLSearchParams({
+        context: clusterContext,
+        namespace: namespace,
+        name: deploymentName
+      });
       const response = await this.fetchWithAuth(
-        `${this.baseUrl}/api/v1/topology/${clusterContext}/deployment/${namespace}/${deploymentName}`
+        `${this.baseUrl}/api/v1/topology/deployment?${params.toString()}`
       );
       
       if (!response.ok) {

@@ -47,8 +47,8 @@ type SubscriptionMessage struct {
 // HandleTopologyWebSocket handles WebSocket connections for real-time topology updates
 func HandleTopologyWebSocket(clientset kubernetes.Interface) gin.HandlerFunc {
 	return func(c *gin.Context) {
-		clusterContext := c.Param("context")
-		namespace := c.Param("namespace")
+		clusterContext := c.Query("context")
+		namespace := c.Query("namespace")
 		deployment := c.Query("deployment")
 		daemonset := c.Query("daemonset")
 		job := c.Query("job")

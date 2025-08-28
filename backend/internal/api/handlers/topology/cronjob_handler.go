@@ -9,7 +9,7 @@ import (
 
 // ListCronJobs handles the listing of CronJobs in a namespace
 func (h *Handler) ListCronJobs(c *gin.Context) {
-	context := c.Param("context")
+	context := c.Query("context")
 	namespace := c.Query("namespace")
 	
 	if namespace == "" {
@@ -36,9 +36,9 @@ func (h *Handler) ListCronJobs(c *gin.Context) {
 
 // GetCronJobTopology handles fetching the topology for a specific CronJob
 func (h *Handler) GetCronJobTopology(c *gin.Context) {
-	context := c.Param("context")
-	namespace := c.Param("namespace")
-	name := c.Param("name")
+	context := c.Query("context")
+	namespace := c.Query("namespace")
+	name := c.Query("name")
 	
 	// Get the clientset for this context
 	clientset, err := h.manager.GetClientset(context)

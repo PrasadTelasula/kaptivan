@@ -10,7 +10,6 @@ import (
 	corev1 "k8s.io/api/core/v1"
 	rbacv1 "k8s.io/api/rbac/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	"k8s.io/apimachinery/pkg/labels"
 )
 
 // JobService handles Job topology operations
@@ -43,17 +42,23 @@ func (s *JobService) GetJobTopology(ctx context.Context, contextName, namespace,
 		Job:       convertJobToJobInfo(job),
 	}
 
-	// Get Pods created by the Job
-	podSelector := labels.SelectorFromSet(job.Spec.Selector.MatchLabels)
-	pods, err := conn.ClientSet.CoreV1().Pods(namespace).List(ctx, metav1.ListOptions{
-		LabelSelector: podSelector.String(),
-	})
+	// OPTIMIZATION: Fetch all pods in namespace once, then filter locally
+	// This avoids multiple API calls and improves performance
+	allPods, err := conn.ClientSet.CoreV1().Pods(namespace).List(ctx, metav1.ListOptions{})
 	if err != nil {
 		return nil, fmt.Errorf("failed to list pods: %w", err)
 	}
 
+	// Filter pods owned by this Job
+	var jobPods []corev1.Pod
+	for _, pod := range allPods.Items {
+		if owner := metav1.GetControllerOf(&pod); owner != nil && owner.Kind == "Job" && owner.UID == job.UID {
+			jobPods = append(jobPods, pod)
+		}
+	}
+
 	// Convert pods
-	for _, pod := range pods.Items {
+	for _, pod := range jobPods {
 		containers := make([]ContainerRef, 0, len(pod.Spec.Containers))
 		
 		// Create a map of container statuses for quick lookup
@@ -126,7 +131,7 @@ func (s *JobService) GetJobTopology(ctx context.Context, contextName, namespace,
 	configMaps := make(map[string]*corev1.ConfigMap)
 	secrets := make(map[string]*corev1.Secret)
 
-	for _, pod := range pods.Items {
+	for _, pod := range jobPods {
 		// Check volumes
 		for _, volume := range pod.Spec.Volumes {
 			if volume.ConfigMap != nil {
@@ -188,7 +193,7 @@ func (s *JobService) GetJobTopology(ctx context.Context, contextName, namespace,
 		}
 		
 		// Check if this configmap is mounted in the job's pods
-		mountedAt := s.checkIfMountedInJob(cm.Name, "configmap", job, pods.Items)
+		mountedAt := s.checkIfMountedInJob(cm.Name, "configmap", job, jobPods)
 		if len(mountedAt) > 0 {
 			configMapRef.MountedAt = mountedAt
 		}
@@ -215,7 +220,7 @@ func (s *JobService) GetJobTopology(ctx context.Context, contextName, namespace,
 		}
 		
 		// Check if this secret is mounted in the job's pods
-		mountedAt := s.checkIfMountedInJob(secret.Name, "secret", job, pods.Items)
+		mountedAt := s.checkIfMountedInJob(secret.Name, "secret", job, jobPods)
 		if len(mountedAt) > 0 {
 			secretRef.MountedAt = mountedAt
 		}
@@ -224,8 +229,8 @@ func (s *JobService) GetJobTopology(ctx context.Context, contextName, namespace,
 	}
 
 	// Get ServiceAccount if specified
-	if len(pods.Items) > 0 && pods.Items[0].Spec.ServiceAccountName != "" {
-		sa, err := conn.ClientSet.CoreV1().ServiceAccounts(namespace).Get(ctx, pods.Items[0].Spec.ServiceAccountName, metav1.GetOptions{})
+	if len(jobPods) > 0 && jobPods[0].Spec.ServiceAccountName != "" {
+		sa, err := conn.ClientSet.CoreV1().ServiceAccounts(namespace).Get(ctx, jobPods[0].Spec.ServiceAccountName, metav1.GetOptions{})
 		if err == nil {
 			topology.ServiceAccount = &ServiceAccountRef{
 				Name: sa.Name,

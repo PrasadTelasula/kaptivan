@@ -48,19 +48,19 @@ func SetupRoutes(r *gin.Engine) {
 		v1.GET("/clusters/config", handlers.ListClustersFromConfig)
 		v1.POST("/clusters/connect", handlers.ConnectCluster)
 		v1.POST("/clusters/disconnect", handlers.DisconnectCluster)
-		v1.GET("/clusters/:context", handlers.GetClusterInfo)
+		v1.GET("/clusters/info", handlers.GetClusterInfo)
 		
 		// Pod endpoints (new structured handlers)
 		podsGroup := v1.Group("/pods")
 		{
 			podsGroup.POST("/list", pods.List)
-			podsGroup.GET("/:context/:namespace/:name", pods.Get)
-			podsGroup.GET("/:context/:namespace/:name/logs", pods.GetLogs)
-			podsGroup.GET("/:context/:namespace/:name/events", pods.GetEvents)
-			podsGroup.DELETE("/:context/:namespace/:name", pods.Delete)
-			podsGroup.POST("/:context/:namespace/:name/exec", pods.Exec)
-			podsGroup.GET("/:context/:namespace/:name/exec/ws", pods.ExecWebSocket)
-			podsGroup.GET("/:context/:namespace/:name/logs/ws", pods.LogsWebSocket)
+			podsGroup.GET("/get", pods.Get)
+			podsGroup.GET("/logs", pods.GetLogs)
+			podsGroup.GET("/events", pods.GetEvents)
+			podsGroup.DELETE("/delete", pods.Delete)
+			podsGroup.POST("/exec", pods.Exec)
+			podsGroup.GET("/exec/ws", pods.ExecWebSocket)
+			podsGroup.GET("/logs/ws", pods.LogsWebSocket)
 		}
 		
 		// Deployment endpoints (new structured handlers)
@@ -96,8 +96,8 @@ func SetupRoutes(r *gin.Engine) {
 		{
 			manifestsGroup.GET("/discover", manifests.ListAPIResources)
 			manifestsGroup.POST("/list", manifests.ListResources)
-			manifestsGroup.GET("/:context/:name", manifests.GetManifest)
-			manifestsGroup.GET("/:context/:name/related", manifests.GetRelatedResources)
+			manifestsGroup.GET("/get", manifests.GetManifest)
+			manifestsGroup.GET("/related", manifests.GetRelatedResources)
 		}
 		
 		// Topology endpoints
@@ -111,19 +111,19 @@ func SetupRoutes(r *gin.Engine) {
 			topologyHandler := topology.GetHandler()
 			
 			if topologyHandler != nil {
-				topologyGroup.GET("/:context/namespaces", topologyHandler.ListNamespaces)
-				topologyGroup.GET("/:context/deployments", topologyHandler.ListDeployments)
-				topologyGroup.GET("/:context/deployment/:namespace/:name", topologyHandler.GetDeploymentTopology)
-				topologyGroup.GET("/:context/daemonsets", topologyHandler.ListDaemonSets)
-				topologyGroup.GET("/:context/daemonset/:namespace/:name", topologyHandler.GetDaemonSetTopology)
-				topologyGroup.GET("/:context/jobs", topologyHandler.ListJobs)
-				topologyGroup.GET("/:context/job/:namespace/:name", topologyHandler.GetJobTopology)
-				topologyGroup.GET("/:context/cronjobs", topologyHandler.ListCronJobs)
-				topologyGroup.GET("/:context/cronjob/:namespace/:name", topologyHandler.GetCronJobTopology)
+				topologyGroup.GET("/namespaces", topologyHandler.ListNamespaces)
+				topologyGroup.GET("/deployments/list", topologyHandler.ListDeployments)
+				topologyGroup.GET("/deployment", topologyHandler.GetDeploymentTopology)
+				topologyGroup.GET("/daemonsets/list", topologyHandler.ListDaemonSets)
+				topologyGroup.GET("/daemonset", topologyHandler.GetDaemonSetTopology)
+				topologyGroup.GET("/jobs/list", topologyHandler.ListJobs)
+				topologyGroup.GET("/job", topologyHandler.GetJobTopology)
+				topologyGroup.GET("/cronjobs/list", topologyHandler.ListCronJobs)
+				topologyGroup.GET("/cronjob", topologyHandler.GetCronJobTopology)
 				
 				// WebSocket endpoint for real-time updates
-				topologyGroup.GET("/ws/:context/:namespace", func(c *gin.Context) {
-					context := c.Param("context")
+				topologyGroup.GET("/ws", func(c *gin.Context) {
+					context := c.Query("context")
 					
 					// Try to get clientset, if not connected, try to connect
 					clientset, err := manager.GetClientset(context)

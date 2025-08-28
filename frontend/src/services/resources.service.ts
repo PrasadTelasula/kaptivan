@@ -1,4 +1,5 @@
 import { API_BASE_URL } from '@/config/constants'
+import { apiUrls } from '@/utils/api-urls'
 
 export type PodInfo = {
   name: string
@@ -153,19 +154,25 @@ class ResourcesService {
   }
 
   async getPod(context: string, namespace: string, name: string): Promise<any> {
-    return this.fetchSingleResource<any>(`/api/v1/pods/${context}/${namespace}/${name}`, 'GET')
+    const url = apiUrls.pods.get(context, namespace, name).replace(API_BASE_URL, '')
+    return this.fetchSingleResource<any>(url, 'GET')
   }
 
   async getPodLogs(context: string, namespace: string, name: string, container?: string, lines?: number): Promise<any> {
+    let url = apiUrls.pods.logs(context, namespace, name, container).replace(API_BASE_URL, '')
     const params = new URLSearchParams()
-    if (container) params.append('container', container)
     if (lines) params.append('lines', lines.toString())
     
-    return this.fetchSingleResource<any>(`/api/v1/pods/${context}/${namespace}/${name}/logs?${params}`, 'GET')
+    if (params.toString()) {
+      url += (url.includes('?') ? '&' : '?') + params.toString()
+    }
+    
+    return this.fetchSingleResource<any>(url, 'GET')
   }
 
   async getPodEvents(context: string, namespace: string, name: string): Promise<any> {
-    return this.fetchSingleResource<any>(`/api/v1/pods/${context}/${namespace}/${name}/events`, 'GET')
+    const url = `${apiUrls.pods.get(context, namespace, name)}/events`.replace(API_BASE_URL, '')
+    return this.fetchSingleResource<any>(url, 'GET')
   }
 }
 

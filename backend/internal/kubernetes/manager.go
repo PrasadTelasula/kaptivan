@@ -66,10 +66,15 @@ func (cm *ClusterManager) ConnectToCluster(contextName string) error {
 	cm.mu.Lock()
 	defer cm.mu.Unlock()
 
-	conn, exists := cm.connections[contextName]
-	if !exists {
+	// Find the actual context name (handles encoded/decoded variants)
+	// Note: findContextCaseInsensitive assumes the lock is already held
+	actualContext := cm.findContextCaseInsensitive(contextName)
+	if actualContext == "" {
 		return fmt.Errorf("cluster context %s not found", contextName)
 	}
+
+	conn := cm.connections[actualContext]
+	contextName = actualContext // Use the actual context name from here on
 
 	// Build config from kubeconfig
 	config, err := cm.buildConfigForContext(contextName)
@@ -109,10 +114,14 @@ func (cm *ClusterManager) DisconnectFromCluster(contextName string) error {
 	cm.mu.Lock()
 	defer cm.mu.Unlock()
 
-	conn, exists := cm.connections[contextName]
-	if !exists {
+	// Find the actual context name (handles encoded/decoded variants)
+	// Note: findContextCaseInsensitive assumes the lock is already held
+	actualContext := cm.findContextCaseInsensitive(contextName)
+	if actualContext == "" {
 		return fmt.Errorf("cluster context %s not found", contextName)
 	}
+
+	conn := cm.connections[actualContext]
 
 	conn.Connected = false
 	conn.ClientSet = nil
@@ -126,13 +135,17 @@ func (cm *ClusterManager) GetConnection(contextName string) (*ClusterConnection,
 	cm.mu.RLock()
 	defer cm.mu.RUnlock()
 
-	conn, exists := cm.connections[contextName]
-	if !exists {
+	// Find the actual context name (handles encoded/decoded variants)
+	// Note: findContextCaseInsensitive assumes the lock is already held
+	actualContext := cm.findContextCaseInsensitive(contextName)
+	if actualContext == "" {
 		return nil, fmt.Errorf("cluster context %s not found", contextName)
 	}
 
+	conn := cm.connections[actualContext]
+
 	if !conn.Connected {
-		return nil, fmt.Errorf("cluster %s is not connected", contextName)
+		return nil, fmt.Errorf("cluster %s is not connected", actualContext)
 	}
 
 	return conn, nil

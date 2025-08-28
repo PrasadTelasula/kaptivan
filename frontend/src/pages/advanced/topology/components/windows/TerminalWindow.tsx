@@ -8,6 +8,7 @@ import { Terminal as XTerm } from '@xterm/xterm';
 import { FitAddon } from '@xterm/addon-fit';
 import { WebLinksAddon } from '@xterm/addon-web-links';
 import '@xterm/xterm/css/xterm.css';
+import { apiUrls } from '@/utils/api-urls';
 
 interface TerminalWindowProps {
   podName: string;
@@ -215,8 +216,7 @@ export const TerminalWindow: React.FC<TerminalWindowProps> = ({
   }, [activeTab]);
 
   const connectToShell = (term: XTerm) => {
-    const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
-    const wsUrl = `${protocol}//${window.location.hostname}:8080/api/v1/pods/${context}/${namespace}/${podName}/exec/ws${containerName ? `?container=${containerName}` : ''}`;
+    const wsUrl = apiUrls.pods.execWs(context, namespace, podName, containerName);
     
     const ws = new WebSocket(wsUrl);
     wsRef.current = ws;
@@ -294,8 +294,9 @@ export const TerminalWindow: React.FC<TerminalWindowProps> = ({
   const fetchLogs = async () => {
     setIsLoadingLogs(true);
     try {
-      const containerParam = containerName ? `&container=${containerName}` : '';
-      const response = await fetch(`http://localhost:8080/api/v1/pods/${context}/${namespace}/${podName}/logs?tailLines=1000${containerParam}`);
+      let url = apiUrls.pods.logs(context, namespace, podName, containerName);
+      url += (url.includes('?') ? '&' : '?') + 'tailLines=1000';
+      const response = await fetch(url);
       if (response.ok) {
         const data = await response.json();
         setLogs(data.logs || 'No logs available');

@@ -1,4 +1,5 @@
 import { API_BASE_URL } from '@/config/constants'
+import { apiUrls } from '@/utils/api-urls'
 
 export interface PodInfo {
   name: string
@@ -103,7 +104,7 @@ export interface ExecResponse {
 class PodsService {
   async getPod(context: string, namespace: string, name: string): Promise<PodDetail> {
     const response = await fetch(
-      `${API_BASE_URL}/api/v1/pods/${context}/${namespace}/${name}`
+      apiUrls.pods.get(context, namespace, name)
     )
 
     if (!response.ok) {
@@ -115,7 +116,7 @@ class PodsService {
 
   async getPodEvents(context: string, namespace: string, name: string): Promise<PodEvent[]> {
     const response = await fetch(
-      `${API_BASE_URL}/api/v1/pods/${context}/${namespace}/${name}/events`
+      `${apiUrls.pods.get(context, namespace, name)}/events`
     )
 
     if (!response.ok) {
@@ -134,14 +135,16 @@ class PodsService {
     tailLines?: number,
     follow?: boolean
   ): Promise<string> {
+    let url = apiUrls.pods.logs(context, namespace, name, container)
     const params = new URLSearchParams()
-    if (container) params.append('container', container)
     if (tailLines) params.append('tailLines', tailLines.toString())
     if (follow) params.append('follow', 'true')
+    
+    if (params.toString()) {
+      url += (url.includes('?') ? '&' : '?') + params.toString()
+    }
 
-    const response = await fetch(
-      `${API_BASE_URL}/api/v1/pods/${context}/${namespace}/${name}/logs?${params}`
-    )
+    const response = await fetch(url)
 
     if (!response.ok) {
       throw new Error('Failed to fetch pod logs')
@@ -152,7 +155,7 @@ class PodsService {
 
   async deletePod(context: string, namespace: string, name: string): Promise<void> {
     const response = await fetch(
-      `${API_BASE_URL}/api/v1/pods/${context}/${namespace}/${name}`,
+      apiUrls.pods.delete(context, namespace, name),
       {
         method: 'DELETE',
       }
@@ -171,7 +174,7 @@ class PodsService {
     command: string[]
   ): Promise<ExecResponse> {
     const response = await fetch(
-      `${API_BASE_URL}/api/v1/pods/${context}/${namespace}/${name}/exec`,
+      apiUrls.pods.exec(context, namespace, name, container),
       {
         method: 'POST',
         headers: {

@@ -4,7 +4,6 @@ import (
 	"context"
 	"fmt"
 	"log"
-	"strings"
 
 	appsv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
@@ -44,18 +43,30 @@ func (s *Service) GetDeploymentTopology(ctx context.Context, namespace, deployme
 		return nil, fmt.Errorf("failed to get replicasets: %w", err)
 	}
 
+	// OPTIMIZATION: Fetch all pods in the namespace once, then filter locally
+	// This reduces API calls from N (number of ReplicaSets) to 1
+	allPods, err := s.clientset.CoreV1().Pods(namespace).List(ctx, metav1.ListOptions{})
+	if err != nil {
+		return nil, fmt.Errorf("failed to get pods: %w", err)
+	}
+	
+	// Create a map of ReplicaSet UID to pods for efficient lookup
+	rsPodMap := make(map[string][]corev1.Pod)
+	for _, pod := range allPods.Items {
+		if owner := metav1.GetControllerOf(&pod); owner != nil && owner.Kind == "ReplicaSet" {
+			rsPodMap[string(owner.UID)] = append(rsPodMap[string(owner.UID)], pod)
+		}
+	}
+
 	// Build ReplicaSet references with their pods
 	for _, rs := range replicaSets {
 		rsRef := s.buildReplicaSetRef(&rs)
 		
-		// Fetch pods for this ReplicaSet
-		pods, err := s.getPodsForReplicaSet(ctx, namespace, &rs)
-		if err != nil {
-			return nil, fmt.Errorf("failed to get pods for replicaset %s: %w", rs.Name, err)
-		}
-		
-		for _, pod := range pods {
-			rsRef.Pods = append(rsRef.Pods, s.buildPodRef(&pod))
+		// Get pods for this ReplicaSet from our pre-fetched map
+		if pods, exists := rsPodMap[string(rs.UID)]; exists {
+			for _, pod := range pods {
+				rsRef.Pods = append(rsRef.Pods, s.buildPodRef(&pod))
+			}
 		}
 		
 		topology.ReplicaSets = append(topology.ReplicaSets, rsRef)
@@ -572,76 +583,139 @@ func (s *Service) getAllSecretsAndConfigMaps(ctx context.Context, namespace stri
 	var secrets []SecretRef
 	var configMaps []ConfigMapRef
 	
-	// Get ALL secrets in the namespace
-	secretList, err := s.clientset.CoreV1().Secrets(namespace).List(ctx, metav1.ListOptions{})
-	if err != nil {
-		fmt.Printf("Error listing secrets: %v\n", err)
-	} else {
-		fmt.Printf("Total secrets found in namespace %s: %d\n", namespace, len(secretList.Items))
-		for _, secret := range secretList.Items {
-			// Skip only the default service account token secrets that are auto-generated
-			// Don't skip all service account tokens, just the default ones
-			if strings.HasPrefix(secret.Name, "default-token-") {
-				fmt.Printf("Skipping default service account token secret: %s\n", secret.Name)
-				continue
+	// Collect names of secrets and configmaps actually used by the deployment
+	secretNames := make(map[string]bool)
+	configMapNames := make(map[string]bool)
+	
+	// Check volumes in the deployment pod spec
+	for _, vol := range deployment.Spec.Template.Spec.Volumes {
+		if vol.Secret != nil {
+			secretNames[vol.Secret.SecretName] = true
+		}
+		if vol.ConfigMap != nil {
+			configMapNames[vol.ConfigMap.Name] = true
+		}
+		if vol.Projected != nil {
+			for _, source := range vol.Projected.Sources {
+				if source.Secret != nil {
+					secretNames[source.Secret.Name] = true
+				}
+				if source.ConfigMap != nil {
+					configMapNames[source.ConfigMap.Name] = true
+				}
 			}
-			fmt.Printf("Processing secret: %s (type: %s)\n", secret.Name, secret.Type)
-			
-			secretRef := SecretRef{
-				Name:              secret.Name,
-				Type:              string(secret.Type),
-				Immutable:         secret.Immutable != nil && *secret.Immutable,
-				Data:              make(map[string]string),
-				CreationTimestamp: &secret.CreationTimestamp.Time,
-			}
-			
-			// Add data keys (just keys, not values for security)
-			for key := range secret.Data {
-				secretRef.Data[key] = "***" // Don't expose actual secret values
-			}
-			
-			// Check if this secret is mounted in the deployment
-			mountedAt := s.checkIfMountedInDeployment(secret.Name, "secret", deployment)
-			if len(mountedAt) > 0 {
-				secretRef.MountedAt = mountedAt
-			}
-			
-			secrets = append(secrets, secretRef)
 		}
 	}
 	
-	// Get ALL configmaps in the namespace
-	configMapList, err := s.clientset.CoreV1().ConfigMaps(namespace).List(ctx, metav1.ListOptions{})
-	if err == nil {
-		for _, cm := range configMapList.Items {
-			// Skip system configmaps
-			if strings.HasPrefix(cm.Name, "kube-") {
-				continue
+	// Check env variables in containers
+	for _, container := range deployment.Spec.Template.Spec.Containers {
+		for _, env := range container.Env {
+			if env.ValueFrom != nil {
+				if env.ValueFrom.SecretKeyRef != nil {
+					secretNames[env.ValueFrom.SecretKeyRef.Name] = true
+				}
+				if env.ValueFrom.ConfigMapKeyRef != nil {
+					configMapNames[env.ValueFrom.ConfigMapKeyRef.Name] = true
+				}
 			}
-			
-			configMapRef := ConfigMapRef{
-				Name:              cm.Name,
-				Immutable:         cm.Immutable != nil && *cm.Immutable,
-				Data:              make(map[string]string),
-				CreationTimestamp: &cm.CreationTimestamp.Time,
-			}
-			
-			// Add data keys
-			for key := range cm.Data {
-				configMapRef.Data[key] = cm.Data[key] // ConfigMap data is not sensitive
-			}
-			for key := range cm.BinaryData {
-				configMapRef.Data[key+" (binary)"] = "***" // Don't expose binary data
-			}
-			
-			// Check if this configmap is mounted in the deployment
-			mountedAt := s.checkIfMountedInDeployment(cm.Name, "configmap", deployment)
-			if len(mountedAt) > 0 {
-				configMapRef.MountedAt = mountedAt
-			}
-			
-			configMaps = append(configMaps, configMapRef)
 		}
+		
+		// Check envFrom
+		for _, envFrom := range container.EnvFrom {
+			if envFrom.SecretRef != nil {
+				secretNames[envFrom.SecretRef.Name] = true
+			}
+			if envFrom.ConfigMapRef != nil {
+				configMapNames[envFrom.ConfigMapRef.Name] = true
+			}
+		}
+	}
+	
+	// Also check init containers
+	for _, container := range deployment.Spec.Template.Spec.InitContainers {
+		for _, env := range container.Env {
+			if env.ValueFrom != nil {
+				if env.ValueFrom.SecretKeyRef != nil {
+					secretNames[env.ValueFrom.SecretKeyRef.Name] = true
+				}
+				if env.ValueFrom.ConfigMapKeyRef != nil {
+					configMapNames[env.ValueFrom.ConfigMapKeyRef.Name] = true
+				}
+			}
+		}
+		
+		// Check envFrom
+		for _, envFrom := range container.EnvFrom {
+			if envFrom.SecretRef != nil {
+				secretNames[envFrom.SecretRef.Name] = true
+			}
+			if envFrom.ConfigMapRef != nil {
+				configMapNames[envFrom.ConfigMapRef.Name] = true
+			}
+		}
+	}
+	
+	// Fetch only the referenced secrets
+	for name := range secretNames {
+		secret, err := s.clientset.CoreV1().Secrets(namespace).Get(ctx, name, metav1.GetOptions{})
+		if err != nil {
+			continue // Secret might not exist yet
+		}
+		
+		secretRef := SecretRef{
+			Name:              secret.Name,
+			Type:              string(secret.Type),
+			Immutable:         secret.Immutable != nil && *secret.Immutable,
+			Data:              make(map[string]string),
+			CreationTimestamp: &secret.CreationTimestamp.Time,
+		}
+		
+		// Add data keys (just keys, not values for security)
+		for key := range secret.Data {
+			secretRef.Data[key] = "***" // Don't expose actual secret values
+		}
+		for key := range secret.StringData {
+			secretRef.Data[key] = "***" // Don't expose actual secret values
+		}
+		
+		// Check if this secret is mounted in the deployment
+		mountedAt := s.checkIfMountedInDeployment(secret.Name, "secret", deployment)
+		if len(mountedAt) > 0 {
+			secretRef.MountedAt = mountedAt
+		}
+		
+		secrets = append(secrets, secretRef)
+	}
+	
+	// Fetch only the referenced configmaps
+	for name := range configMapNames {
+		cm, err := s.clientset.CoreV1().ConfigMaps(namespace).Get(ctx, name, metav1.GetOptions{})
+		if err != nil {
+			continue // ConfigMap might not exist yet
+		}
+		
+		configMapRef := ConfigMapRef{
+			Name:              cm.Name,
+			Immutable:         cm.Immutable != nil && *cm.Immutable,
+			Data:              make(map[string]string),
+			CreationTimestamp: &cm.CreationTimestamp.Time,
+		}
+		
+		// Add data keys
+		for key := range cm.Data {
+			configMapRef.Data[key] = cm.Data[key] // ConfigMap data is not sensitive
+		}
+		for key := range cm.BinaryData {
+			configMapRef.Data[key+" (binary)"] = "***" // Don't expose binary data
+		}
+		
+		// Check if this configmap is mounted in the deployment
+		mountedAt := s.checkIfMountedInDeployment(cm.Name, "configmap", deployment)
+		if len(mountedAt) > 0 {
+			configMapRef.MountedAt = mountedAt
+		}
+		
+		configMaps = append(configMaps, configMapRef)
 	}
 	
 	return secrets, configMaps
