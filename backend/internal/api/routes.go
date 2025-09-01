@@ -9,6 +9,7 @@ import (
 	"github.com/prasad/kaptivan/backend/internal/api/handlers/deployments"
 	"github.com/prasad/kaptivan/backend/internal/api/handlers/manifests"
 	"github.com/prasad/kaptivan/backend/internal/api/handlers/pods"
+	"github.com/prasad/kaptivan/backend/internal/api/handlers/rbac"
 	"github.com/prasad/kaptivan/backend/internal/api/handlers/services"
 	"github.com/prasad/kaptivan/backend/internal/api/handlers/topology"
 	"github.com/prasad/kaptivan/backend/internal/api/middleware"
@@ -100,6 +101,17 @@ func SetupRoutes(r *gin.Engine) {
 			manifestsGroup.GET("/related", manifests.GetRelatedResources)
 			// Add path-based route for related resources to match frontend expectations
 			manifestsGroup.GET("/:context/:name/related", manifests.GetRelatedResourcesWithPath)
+		}
+		
+		// RBAC endpoints
+		rbacHandler := rbac.NewHandler(manager)
+		rbacGroup := v1.Group("/rbac")
+		{
+			rbacGroup.GET("/resources", rbacHandler.GetRBACResources)
+			rbacGroup.GET("/graph", rbacHandler.GetRBACGraph)
+			rbacGroup.GET("/permissions/matrix", rbacHandler.GetPermissionMatrix)
+			rbacGroup.GET("/role/details", rbacHandler.GetRoleDetails)
+			rbacGroup.GET("/subject/permissions", rbacHandler.GetSubjectPermissions)
 		}
 		
 		// Topology endpoints

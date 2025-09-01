@@ -28,6 +28,15 @@ function getWsBaseUrl(): string {
 }
 
 /**
+ * Build a complete URL by prepending the API base URL
+ */
+export function buildUrl(path: string): string {
+  // Remove leading slash if present
+  const cleanPath = path.startsWith('/') ? path.substring(1) : path
+  return `${API_BASE_URL}/${cleanPath}`
+}
+
+/**
  * Centralized API URL builder
  * All API endpoints should be defined here to ensure consistent encoding
  */

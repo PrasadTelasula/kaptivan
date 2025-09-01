@@ -1,0 +1,27 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>RBAC Pods Test</title>
+</head>
+<body>
+    <h1>Testing RBAC Pods Visibility</h1>
+    <p>Open browser console and navigate to: <a href="http://localhost:5173/advanced/rbac-visualizer">http://localhost:5173/advanced/rbac-visualizer</a></p>
+    
+    <h2>Expected Results After Fix:</h2>
+    <ul>
+        <li>✅ Pods should be added to nodes array (20 pods)</li>
+        <li>✅ Node type breakdown should include 'pod' key with count of 20</li>
+        <li>✅ Pods should appear as sky blue nodes in the graph</li>
+        <li>✅ Console should show warnings for nodes without dagre positions</li>
+    </ul>
+    
+    <h2>Filter Test:</h2>
+    <ol>
+        <li>Select docker-desktop cluster</li>
+        <li>Select "apps" namespace</li>
+        <li>Select "ServiceAccounts" as Filter By</li>
+        <li>Search for "apps/app-service-account"</li>
+        <li>Verify pods are visible in filtered view</li>
+    </ol>
+</body>
+</html>

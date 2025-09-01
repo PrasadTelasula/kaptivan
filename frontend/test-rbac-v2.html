@@ -1,0 +1,150 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>RBAC Visualizer V2 Test</title>
+    <style>
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            margin: 20px;
+            line-height: 1.6;
+        }
+        .test-section {
+            margin: 20px 0;
+            padding: 15px;
+            border: 1px solid #ddd;
+            border-radius: 8px;
+        }
+        .success { color: #22c55e; }
+        .pending { color: #f59e0b; }
+        .error { color: #ef4444; }
+        code {
+            background: #f3f4f6;
+            padding: 2px 6px;
+            border-radius: 4px;
+        }
+    </style>
+</head>
+<body>
+    <h1>RBAC Visualizer V2 Testing Guide</h1>
+    
+    <div class="test-section">
+        <h2>🚀 Setup</h2>
+        <p>Navigate to: <a href="http://localhost:5173/advanced/rbac-visualizer" target="_blank">http://localhost:5173/advanced/rbac-visualizer</a></p>
+        <ol>
+            <li>Select <code>docker-desktop</code> cluster from context selector</li>
+            <li>Wait for RBAC resources to load</li>
+            <li>Toggle the <strong>"Enhanced Multi-View Mode"</strong> switch (with sparkles icon)</li>
+        </ol>
+    </div>
+
+    <div class="test-section">
+        <h2>✅ Test Checklist - V2 Features</h2>
+        
+        <h3>1. Identity-Centric View</h3>
+        <ul>
+            <li>[ ] Tab displays correctly</li>
+            <li>[ ] Subject selector dropdown shows Users, Groups, ServiceAccounts</li>
+            <li>[ ] Selecting a service account shows permission paths</li>
+            <li>[ ] Graph displays nodes for: Subject → Bindings → Roles → Resources</li>
+            <li>[ ] Clicking nodes opens details sheet</li>
+        </ul>
+
+        <h3>2. Resource-Centric View</h3>
+        <ul>
+            <li>[ ] Tab displays correctly</li>
+            <li>[ ] Resource type dropdown populates (pods, services, deployments, etc.)</li>
+            <li>[ ] Selecting a resource shows all identities with access</li>
+            <li>[ ] Permission matrix displays correctly</li>
+            <li>[ ] Hover cards show detailed permissions</li>
+        </ul>
+
+        <h3>3. Role Hierarchy View</h3>
+        <ul>
+            <li>[ ] Tab displays correctly</li>
+            <li>[ ] Tree structure shows role inheritance</li>
+            <li>[ ] Aggregation rules display properly</li>
+            <li>[ ] Collapsible sections work</li>
+            <li>[ ] System roles can be toggled on/off</li>
+        </ul>
+
+        <h3>4. Search & Navigation</h3>
+        <ul>
+            <li>[ ] Press <code>Cmd+K</code> or <code>Ctrl+K</code> to open search</li>
+            <li>[ ] Search finds roles, service accounts, users</li>
+            <li>[ ] Clicking search results navigates to item</li>
+            <li>[ ] ESC key closes search dialog</li>
+        </ul>
+
+        <h3>5. Details Sheet</h3>
+        <ul>
+            <li>[ ] Opens when clicking any node</li>
+            <li>[ ] Shows complete resource details</li>
+            <li>[ ] Displays rules and permissions</li>
+            <li>[ ] Close button works</li>
+        </ul>
+    </div>
+
+    <div class="test-section">
+        <h2>🔍 Specific Test Scenarios</h2>
+        
+        <h3>Scenario 1: Service Account Permissions</h3>
+        <ol>
+            <li>Go to Identity-Centric View</li>
+            <li>Select "ServiceAccount" from dropdown</li>
+            <li>Choose <code>apps/app-service-account</code></li>
+            <li>Verify you see the complete permission chain</li>
+        </ol>
+
+        <h3>Scenario 2: Pod Access Review</h3>
+        <ol>
+            <li>Go to Resource-Centric View</li>
+            <li>Select "pods" as resource type</li>
+            <li>Review which identities can access pods</li>
+            <li>Check verb permissions (get, list, watch, etc.)</li>
+        </ol>
+
+        <h3>Scenario 3: Role Aggregation</h3>
+        <ol>
+            <li>Go to Role Hierarchy View</li>
+            <li>Find roles with aggregation rules</li>
+            <li>Expand to see inherited permissions</li>
+            <li>Verify cluster-admin shows at top of hierarchy</li>
+        </ol>
+    </div>
+
+    <div class="test-section">
+        <h2>🐛 Expected Behaviors</h2>
+        <ul>
+            <li class="success">✅ All three views load without errors</li>
+            <li class="success">✅ Nodes are interactive and clickable</li>
+            <li class="success">✅ Search works across all resource types</li>
+            <li class="success">✅ Details sheet shows comprehensive information</li>
+            <li class="success">✅ Switching views preserves selected cluster context</li>
+            <li class="pending">⚠️ Large clusters may take time to render</li>
+            <li class="pending">⚠️ Some system roles filtered by default</li>
+        </ul>
+    </div>
+
+    <div class="test-section">
+        <h2>📊 Console Validation</h2>
+        <p>Open browser DevTools console and verify:</p>
+        <ul>
+            <li>No React errors or warnings</li>
+            <li>Console shows: <code>V2 Node selected: {node details}</code> when clicking nodes</li>
+            <li>Resource counts match between views</li>
+        </ul>
+    </div>
+
+    <div class="test-section">
+        <h2>🎯 Success Criteria</h2>
+        <p>The V2 visualizer is working correctly if:</p>
+        <ol>
+            <li>All three views render without errors</li>
+            <li>Data is consistent across views</li>
+            <li>Interactive elements respond properly</li>
+            <li>Search and filtering work as expected</li>
+            <li>Details sheet displays accurate information</li>
+        </ol>
+    </div>
+</body>
+</html>

@@ -1,0 +1,91 @@
+---
+# Simple EC2NodeClass for test cluster
+apiVersion: karpenter.k8s.aws/v1beta1
+kind: EC2NodeClass
+metadata:
+  name: default
+spec:
+  # Use Amazon Linux 2 EKS Optimized AMI
+  amiFamily: AL2
+  
+  # Subnet selection - Karpenter will use private subnets
+  subnetSelectorTerms:
+    - tags:
+        karpenter.sh/discovery: kaptivan-int
+  
+  # Security group selection
+  securityGroupSelectorTerms:
+    - tags:
+        karpenter.sh/discovery: kaptivan-int
+  
+  # Instance profile created by eksctl
+  instanceProfile: KarpenterNodeInstanceProfile
+  
+  # Simple user data to join the cluster
+  userData: |
+    #!/bin/bash
+    /etc/eks/bootstrap.sh kaptivan-int
+  
+  # Minimal block device for test cluster
+  blockDeviceMappings:
+    - deviceName: /dev/xvda
+      ebs:
+        volumeSize: 50Gi  # Small volume for test
+        volumeType: gp3
+        deleteOnTermination: true
+
+---
+# Single NodePool for all test workloads
+apiVersion: karpenter.sh/v1beta1
+kind: NodePool
+metadata:
+  name: default
+spec:
+  # Template for nodes that Karpenter will create
+  template:
+    spec:
+      requirements:
+        # Prefer Spot instances for cost savings, fallback to on-demand
+        - key: karpenter.sh/capacity-type
+          operator: In
+          values: ["spot", "on-demand"]
+        
+        # AMD64 architecture only
+        - key: kubernetes.io/arch
+          operator: In
+          values: ["amd64"]
+        
+        # Use small instance types suitable for testing
+        - key: node.kubernetes.io/instance-type
+          operator: In
+          values:
+            # T3 family - burstable, good for testing
+            - t3.micro    # 2 vCPU, 1 GB RAM
+            - t3.small    # 2 vCPU, 2 GB RAM  
+            - t3.medium   # 2 vCPU, 4 GB RAM
+            # T3a family - AMD processors, usually cheaper
+            - t3a.micro
+            - t3a.small
+            - t3a.medium
+            # T2 family - older but still good for testing
+            - t2.micro
+            - t2.small
+            - t2.medium
+      
+      # Reference to the EC2NodeClass above
+      nodeClassRef:
+        apiVersion: karpenter.k8s.aws/v1beta1
+        kind: EC2NodeClass
+        name: default
+  
+  # Disruption settings - aggressive for test cluster to save money
+  disruption:
+    # Consolidate nodes when underutilized
+    consolidationPolicy: WhenUnderutilized
+    # Delete empty nodes after 30 seconds (very aggressive for testing)
+    expireAfter: 30s
+  
+  # Resource limits for this NodePool
+  limits:
+    cpu: 100         # Maximum 100 vCPUs total
+    memory: 100Gi    # Maximum 100Gi RAM total

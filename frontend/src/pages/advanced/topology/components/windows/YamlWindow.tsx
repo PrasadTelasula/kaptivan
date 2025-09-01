@@ -73,11 +73,17 @@ export const YamlWindow: React.FC<YamlWindowProps> = ({
         'configmap': { kind: 'ConfigMap', apiVersion: 'v1' },
         'secret': { kind: 'Secret', apiVersion: 'v1' },
         'serviceaccount': { kind: 'ServiceAccount', apiVersion: 'v1' },
+        'serviceAccount': { kind: 'ServiceAccount', apiVersion: 'v1' },  // Alternative casing
         'endpoints': { kind: 'Endpoints', apiVersion: 'v1' },
         'role': { kind: 'Role', apiVersion: 'rbac.authorization.k8s.io/v1' },
         'rolebinding': { kind: 'RoleBinding', apiVersion: 'rbac.authorization.k8s.io/v1' },
+        'roleBinding': { kind: 'RoleBinding', apiVersion: 'rbac.authorization.k8s.io/v1' },  // Alternative casing
         'clusterrole': { kind: 'ClusterRole', apiVersion: 'rbac.authorization.k8s.io/v1' },
-        'clusterrolebinding': { kind: 'ClusterRoleBinding', apiVersion: 'rbac.authorization.k8s.io/v1' }
+        'clusterRole': { kind: 'ClusterRole', apiVersion: 'rbac.authorization.k8s.io/v1' },  // Alternative casing
+        'clusterrolebinding': { kind: 'ClusterRoleBinding', apiVersion: 'rbac.authorization.k8s.io/v1' },
+        'clusterRoleBinding': { kind: 'ClusterRoleBinding', apiVersion: 'rbac.authorization.k8s.io/v1' },  // Alternative casing
+        'binding': { kind: 'RoleBinding', apiVersion: 'rbac.authorization.k8s.io/v1' },  // Generic binding
+        'subject': { kind: 'ServiceAccount', apiVersion: 'v1' }  // Default subject to ServiceAccount
       };
 
       const resourceMapping = kindMapping[resourceType.toLowerCase()] || 

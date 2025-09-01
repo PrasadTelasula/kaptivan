@@ -123,6 +123,7 @@ const menuItems: MenuSection[] = [
     items: [
       { icon: Terminal, label: "Multi-Container Terminals", href: "/advanced/terminals" },
       { icon: FileText, label: "Manifest Viewer", href: "/advanced/manifests" },
+      { icon: Shield, label: "RBAC Visualizer", href: "/advanced/rbac-visualizer" },
     ],
     groups: [
       {

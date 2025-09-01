@@ -12,6 +12,7 @@ import TopologyPage from '@/pages/advanced/topology'
 import DaemonSetTopologyPage from '@/pages/advanced/daemonset-topology'
 import JobTopologyPage from '@/pages/advanced/job-topology'
 import CronJobTopologyPage from '@/pages/advanced/topology/CronJobTopology'
+import RBACVisualizer from '@/pages/advanced/rbac-visualizer'
 import { useAuthStore } from '@/stores/auth.store'
 
 function App() {
@@ -104,6 +105,14 @@ function App() {
             element={
               <ProtectedRoute>
                 <CronJobTopologyPage />
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="/advanced/rbac-visualizer"
+            element={
+              <ProtectedRoute>
+                <RBACVisualizer />
               </ProtectedRoute>
             }
           />
