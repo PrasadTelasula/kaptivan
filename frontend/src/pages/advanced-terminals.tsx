@@ -190,10 +190,16 @@ export function AdvancedTerminalsPage() {
 
   // Fetch pods and namespaces when clusters or namespace filter changes
   useEffect(() => {
-    if (clusters.filter(c => c.connected).length > 0) {
-      fetchPodsAndNamespaces()
+    const connectedClusters = clusters.filter(c => c.connected)
+    if (connectedClusters.length > 0) {
+      // Debounce the call to prevent multiple rapid fire calls
+      const timeoutId = setTimeout(() => {
+        fetchPodsAndNamespaces()
+      }, 100)
+      
+      return () => clearTimeout(timeoutId)
     }
-  }, [selectedClusters, selectedNamespaces, clusters])
+  }, [selectedClusters, selectedNamespaces, clusters.filter(c => c.connected).map(c => c.context).join(',')])
 
   const fetchPodsAndNamespaces = async () => {
     setIsLoading(true)
@@ -221,59 +227,103 @@ export function AdvancedTerminalsPage() {
             namespace: selectedNamespaces.length > 0 ? selectedNamespaces[0] : undefined
           })
           
-          // Fetch detailed pod info including containers for each pod
-          for (const pod of podsResponse.items) {
+          // Batch fetch detailed pod info for all pods in this cluster
+          if (podsResponse.items.length > 0) {
             try {
-              const podDetail = await podsService.getPod(cluster.context, pod.namespace, pod.name)
-              
-              const podInfo: PodInfo = {
-                name: pod.name,
+              const podIdentifiers = podsResponse.items.map(pod => ({
+                context: cluster.context,
                 namespace: pod.namespace,
-                cluster: cluster.context,
-                status: podDetail.phase || pod.status,
-                nodeName: podDetail.nodeName || pod.node,
-                podIP: podDetail.podIP || pod.ip,
-                createdAt: podDetail.creationTimestamp,
-                containers: (podDetail.containerStatuses || []).map((cs: any) => ({
-                  name: cs.name,
-                  image: cs.image,
-                  status: cs.state.running ? 'Running' : cs.state.waiting ? 'Waiting' : 'Terminated',
-                  ready: cs.ready,
-                  restartCount: cs.restartCount
-                }))
+                name: pod.name
+              }))
+              
+              const batchResponse = await podsService.getBatchPods(podIdentifiers)
+              
+              // Process each pod from the batch response
+              for (const podDetail of batchResponse.pods) {
+                const originalPod = podsResponse.items.find(p => 
+                  p.name === podDetail.name && p.namespace === podDetail.namespace
+                )
+                
+                const podInfo: PodInfo = {
+                  name: podDetail.name,
+                  namespace: podDetail.namespace,
+                  cluster: cluster.context,
+                  status: podDetail.phase || originalPod?.status || 'Unknown',
+                  nodeName: podDetail.nodeName || originalPod?.node || '',
+                  podIP: podDetail.podIP || originalPod?.ip || '',
+                  createdAt: podDetail.creationTimestamp,
+                  containers: (podDetail.containerStatuses || []).map((cs: any) => ({
+                    name: cs.name,
+                    image: cs.image,
+                    status: cs.state.running ? 'Running' : cs.state.waiting ? 'Waiting' : 'Terminated',
+                    ready: cs.ready,
+                    restartCount: cs.restartCount
+                  }))
+                }
+                
+                // If no container statuses, use container specs
+                if (podInfo.containers.length === 0 && podDetail.containers) {
+                  podInfo.containers = podDetail.containers.map((c: any) => ({
+                    name: c.name,
+                    image: c.image,
+                    status: 'Unknown',
+                    ready: false,
+                    restartCount: 0
+                  }))
+                }
+                
+                allPods.push(podInfo)
               }
               
-              // If no container statuses, use container specs
-              if (podInfo.containers.length === 0 && podDetail.containers) {
-                podInfo.containers = podDetail.containers.map((c: any) => ({
-                  name: c.name,
-                  image: c.image,
-                  status: 'Unknown',
-                  ready: false,
-                  restartCount: 0
-                }))
+              // Handle any pods that failed to fetch in batch
+              if (batchResponse.errors && batchResponse.errors.length > 0) {
+                console.warn('Some pods failed to fetch in batch:', batchResponse.errors)
+                // Add them with basic info
+                for (const error of batchResponse.errors) {
+                  const originalPod = podsResponse.items.find(p => 
+                    p.name === error.name && p.namespace === error.namespace
+                  )
+                  if (originalPod) {
+                    allPods.push({
+                      name: originalPod.name,
+                      namespace: originalPod.namespace,
+                      cluster: cluster.context,
+                      status: originalPod.status,
+                      nodeName: originalPod.node || '',
+                      podIP: originalPod.ip || '',
+                      createdAt: '',
+                      containers: originalPod.containers?.map((c: string) => ({
+                        name: c,
+                        image: 'unknown',
+                        status: 'Unknown',
+                        ready: false,
+                        restartCount: 0
+                      })) || []
+                    })
+                  }
+                }
               }
-              
-              allPods.push(podInfo)
-            } catch (detailError) {
-              console.error(`Failed to fetch details for pod ${pod.name}:`, detailError)
-              // Add pod with basic info even if details fail
-              allPods.push({
-                name: pod.name,
-                namespace: pod.namespace,
-                cluster: cluster.context,
-                status: pod.status,
-                nodeName: pod.node,
-                podIP: pod.ip,
-                createdAt: '',
-                containers: pod.containers?.map((c: string) => ({
-                  name: c,
-                  image: 'unknown',
-                  status: 'Unknown',
-                  ready: false,
-                  restartCount: 0
-                })) || []
-              })
+            } catch (batchError) {
+              console.error(`Failed to batch fetch pod details for cluster ${cluster.context}:`, batchError)
+              // Fallback: add pods with basic info only
+              for (const pod of podsResponse.items) {
+                allPods.push({
+                  name: pod.name,
+                  namespace: pod.namespace,
+                  cluster: cluster.context,
+                  status: pod.status,
+                  nodeName: pod.node || '',
+                  podIP: pod.ip || '',
+                  createdAt: '',
+                  containers: pod.containers?.map((c: string) => ({
+                    name: c,
+                    image: 'unknown',
+                    status: 'Unknown',
+                    ready: false,
+                    restartCount: 0
+                  })) || []
+                })
+              }
             }
           }
         } catch (clusterError) {
@@ -383,7 +433,19 @@ export function AdvancedTerminalsPage() {
     setExpandedNodes(newExpanded)
   }
 
+  // Helper function to check if a container already has an active terminal
+  const hasActiveTerminal = (container: any) => {
+    return terminals.some(t => 
+      t.cluster === container.cluster &&
+      t.namespace === container.namespace &&
+      t.podName === container.pod.name &&
+      t.containerName === container.name
+    )
+  }
+
   const openTerminal = (container: any) => {
+    console.log('openTerminal called with container:', container)
+    
     // Check if a terminal for this container already exists
     const existingTerminal = terminals.find(t => 
       t.cluster === container.cluster &&
@@ -393,7 +455,9 @@ export function AdvancedTerminalsPage() {
     )
     
     if (existingTerminal) {
-      // If terminal exists, just activate it
+      console.log('Duplicate terminal prevented - terminal already exists for container:', container.name, 'in pod:', container.pod.name)
+      console.log('Activating existing terminal:', existingTerminal.id)
+      // If terminal exists, just activate it instead of creating duplicate
       setActiveTerminalId(existingTerminal.id)
       // If in grid view, ensure it's visible (within first 4)
       if (viewMode === 'grid') {
@@ -412,6 +476,8 @@ export function AdvancedTerminalsPage() {
     
     // Create a new terminal only if it doesn't exist
     const terminalId = `${container.cluster}-${container.namespace}-${container.pod.name}-${container.name}-${Date.now()}`
+    console.log('Creating new terminal with ID:', terminalId)
+    
     const newTerminal: TerminalSession = {
       id: terminalId,
       podName: container.pod.name,
@@ -423,7 +489,9 @@ export function AdvancedTerminalsPage() {
       isMaximized: false
     }
     
-    setTerminals([...terminals, newTerminal])
+  console.log('Adding new terminal to terminals list:', newTerminal)
+  // Use functional updater to avoid stale terminals array when adding multiple quickly
+  setTerminals(prev => [...prev, newTerminal])
     setActiveTerminalId(terminalId)
   }
 
@@ -494,6 +562,15 @@ export function AdvancedTerminalsPage() {
   }
 
   const toggleContainerSelection = (containerId: string) => {
+    // Find the container data to check if it already has an active terminal
+    const container = findContainerInTree(treeData, containerId)
+    
+    if (container && container.data && hasActiveTerminal(container.data)) {
+      // Don't allow selecting containers that already have active terminals
+      console.log('Cannot select container - terminal already open for:', container.data.name, 'in pod:', container.data.pod.name)
+      return
+    }
+    
     const newSelected = new Set(selectedContainers)
     if (newSelected.has(containerId)) {
       newSelected.delete(containerId)
@@ -504,24 +581,47 @@ export function AdvancedTerminalsPage() {
   }
 
   const openSelectedTerminals = () => {
+    console.log('Opening terminals for selected containers:', Array.from(selectedContainers))
+    
+    let newTerminalsCount = 0
+    let duplicateTerminalsCount = 0
+    
     selectedContainers.forEach(containerId => {
-      // Parse the container ID to get the container data
-      const parts = containerId.split('-')
-      if (parts.length >= 4) {
-        const [cluster, namespace, ...rest] = parts
-        const podName = rest.slice(0, -1).join('-')
-        const containerName = rest[rest.length - 1]
+      console.log('Processing container ID:', containerId)
+      
+      // Find the container data from the tree using the exact container ID
+      const container = findContainerInTree(treeData, containerId)
+      console.log('Found container in tree:', container)
+      
+      if (container && container.data) {
+        // Check if terminal already exists before opening
+        const hasExisting = hasActiveTerminal(container.data)
         
-        // Find the container data from the tree
-        const container = findContainerInTree(treeData, containerId)
-        if (container) {
-          openTerminal(container.data)
+        if (hasExisting) {
+          duplicateTerminalsCount++
+          console.log('Skipping duplicate terminal for container:', container.data.name, 'in pod:', container.data.pod.name)
+        } else {
+          newTerminalsCount++
         }
+        
+        console.log('Opening terminal for container:', container.data)
+        openTerminal(container.data)
+      } else {
+        console.error('Container not found in tree for ID:', containerId)
       }
     })
-    // Clear selection after opening
+    
+    // Log summary
+    if (duplicateTerminalsCount > 0) {
+      console.log(`Opened ${newTerminalsCount} new terminals, ${duplicateTerminalsCount} containers already had active terminals`)
+    } else {
+      console.log(`Opened ${newTerminalsCount} new terminals`)
+    }
+    
+    console.log('Clearing selection but keeping selection mode active')
+    // Clear selection after opening but keep selection mode active for iterative container addition
     setSelectedContainers(new Set())
-    setIsSelectionMode(false)
+    // setIsSelectionMode(false) // Commented out to keep selection mode persistent
   }
 
   const findContainerInTree = (nodes: TreeNode[], containerId: string): TreeNode | null => {
@@ -615,18 +715,30 @@ export function AdvancedTerminalsPage() {
           {node.type === 'container' && (
             <div className="flex items-center gap-2">
               {isSelectionMode ? (
-                <input
-                  type="checkbox"
-                  checked={selectedContainers.has(node.id)}
-                  onChange={(e) => {
-                    e.stopPropagation()
-                    toggleContainerSelection(node.id)
-                  }}
-                  onClick={(e) => e.stopPropagation()}
-                  className="h-3.5 w-3.5"
-                />
+                <div className="flex items-center gap-1">
+                  <input
+                    type="checkbox"
+                    checked={selectedContainers.has(node.id)}
+                    disabled={node.data && hasActiveTerminal(node.data)}
+                    onChange={(e) => {
+                      e.stopPropagation()
+                      toggleContainerSelection(node.id)
+                    }}
+                    onClick={(e) => e.stopPropagation()}
+                    className="h-3.5 w-3.5 disabled:opacity-50 disabled:cursor-not-allowed"
+                  />
+                  {node.data && hasActiveTerminal(node.data) && (
+                    <div title="Terminal already open">
+                      <Terminal className="h-3 w-3 text-green-500 dark:text-green-400" />
+                    </div>
+                  )}
+                </div>
               ) : node.ready === false ? (
                 <XCircle className="h-3 w-3 text-red-500 dark:text-red-400" />
+              ) : node.data && hasActiveTerminal(node.data) ? (
+                <div title="Terminal open">
+                  <Terminal className="h-3 w-3 text-green-500 dark:text-green-400" />
+                </div>
               ) : (
                 <Terminal className="h-3 w-3 text-orange-500 dark:text-orange-400" />
               )}
