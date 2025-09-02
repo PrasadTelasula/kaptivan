@@ -101,6 +101,26 @@ export interface ExecResponse {
   error?: string
 }
 
+interface PodIdentifier {
+  context: string
+  namespace: string
+  name: string
+}
+
+interface BatchGetRequest {
+  pods: PodIdentifier[]
+}
+
+interface BatchGetResponse {
+  pods: PodDetail[]
+  errors?: Array<{
+    context: string
+    namespace: string
+    name: string
+    error: string
+  }>
+}
+
 class PodsService {
   async getPod(context: string, namespace: string, name: string): Promise<PodDetail> {
     const response = await fetch(
@@ -109,6 +129,25 @@ class PodsService {
 
     if (!response.ok) {
       throw new Error('Failed to fetch pod details')
+    }
+
+    return response.json()
+  }
+
+  async getBatchPods(pods: PodIdentifier[]): Promise<BatchGetResponse> {
+    const response = await fetch(
+      `${API_BASE_URL}/api/v1/pods/batch`,
+      {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ pods }),
+      }
+    )
+
+    if (!response.ok) {
+      throw new Error('Failed to fetch pod details in batch')
     }
 
     return response.json()

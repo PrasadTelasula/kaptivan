@@ -338,4 +338,3 @@ func ListDetailed(c *gin.Context) {
 		"total": len(detailedPods),
 	})
 }
-}
