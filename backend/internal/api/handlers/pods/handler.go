@@ -243,3 +243,99 @@ func Exec(c *gin.Context) {
 		"message": "This feature requires WebSocket support",
 	})
 }
+
+// BatchGet handles getting multiple pod details in a single request
+func BatchGet(c *gin.Context) {
+	var req BatchGetRequest
+	if err := c.ShouldBindJSON(&req); err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		return
+	}
+
+	if len(req.Pods) == 0 {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "at least one pod identifier is required"})
+		return
+	}
+
+	// Limit the number of pods that can be requested in a single batch to prevent abuse
+	const maxBatchSize = 100
+	if len(req.Pods) > maxBatchSize {
+		c.JSON(http.StatusBadRequest, gin.H{"error": fmt.Sprintf("batch size cannot exceed %d pods", maxBatchSize)})
+		return
+	}
+
+	response := BatchGetResponse{
+		Pods:   make([]PodDetail, 0, len(req.Pods)),
+		Errors: make([]PodError, 0),
+	}
+
+	// Process each pod identifier
+	for _, podID := range req.Pods {
+		conn, err := clusterManager.GetConnection(podID.Context)
+		if err != nil || conn == nil {
+			response.Errors = append(response.Errors, PodError{
+				Context:   podID.Context,
+				Namespace: podID.Namespace,
+				Name:      podID.Name,
+				Error:     "cluster not connected",
+			})
+			continue
+		}
+
+		pod, err := conn.ClientSet.CoreV1().Pods(podID.Namespace).Get(c.Request.Context(), podID.Name, metav1.GetOptions{})
+		if err != nil {
+			response.Errors = append(response.Errors, PodError{
+				Context:   podID.Context,
+				Namespace: podID.Namespace,
+				Name:      podID.Name,
+				Error:     err.Error(),
+			})
+			continue
+		}
+
+		// Transform the pod to detailed format
+		detailedPod := TransformPodDetailed(pod)
+		response.Pods = append(response.Pods, detailedPod)
+	}
+
+	c.JSON(http.StatusOK, response)
+}
+
+// ListDetailed handles listing pods with full detailed information
+func ListDetailed(c *gin.Context) {
+	var req ListRequest
+	if err := c.ShouldBindJSON(&req); err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		return
+	}
+
+	conn, err := clusterManager.GetConnection(req.Context)
+	if err != nil || conn == nil {
+		c.JSON(http.StatusNotFound, gin.H{"error": "cluster not connected"})
+		return
+	}
+
+	namespace := req.Namespace
+	if namespace == "" {
+		namespace = metav1.NamespaceAll
+	}
+
+	pods, err := conn.ClientSet.CoreV1().Pods(namespace).List(context.TODO(), metav1.ListOptions{})
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		return
+	}
+
+	// Transform all pods to detailed format
+	detailedPods := make([]PodDetail, 0, len(pods.Items))
+	for _, pod := range pods.Items {
+		detailedPod := TransformPodDetailed(&pod)
+		detailedPods = append(detailedPods, detailedPod)
+	}
+	
+	c.JSON(http.StatusOK, gin.H{
+		"items": detailedPods,
+		"total": len(detailedPods),
+	})
+}
+}

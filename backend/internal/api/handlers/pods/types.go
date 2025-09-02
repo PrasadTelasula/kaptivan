@@ -265,3 +265,29 @@ type EventInfo struct {
 	LastTimestamp  time.Time `json:"lastTimestamp"`
 	Count          int32     `json:"count"`
 }
+
+// PodIdentifier represents a pod identifier for batch operations
+type PodIdentifier struct {
+	Context   string `json:"context" binding:"required"`
+	Namespace string `json:"namespace" binding:"required"`
+	Name      string `json:"name" binding:"required"`
+}
+
+// BatchGetRequest represents a request to get multiple pod details
+type BatchGetRequest struct {
+	Pods []PodIdentifier `json:"pods" binding:"required"`
+}
+
+// BatchGetResponse represents a response with multiple pod details
+type BatchGetResponse struct {
+	Pods   []PodDetail `json:"pods"`
+	Errors []PodError  `json:"errors,omitempty"`
+}
+
+// PodError represents an error for a specific pod in batch operations
+type PodError struct {
+	Context   string `json:"context"`
+	Namespace string `json:"namespace"`
+	Name      string `json:"name"`
+	Error     string `json:"error"`
+}
