@@ -26,6 +26,9 @@ vendor/
 dist/
 build/
 tmp/
+backend/bin/
+backend/main
+*.exe
 
 # Docker
 .docker/
@@ -33,6 +36,7 @@ tmp/
 # Testing
 coverage/
 *.test
+.playwright-mcp/
 
 # Misc
 *.bak
