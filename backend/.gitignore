@@ -1,0 +1,4 @@
+# Binaries
+backend/bin/
+backend/main
+*.exe
