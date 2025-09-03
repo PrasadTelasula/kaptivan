@@ -125,6 +125,7 @@ const menuItems: MenuSection[] = [
       { icon: Terminal, label: "Multi-Container Terminals", href: "/advanced/terminals" },
       { icon: FileText, label: "Manifest Viewer", href: "/advanced/manifests" },
       { icon: Book, label: "API Documentation", href: "/advanced/api-docs" },
+      { icon: FileText, label: "Multi-Cluster Logs", href: "/advanced/logs" },
     ],
     groups: [
       {

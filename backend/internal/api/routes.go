@@ -13,6 +13,7 @@ import (
 	"github.com/prasad/kaptivan/backend/internal/api/handlers/services"
 	"github.com/prasad/kaptivan/backend/internal/api/handlers/topology"
 	"github.com/prasad/kaptivan/backend/internal/api/middleware"
+	logsHandlers "github.com/prasad/kaptivan/backend/internal/logs/handlers"
 )
 
 func SetupRoutes(r *gin.Engine) {
@@ -162,6 +163,21 @@ func SetupRoutes(r *gin.Engine) {
 			}
 		}
 		
+		// Logs endpoints (multi-cluster log aggregation)
+		logsGroup := v1.Group("/logs")
+		{
+			if manager != nil {
+				logsHandler := logsHandlers.NewLogsHandler(manager)
+				streamHandler := logsHandlers.NewStreamHandler(manager)
+				
+				logsGroup.GET("/", logsHandler.GetLogs)
+				logsGroup.POST("/search", logsHandler.SearchLogs)
+				logsGroup.GET("/stream", streamHandler.StreamLogs)
+			} else {
+				println("Warning: Logs handler not initialized - logs endpoints will not be available")
+			}
+		}
+		
 		// Resource endpoints (legacy, will be deprecated)
 		resources := v1.Group("/resources")
 		{
@@ -209,6 +225,7 @@ func SetupRoutes(r *gin.Engine) {
 				"/api/v1/manifests/*",
 				"/api/v1/topology/*",
 				"/api/v1/apidocs/*",
+				"/api/v1/logs/*",
 				"/api/v1/resources/*",
 			},
 		})

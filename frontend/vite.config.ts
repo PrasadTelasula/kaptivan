@@ -18,4 +18,20 @@ export default defineConfig({
       },
     },
   },
+  optimizeDeps: {
+    include: [
+      'react-window',
+      'react-virtualized-auto-sizer',
+    ],
+    exclude: [],
+    esbuildOptions: {
+      target: 'esnext',
+    },
+  },
+  build: {
+    commonjsOptions: {
+      include: [/react-window/, /node_modules/],
+      transformMixedEsModules: true,
+    },
+  },
 })
