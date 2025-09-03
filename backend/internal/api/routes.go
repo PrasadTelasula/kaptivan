@@ -6,6 +6,7 @@ import (
 	
 	"github.com/gin-gonic/gin"
 	"github.com/prasad/kaptivan/backend/internal/api/handlers"
+	"github.com/prasad/kaptivan/backend/internal/api/handlers/apidocs"
 	"github.com/prasad/kaptivan/backend/internal/api/handlers/deployments"
 	"github.com/prasad/kaptivan/backend/internal/api/handlers/manifests"
 	"github.com/prasad/kaptivan/backend/internal/api/handlers/pods"
@@ -35,6 +36,8 @@ func SetupRoutes(r *gin.Engine) {
 		manifests.Initialize(manager)
 		// Initialize topology handlers
 		topology.Initialize(manager)
+		// Initialize APIDocs handlers
+		apidocs.Initialize(manager)
 	}
 	
 	r.GET("/health", handlers.Health)
@@ -148,6 +151,22 @@ func SetupRoutes(r *gin.Engine) {
 			} else {
 				// Log error but don't crash - topology endpoints won't work
 				println("Warning: Topology handler not initialized - topology endpoints will not be available")
+			}
+		}
+		
+		// APIDocs endpoints
+		apiDocsGroup := v1.Group("/apidocs")
+		{
+			apiDocsHandler := apidocs.GetHandler()
+			
+			if apiDocsHandler != nil {
+				apiDocsGroup.GET("/groups", apiDocsHandler.GetAPIGroups)
+				apiDocsGroup.GET("/resources", apiDocsHandler.GetAPIResources)
+				apiDocsGroup.GET("/schema", apiDocsHandler.GetResourceSchema)
+				apiDocsGroup.GET("/explain", apiDocsHandler.GetResourceExplain)
+				apiDocsGroup.GET("/search", apiDocsHandler.SearchResources)
+			} else {
+				println("Warning: APIDocs handler not initialized - APIDocs endpoints will not be available")
 			}
 		}
 		

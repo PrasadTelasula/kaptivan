@@ -12,6 +12,7 @@ import TopologyPage from '@/pages/advanced/topology'
 import DaemonSetTopologyPage from '@/pages/advanced/daemonset-topology'
 import JobTopologyPage from '@/pages/advanced/job-topology'
 import CronJobTopologyPage from '@/pages/advanced/topology/CronJobTopology'
+import APIDocsPage from '@/pages/advanced/api-docs'
 import { useAuthStore } from '@/stores/auth.store'
 
 function App() {
@@ -104,6 +105,14 @@ function App() {
             element={
               <ProtectedRoute>
                 <CronJobTopologyPage />
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="/advanced/api-docs"
+            element={
+              <ProtectedRoute>
+                <APIDocsPage />
               </ProtectedRoute>
             }
           />

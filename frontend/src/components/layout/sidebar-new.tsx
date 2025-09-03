@@ -35,6 +35,7 @@ import {
   Workflow,
   LogOut,
   User,
+  Book,
 } from "lucide-react"
 import { useLocation, useNavigate } from 'react-router-dom'
 import { useAuthStore } from '@/stores/auth.store'
@@ -123,6 +124,7 @@ const menuItems: MenuSection[] = [
     items: [
       { icon: Terminal, label: "Multi-Container Terminals", href: "/advanced/terminals" },
       { icon: FileText, label: "Manifest Viewer", href: "/advanced/manifests" },
+      { icon: Book, label: "API Documentation", href: "/advanced/api-docs" },
     ],
     groups: [
       {
