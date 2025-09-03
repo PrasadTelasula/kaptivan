@@ -1,0 +1,55 @@
+{
+  "resource": {
+    "name": "nodes",
+    "singularName": "node",
+    "namespaced": false,
+    "kind": "Node",
+    "verbs": [
+      "create",
+      "delete",
+      "deletecollection",
+      "get",
+      "list",
+      "patch",
+      "update",
+      "watch"
+    ],
+    "shortNames": [
+      "no"
+    ],
+    "categories": null,
+    "group": "core",
+    "version": "v1"
+  },
+  "schema": {
+    "kind": "Node",
+    "apiVersion": "core/v1",
+    "description": "Documentation for Node resource",
+    "properties": {
+      "apiVersion": {
+        "description": "APIVersion defines the versioned schema of this representation of an object",
+        "type": "string"
+      },
+      "kind": {
+        "description": "Kind is a string value representing the REST resource this object represents",
+        "type": "string"
+      },
+      "metadata": {
+        "description": "Standard object's metadata",
+        "type": "object"
+      },
+      "spec": {
+        "description": "Specification of the desired behavior of the Node",
+        "type": "object"
+      },
+      "status": {
+        "description": "Most recently observed status of the Node",
+        "type": "object"
+      }
+    },
+    "required": [],
+    "example": "apiVersion: v1\nkind: Node\nmetadata:\n  name: example-node\n  namespace: default\nspec:\n  # Add your specification here\nstatus:\n  # This is typically managed by the system"
+  },
+  "explanation": "KIND:       Node\nVERSION:    v1\n\nDESCRIPTION:\n    Node is a worker node in Kubernetes. Each node will have a unique identifier\n    in the cache (i.e. in etcd).\n    \nFIELDS:\n  apiVersion\t<string>\n    APIVersion defines the versioned schema of this representation of an object.\n    Servers should convert recognized schemas to the latest internal value, and\n    may reject unrecognized values. More info:\n    https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#resources\n\n  kind\t<string>\n    Kind is a string value representing the REST resource this object\n    represents. Servers may infer this from the endpoint the client submits\n    requests to. Cannot be updated. In CamelCase. More info:\n    https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#types-kinds\n\n  metadata\t<ObjectMeta>\n    Standard object's metadata. More info:\n    https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#metadata\n\n  spec\t<NodeSpec>\n    Spec defines the behavior of a node.\n    https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#spec-and-status\n\n  status\t<NodeStatus>\n    Most recently observed status of the node. Populated by the system.\n    Read-only. More info:\n    https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#spec-and-status",
+  "timestamp": "2025-09-03T05:54:55.099Z"
+}

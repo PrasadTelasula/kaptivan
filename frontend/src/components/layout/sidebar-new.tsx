@@ -154,14 +154,14 @@ export function Sidebar({ className, defaultCollapsed = false }: SidebarProps) {
   const navigate = useNavigate()
   const { user, logout } = useAuthStore()
   const scrollAreaRef = useRef<HTMLDivElement>(null)
-  const scrollPositionRef = useRef<number>(0)
   
   // Store scroll position before navigation
   const handleNavigation = (href: string) => {
     if (scrollAreaRef.current) {
       const scrollElement = scrollAreaRef.current.querySelector('[data-radix-scroll-area-viewport]')
       if (scrollElement) {
-        scrollPositionRef.current = scrollElement.scrollTop
+        // Save to sessionStorage to persist across page loads
+        sessionStorage.setItem('sidebar-scroll-position', scrollElement.scrollTop.toString())
       }
     }
     navigate(href)
@@ -173,27 +173,14 @@ export function Sidebar({ className, defaultCollapsed = false }: SidebarProps) {
       if (scrollAreaRef.current) {
         const scrollElement = scrollAreaRef.current.querySelector('[data-radix-scroll-area-viewport]')
         if (scrollElement) {
-          // If we have a stored position, restore it
-          if (scrollPositionRef.current > 0) {
-            scrollElement.scrollTop = scrollPositionRef.current
-          } else {
-            // On initial load, ensure active item is visible
-            const activeButton = scrollAreaRef.current.querySelector('[data-state="active"], .bg-secondary')
-            if (activeButton instanceof HTMLElement) {
-              const scrollTop = scrollElement.scrollTop
-              const scrollHeight = scrollElement.clientHeight
-              const buttonTop = activeButton.offsetTop
-              const buttonHeight = activeButton.offsetHeight
-              
-              // Only scroll if button is not fully visible
-              if (buttonTop < scrollTop || buttonTop + buttonHeight > scrollTop + scrollHeight) {
-                activeButton.scrollIntoView({ block: 'center', behavior: 'smooth' })
-              }
-            }
+          // Restore from sessionStorage
+          const savedPosition = sessionStorage.getItem('sidebar-scroll-position')
+          if (savedPosition) {
+            scrollElement.scrollTop = parseFloat(savedPosition)
           }
         }
       }
-    }, 100) // Small delay to ensure DOM is ready
+    }, 50) // Small delay to ensure DOM is ready
     return () => clearTimeout(timer)
   }, [location.pathname])
   

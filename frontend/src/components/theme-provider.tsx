@@ -1,4 +1,5 @@
 import React, { createContext, useContext, useEffect, useState } from "react"
+import { terminalManager } from "@/services/terminal-manager"
 
 type Theme = "dark" | "light" | "system"
 
@@ -35,17 +36,22 @@ export function ThemeProvider({
 
     root.classList.remove("light", "dark")
 
+    let effectiveTheme: "dark" | "light"
     if (theme === "system") {
       const systemTheme = window.matchMedia("(prefers-color-scheme: dark)")
         .matches
         ? "dark"
         : "light"
-
+      
+      effectiveTheme = systemTheme
       root.classList.add(systemTheme)
-      return
+    } else {
+      effectiveTheme = theme
+      root.classList.add(theme)
     }
-
-    root.classList.add(theme)
+    
+    // Update terminal themes when app theme changes
+    terminalManager.updateTheme(effectiveTheme)
   }, [theme])
 
   const value = {

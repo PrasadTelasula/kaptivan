@@ -48,7 +48,7 @@ class TerminalManager {
     
     // Terminal theme based on app theme
     const terminalTheme = effectiveTheme === 'dark' ? {
-      background: '#020817',  // Matches dark mode background
+      background: '#18181b',  // Changed to neutral gray (zinc-900)
       foreground: '#e2e8f0',
       cursor: '#e2e8f0',
       black: '#1e293b',
@@ -405,6 +405,64 @@ class TerminalManager {
   
   getAllTerminalIds(): string[] {
     return Array.from(this.terminals.keys())
+  }
+  
+  updateTheme(theme?: 'dark' | 'light'): void {
+    // Determine effective theme
+    let effectiveTheme = theme
+    if (!effectiveTheme) {
+      effectiveTheme = window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light'
+    }
+    
+    // Terminal theme based on app theme
+    const terminalTheme = effectiveTheme === 'dark' ? {
+      background: '#18181b',  // Changed to neutral gray (zinc-900)
+      foreground: '#e2e8f0',
+      cursor: '#e2e8f0',
+      black: '#1e293b',
+      red: '#ef4444',
+      green: '#10b981',
+      yellow: '#f59e0b',
+      blue: '#3b82f6',
+      magenta: '#a855f7',
+      cyan: '#06b6d4',
+      white: '#f8fafc',
+      brightBlack: '#475569',
+      brightRed: '#f87171',
+      brightGreen: '#34d399',
+      brightYellow: '#fbbf24',
+      brightBlue: '#60a5fa',
+      brightMagenta: '#c084fc',
+      brightCyan: '#22d3ee',
+      brightWhite: '#f1f5f9'
+    } : {
+      background: '#ffffff',
+      foreground: '#1e293b',
+      cursor: '#1e293b',
+      black: '#f1f5f9',
+      red: '#dc2626',
+      green: '#059669',
+      yellow: '#d97706',
+      blue: '#2563eb',
+      magenta: '#9333ea',
+      cyan: '#0891b2',
+      white: '#1e293b',
+      brightBlack: '#cbd5e1',
+      brightRed: '#ef4444',
+      brightGreen: '#10b981',
+      brightYellow: '#f59e0b',
+      brightBlue: '#3b82f6',
+      brightMagenta: '#a855f7',
+      brightCyan: '#06b6d4',
+      brightWhite: '#0f172a'
+    }
+    
+    // Update theme for all existing terminals
+    this.terminals.forEach(instance => {
+      if (instance.terminal) {
+        instance.terminal.options.theme = terminalTheme
+      }
+    })
   }
   
   closeAllTerminals(): void {
