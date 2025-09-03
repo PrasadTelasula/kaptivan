@@ -36,9 +36,12 @@ import {
   LogOut,
   User,
   Book,
+  Wifi,
 } from "lucide-react"
 import { useLocation, useNavigate } from 'react-router-dom'
 import { useAuthStore } from '@/stores/auth.store'
+import { ConnectionHealth } from '@/components/connection-health'
+import { useConnectionHealth } from '@/hooks/use-connection-health'
 
 interface MenuItem {
   icon: any;
@@ -117,6 +120,7 @@ const menuItems: MenuSection[] = [
       { icon: Terminal, label: "Terminal", href: "/terminal" },
       { icon: FileText, label: "Logs", href: "/logs" },
       { icon: Settings, label: "Settings", href: "/settings" },
+      { icon: Wifi, label: "Connection Health Demo", href: "/demo/connection-health" },
     ],
   },
   {
@@ -156,6 +160,7 @@ export function Sidebar({ className, defaultCollapsed = false }: SidebarProps) {
   const { user, logout } = useAuthStore()
   const scrollAreaRef = useRef<HTMLDivElement>(null)
   const [isRestoring, setIsRestoring] = useState(false)
+  const connectionHealth = useConnectionHealth()
   
   // Save scroll position continuously as user scrolls
   useEffect(() => {
@@ -365,6 +370,27 @@ export function Sidebar({ className, defaultCollapsed = false }: SidebarProps) {
               </div>
             </div>
           ))}
+        </div>
+        
+        {/* Connection Health section */}
+        <div className={cn(
+          "border-t",
+          collapsed ? "px-1 py-2" : "px-3 py-2"
+        )}>
+          {!collapsed ? (
+            <div className="space-y-1">
+              <h2 className="px-2 text-xs font-semibold tracking-tight text-muted-foreground uppercase">
+                Connection
+              </h2>
+              <ConnectionHealth
+                isConnected={connectionHealth.isConnected}
+                latency={connectionHealth.latency}
+                messageCount={connectionHealth.messageCount}
+                connectedAt={connectionHealth.connectedAt}
+                compact={true}
+              />
+            </div>
+          ) : null}
         </div>
         
         {/* User section at bottom */}
