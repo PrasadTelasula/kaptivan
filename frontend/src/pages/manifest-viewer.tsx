@@ -15,9 +15,9 @@ export function ManifestViewerPage() {
   console.log('ManifestViewerPage - selectedClusters:', selectedClusters)
 
   return (
-    <div className="min-h-screen bg-background">
+    <div className="h-screen bg-background flex flex-col">
       {!isFullscreen && <Header />}
-      <div className={cn("flex", isFullscreen ? "h-screen" : "h-[calc(100vh-3.5rem)]")}>
+      <div className={cn("flex flex-1 overflow-hidden", isFullscreen && "h-screen")}>
         {!isFullscreen && <Sidebar className="border-r" />}
         <main className="flex-1 overflow-hidden">
           <ManifestViewer 

@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useState, useRef, useEffect } from 'react'
 import { cn } from "@/utils/cn"
 import { Button } from "@/components/ui/button"
 import { ScrollArea } from "@/components/ui/scroll-area"
@@ -153,6 +153,49 @@ export function Sidebar({ className, defaultCollapsed = false }: SidebarProps) {
   const location = useLocation()
   const navigate = useNavigate()
   const { user, logout } = useAuthStore()
+  const scrollAreaRef = useRef<HTMLDivElement>(null)
+  const scrollPositionRef = useRef<number>(0)
+  
+  // Store scroll position before navigation
+  const handleNavigation = (href: string) => {
+    if (scrollAreaRef.current) {
+      const scrollElement = scrollAreaRef.current.querySelector('[data-radix-scroll-area-viewport]')
+      if (scrollElement) {
+        scrollPositionRef.current = scrollElement.scrollTop
+      }
+    }
+    navigate(href)
+  }
+  
+  // Restore scroll position after navigation
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      if (scrollAreaRef.current) {
+        const scrollElement = scrollAreaRef.current.querySelector('[data-radix-scroll-area-viewport]')
+        if (scrollElement) {
+          // If we have a stored position, restore it
+          if (scrollPositionRef.current > 0) {
+            scrollElement.scrollTop = scrollPositionRef.current
+          } else {
+            // On initial load, ensure active item is visible
+            const activeButton = scrollAreaRef.current.querySelector('[data-state="active"], .bg-secondary')
+            if (activeButton instanceof HTMLElement) {
+              const scrollTop = scrollElement.scrollTop
+              const scrollHeight = scrollElement.clientHeight
+              const buttonTop = activeButton.offsetTop
+              const buttonHeight = activeButton.offsetHeight
+              
+              // Only scroll if button is not fully visible
+              if (buttonTop < scrollTop || buttonTop + buttonHeight > scrollTop + scrollHeight) {
+                activeButton.scrollIntoView({ block: 'center', behavior: 'smooth' })
+              }
+            }
+          }
+        }
+      }
+    }, 100) // Small delay to ensure DOM is ready
+    return () => clearTimeout(timer)
+  }, [location.pathname])
   
   const toggleGroup = (groupKey: string) => {
     setExpandedGroups(prev => ({
@@ -189,7 +232,7 @@ export function Sidebar({ className, defaultCollapsed = false }: SidebarProps) {
         </Button>
       </div>
 
-      <ScrollArea className="h-full">
+      <ScrollArea className="h-full" ref={scrollAreaRef}>
         <div className="flex flex-col h-full">
           <div className="flex-1 space-y-4 py-4">
           {menuItems.map((section, idx) => (
@@ -210,7 +253,7 @@ export function Sidebar({ className, defaultCollapsed = false }: SidebarProps) {
                         "w-full justify-start",
                         collapsed && "justify-center px-2 py-2"
                       )}
-                      onClick={() => navigate(item.href)}
+                      onClick={() => handleNavigation(item.href)}
                       title={collapsed ? item.label : undefined}
                     >
                       <item.icon className={cn(
@@ -294,7 +337,7 @@ export function Sidebar({ className, defaultCollapsed = false }: SidebarProps) {
                               key={item.href}
                               variant={isActive ? "secondary" : "ghost"}
                               className="w-full justify-start pl-2"
-                              onClick={() => navigate(item.href)}
+                              onClick={() => handleNavigation(item.href)}
                             >
                               <item.icon className={cn(
                                 "h-3.5 w-3.5 mr-2 flex-shrink-0",

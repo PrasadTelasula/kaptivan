@@ -30,11 +30,11 @@ export function DashboardPage() {
   }, [fetchClusters])
 
   return (
-    <div className="min-h-screen bg-background">
+    <div className="h-screen bg-background flex flex-col">
       <Header />
-      <div className="flex">
+      <div className="flex flex-1 overflow-hidden">
         <Sidebar className="hidden lg:block border-r" />
-        <main className="flex-1 p-6">
+        <main className="flex-1 p-6 overflow-auto">
           <div className="space-y-6">
             <div>
               <h2 className="text-3xl font-bold tracking-tight">Dashboard</h2>
