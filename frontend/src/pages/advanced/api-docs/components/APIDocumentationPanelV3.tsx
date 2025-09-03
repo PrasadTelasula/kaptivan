@@ -131,6 +131,8 @@ export default function APIDocumentationPanelV3({ context, selectedNode }: APIDo
   const [fieldTree, setFieldTree] = useState<FieldNode[]>([]);
   const [searchQuery, setSearchQuery] = useState('');
   const [copiedField, setCopiedField] = useState<string | null>(null);
+  const [copiedAction, setCopiedAction] = useState<string | null>(null);
+  const [activeExample, setActiveExample] = useState<'minimal' | 'complete'>('minimal');
   const [bookmarkedFields, setBookmarkedFields] = useState<Set<string>>(new Set());
   const [recentResources, setRecentResources] = useState<APIResource[]>([]);
   const [showSplitView, setShowSplitView] = useState(false);
@@ -265,21 +267,49 @@ export default function APIDocumentationPanelV3({ context, selectedNode }: APIDo
   };
 
   const exportDocumentation = () => {
-    if (!selectedNode || !schema) return;
+    if (!selectedNode || selectedNode.type !== 'resource') return;
     
-    const doc = {
-      resource: selectedNode.data,
-      schema,
-      explanation: explanation?.explanation,
-      timestamp: new Date().toISOString()
-    };
+    const resource = selectedNode.data as APIResource;
+    let docText = `API Documentation for ${resource.name}\n`;
+    docText += `${'='.repeat(50)}\n\n`;
     
-    const blob = new Blob([JSON.stringify(doc, null, 2)], { type: 'application/json' });
+    if (explanation) {
+      // Add basic info
+      if (explanation.KIND) docText += `KIND: ${explanation.KIND}\n`;
+      if (explanation.VERSION) docText += `VERSION: ${explanation.VERSION}\n`;
+      if (explanation.GROUP) docText += `GROUP: ${explanation.GROUP}\n`;
+      docText += '\n';
+      
+      // Add description
+      if (explanation.DESCRIPTION) {
+        docText += `DESCRIPTION:\n${explanation.DESCRIPTION}\n\n`;
+      }
+      
+      // Add fields
+      if (explanation.FIELDS && explanation.FIELDS.length > 0) {
+        docText += `FIELDS:\n`;
+        docText += `${'-'.repeat(50)}\n`;
+        explanation.FIELDS.forEach((field: string) => {
+          docText += `  ${field}\n`;
+        });
+      }
+    }
+    
+    // Add raw explanation if available
+    if (explanation?.explanation) {
+      docText += `\n${'='.repeat(50)}\n`;
+      docText += `RAW OUTPUT:\n`;
+      docText += `${'-'.repeat(50)}\n`;
+      docText += explanation.explanation;
+    }
+    
+    const blob = new Blob([docText], { type: 'text/plain' });
     const url = URL.createObjectURL(blob);
     const a = document.createElement('a');
     a.href = url;
-    a.download = `${selectedNode.data.name}-api-docs.json`;
+    a.download = `${resource.name}-api-docs.txt`;
     a.click();
+    URL.revokeObjectURL(url);
   };
 
   const parseFieldsToTree = (fields: string[]): FieldNode[] => {
@@ -575,9 +605,31 @@ export default function APIDocumentationPanelV3({ context, selectedNode }: APIDo
     const currentPath = fieldPath ? `${resource.name}.${fieldPath}` : resource.name;
     
     return (
-      <div className="h-full flex">
-        {/* Left Panel - Enhanced Field Explorer */}
-        <div className="w-80 border-r flex flex-col h-full">
+      <div className="h-full flex flex-col overflow-hidden">
+        {/* Page Header */}
+        <div className="border-b bg-muted/10">
+          <div className="px-6 py-4">
+            <div className="flex items-center justify-between">
+              <div>
+                <h2 className="text-2xl font-semibold tracking-tight">API Documentation</h2>
+                <div className="flex items-center gap-2 text-sm text-muted-foreground mt-1">
+                  <span>Kubernetes API Explorer</span>
+                  <ChevronRight className="h-3 w-3" />
+                  <span>{resource.name}</span>
+                </div>
+              </div>
+              <div className="flex items-center gap-2">
+                <Badge variant="secondary">{resource.group || 'core'}/{resource.version || 'v1'}</Badge>
+                {resource.namespaced && <Badge variant="outline">Namespaced</Badge>}
+              </div>
+            </div>
+          </div>
+        </div>
+        
+        {/* Main Content */}
+        <div className="flex-1 flex overflow-hidden">
+          {/* Left Panel - Enhanced Field Explorer */}
+          <div className="w-80 border-r flex flex-col h-full">
           <div className="p-3 border-b flex-shrink-0">
             <div className="flex items-center justify-between mb-2">
               <h4 className="text-sm font-medium">Field Explorer</h4>
@@ -588,15 +640,20 @@ export default function APIDocumentationPanelV3({ context, selectedNode }: APIDo
                   </Button>
                 </DropdownMenuTrigger>
                 <DropdownMenuContent align="end">
-                  <DropdownMenuItem onClick={() => setExpandedFields(new Set())}>
+                  <DropdownMenuItem onClick={() => {
+                    setExpandedFields(new Set());
+                  }}>
                     Collapse All
                   </DropdownMenuItem>
                   <DropdownMenuItem onClick={() => {
                     const allPaths = new Set<string>();
-                    const addPaths = (nodes: FieldNode[]) => {
+                    const addPaths = (nodes: FieldNode[], parentPath: string = '') => {
                       nodes.forEach(node => {
-                        allPaths.add(node.path);
-                        if (node.children) addPaths(node.children);
+                        const fullPath = parentPath ? `${parentPath}.${node.name}` : node.name;
+                        if (node.children && node.children.length > 0) {
+                          allPaths.add(fullPath);
+                          addPaths(node.children, fullPath);
+                        }
                       });
                     };
                     addPaths(fieldTree);
@@ -738,7 +795,7 @@ export default function APIDocumentationPanelV3({ context, selectedNode }: APIDo
         </div>
         
         {/* Right Panel - Enhanced Explanation */}
-        <div className="flex-1 flex flex-col h-full">
+        <div className="flex-1 flex flex-col h-full overflow-hidden">
           {/* Search Bar with Autocomplete */}
           <div className="p-4 pb-2 flex-shrink-0">
             <Popover open={autocompleteOpen} onOpenChange={setAutocompleteOpen}>
@@ -819,9 +876,17 @@ export default function APIDocumentationPanelV3({ context, selectedNode }: APIDo
                       variant="outline"
                       size="sm"
                       className="h-7 text-xs"
-                      onClick={() => copyToClipboard(action.command)}
+                      onClick={() => {
+                        copyToClipboard(action.command);
+                        setCopiedAction(action.label);
+                        setTimeout(() => setCopiedAction(null), 2000);
+                      }}
                     >
-                      {action.icon}
+                      {copiedAction === action.label ? (
+                        <Check className="h-3 w-3 text-green-500" />
+                      ) : (
+                        action.icon
+                      )}
                       <span className="ml-1">{action.label}</span>
                     </Button>
                   </TooltipTrigger>
@@ -829,6 +894,9 @@ export default function APIDocumentationPanelV3({ context, selectedNode }: APIDo
                     <p className="font-mono text-xs">{action.command}</p>
                     {action.description && (
                       <p className="text-xs text-muted-foreground">{action.description}</p>
+                    )}
+                    {copiedAction === action.label && (
+                      <p className="text-xs text-green-500 font-medium mt-1">✓ Copied to clipboard!</p>
                     )}
                   </TooltipContent>
                 </Tooltip>
@@ -839,8 +907,8 @@ export default function APIDocumentationPanelV3({ context, selectedNode }: APIDo
           <Separator className="mx-4" />
           
           {/* Explanation Output with Syntax Highlighting */}
-          <div className="flex-1 min-h-0 flex flex-col p-4 pt-2">
-            <div className="flex items-center justify-between mb-2 flex-shrink-0">
+          <div className="flex-1 min-h-0 flex flex-col p-4 pt-2 overflow-hidden">
+            <div className="flex items-center justify-between flex-shrink-0">
               <h4 className="text-sm font-medium">
                 kubectl explain {currentPath}
               </h4>
@@ -884,9 +952,8 @@ export default function APIDocumentationPanelV3({ context, selectedNode }: APIDo
                 <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
               </div>
             ) : explanation ? (
-              <div className="flex-1 min-h-0 relative">
-                <ScrollArea className="absolute inset-0">
-                  <div className="p-4 space-y-6">
+              <div className="flex-1 overflow-auto min-h-0">
+                <div className="p-4 space-y-4">
                     {/* Parse and enhance kubectl explain output */}
                     {(() => {
                       const lines = explanation.explanation.split('\n');
@@ -914,30 +981,32 @@ export default function APIDocumentationPanelV3({ context, selectedNode }: APIDo
                       
                       return (
                         <>
-                          {/* Header Section */}
-                          <div className="bg-gradient-to-r from-primary/10 to-primary/5 border border-primary/20 rounded-lg p-6">
-                            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                              {parsedData.KIND && (
-                                <div>
-                                  <div className="flex items-center gap-2 mb-2">
-                                    <Package className="h-4 w-4 text-primary" />
-                                    <span className="text-sm font-medium text-primary">Resource Type</span>
+                          {/* Header Section - only show if there's content */}
+                          {(parsedData.KIND || parsedData.VERSION) && (
+                            <div className="bg-gradient-to-r from-primary/10 to-primary/5 border border-primary/20 rounded-lg p-6">
+                              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                                {parsedData.KIND && (
+                                  <div>
+                                    <div className="flex items-center gap-2 mb-2">
+                                      <Package className="h-4 w-4 text-primary" />
+                                      <span className="text-sm font-medium text-primary">Resource Type</span>
+                                    </div>
+                                    <p className="text-lg font-semibold">{parsedData.KIND}</p>
                                   </div>
-                                  <p className="text-lg font-semibold">{parsedData.KIND}</p>
-                                </div>
-                              )}
-                              
-                              {parsedData.VERSION && (
-                                <div>
-                                  <div className="flex items-center gap-2 mb-2">
-                                    <Layers className="h-4 w-4 text-primary" />
-                                    <span className="text-sm font-medium text-primary">API Version</span>
+                                )}
+                                
+                                {parsedData.VERSION && (
+                                  <div>
+                                    <div className="flex items-center gap-2 mb-2">
+                                      <Layers className="h-4 w-4 text-primary" />
+                                      <span className="text-sm font-medium text-primary">API Version</span>
+                                    </div>
+                                    <Badge variant="outline" className="font-mono">{parsedData.VERSION}</Badge>
                                   </div>
-                                  <Badge variant="outline" className="font-mono">{parsedData.VERSION}</Badge>
-                                </div>
-                              )}
+                                )}
+                              </div>
                             </div>
-                          </div>
+                          )}
                           
                           {/* Description Section */}
                           {parsedData.DESCRIPTION && (
@@ -946,11 +1015,9 @@ export default function APIDocumentationPanelV3({ context, selectedNode }: APIDo
                                 <FileText className="h-5 w-5 text-blue-500" />
                                 <h3 className="text-lg font-semibold">Description</h3>
                               </div>
-                              <div className="prose prose-sm max-w-none">
-                                <p className="text-muted-foreground leading-relaxed whitespace-pre-wrap">
-                                  {parsedData.DESCRIPTION}
-                                </p>
-                              </div>
+                              <p className="text-muted-foreground leading-relaxed text-sm">
+                                {parsedData.DESCRIPTION.trim().replace(/\s+/g, ' ')}
+                              </p>
                             </div>
                           )}
                           
@@ -976,20 +1043,41 @@ export default function APIDocumentationPanelV3({ context, selectedNode }: APIDo
                                     </TableRow>
                                   </TableHeader>
                                   <TableBody>
-                                    {parsedData.FIELDS.split('\n')
-                                      .filter((line: string) => line.trim())
-                                      .map((line: string, idx: number) => {
-                                        const fieldMatch = line.match(/^\s*([\w.-]+)\s+<([^>]+)>\s*(.*)$/);
+                                    {(() => {
+                                      const lines = parsedData.FIELDS.split('\n');
+                                      const fields = [];
+                                      let i = 0;
+                                      
+                                      while (i < lines.length) {
+                                        const line = lines[i];
+                                        const fieldMatch = line.match(/^\s*([\w.-]+)\s+<([^>]+)>/);
                                         
                                         if (fieldMatch) {
-                                          const [, fieldName, fieldType, description] = fieldMatch;
+                                          const [, fieldName, fieldType] = fieldMatch;
+                                          let description = '';
+                                          
+                                          // Collect description from subsequent lines
+                                          i++;
+                                          while (i < lines.length) {
+                                            const nextLine = lines[i];
+                                            // Check if this is a description line (indented more than the field line)
+                                            if (nextLine && !nextLine.match(/^\s*[\w.-]+\s+<[^>]+>/) && nextLine.trim()) {
+                                              // This is a description line
+                                              description += (description ? ' ' : '') + nextLine.trim();
+                                              i++;
+                                            } else {
+                                              // We've hit the next field or empty line
+                                              break;
+                                            }
+                                          }
+                                          
                                           const isRequired = description.toLowerCase().includes('required');
                                           const isDeprecated = description.toLowerCase().includes('deprecated');
                                           const isReadOnly = description.toLowerCase().includes('read-only');
                                           
-                                          return (
+                                          fields.push(
                                             <TableRow 
-                                              key={idx} 
+                                              key={fieldName} 
                                               className="cursor-pointer hover:bg-accent/50 group"
                                               onClick={() => navigateToField(fieldName)}
                                             >
@@ -1024,8 +1112,8 @@ export default function APIDocumentationPanelV3({ context, selectedNode }: APIDo
                                                 )}
                                               </TableCell>
                                               <TableCell>
-                                                <p className="text-sm text-muted-foreground line-clamp-2 max-w-md">
-                                                  {description.trim()}
+                                                <p className="text-sm text-muted-foreground">
+                                                  {description || 'No description available'}
                                                 </p>
                                               </TableCell>
                                               <TableCell>
@@ -1046,11 +1134,13 @@ export default function APIDocumentationPanelV3({ context, selectedNode }: APIDo
                                               </TableCell>
                                             </TableRow>
                                           );
+                                        } else {
+                                          i++;
                                         }
-                                        
-                                        return null;
-                                      })
-                                      .filter(Boolean)}
+                                      }
+                                      
+                                      return fields;
+                                    })()}
                                   </TableBody>
                                 </Table>
                               </div>
@@ -1070,14 +1160,12 @@ export default function APIDocumentationPanelV3({ context, selectedNode }: APIDo
                             </Button>
                             
                             <details className="group">
-                              <summary className="cursor-pointer">
-                                <Button variant="ghost" size="sm" className="flex items-center gap-2">
-                                  <Terminal className="h-4 w-4" />
-                                  Raw Output
-                                  <ChevronRight className="h-3 w-3 transition-transform group-open:rotate-90" />
-                                </Button>
+                              <summary className="cursor-pointer list-none flex items-center gap-2 px-3 py-1.5 text-sm font-medium rounded-md hover:bg-accent hover:text-accent-foreground transition-colors">
+                                <Terminal className="h-4 w-4" />
+                                Raw Output
+                                <ChevronRight className="h-3 w-3 transition-transform group-open:rotate-90" />
                               </summary>
-                              <div className="mt-4 bg-slate-950 text-green-400 p-4 rounded-lg border">
+                              <div className="mt-4 bg-slate-950 text-green-400 p-4 rounded-lg border max-h-96 overflow-auto">
                                 <pre className="text-xs font-mono whitespace-pre-wrap">
                                   {explanation.explanation}
                                 </pre>
@@ -1087,8 +1175,7 @@ export default function APIDocumentationPanelV3({ context, selectedNode }: APIDo
                         </>
                       );
                     })()}
-                  </div>
-                </ScrollArea>
+                </div>
               </div>
             ) : (
               <div className="flex-1 flex items-center justify-center">
@@ -1195,6 +1282,7 @@ export default function APIDocumentationPanelV3({ context, selectedNode }: APIDo
             </ScrollArea>
           </div>
         )}
+        </div>
       </div>
     );
   };
@@ -1383,13 +1471,552 @@ export default function APIDocumentationPanelV3({ context, selectedNode }: APIDo
     );
   };
 
+  const generateEnhancedExample = (resourceName: string, existingExample?: string) => {
+    // Generate comprehensive examples based on resource type
+    const examples: Record<string, any> = {
+      nodes: {
+        minimal: `apiVersion: v1
+kind: Node
+metadata:
+  name: my-node
+  labels:
+    node-role.kubernetes.io/worker: "true"
+spec:
+  podCIDR: 10.244.0.0/24
+  taints:
+  - key: node-role.kubernetes.io/master
+    effect: NoSchedule`,
+        complete: `apiVersion: v1
+kind: Node
+metadata:
+  name: worker-node-1
+  namespace: default
+  labels:
+    node-role.kubernetes.io/worker: "true"
+    kubernetes.io/hostname: worker-node-1
+    beta.kubernetes.io/os: linux
+    beta.kubernetes.io/arch: amd64
+    node.kubernetes.io/instance-type: m5.large
+    topology.kubernetes.io/zone: us-west-2a
+    topology.kubernetes.io/region: us-west-2
+  annotations:
+    node.alpha.kubernetes.io/ttl: "0"
+    volumes.kubernetes.io/controller-managed-attach-detach: "true"
+spec:
+  podCIDR: 10.244.1.0/24
+  podCIDRs:
+  - 10.244.1.0/24
+  providerID: aws:///us-west-2a/i-0123456789abcdef
+  taints:
+  - key: dedicated
+    value: special-user
+    effect: NoSchedule
+  - key: node.kubernetes.io/unreachable
+    operator: Exists
+    effect: NoExecute
+    tolerationSeconds: 300
+  capacity:
+    cpu: "4"
+    memory: 16Gi
+    storage: 100Gi
+    pods: "110"
+  allocatable:
+    cpu: "3.5"
+    memory: 15Gi
+    storage: 95Gi
+    pods: "100"`
+      },
+      pods: {
+        minimal: `apiVersion: v1
+kind: Pod
+metadata:
+  name: nginx-pod
+spec:
+  containers:
+  - name: nginx
+    image: nginx:latest`,
+        complete: `apiVersion: v1
+kind: Pod
+metadata:
+  name: nginx-pod
+  namespace: default
+  labels:
+    app: nginx
+    environment: production
+  annotations:
+    prometheus.io/scrape: "true"
+    prometheus.io/port: "9090"
+spec:
+  containers:
+  - name: nginx
+    image: nginx:1.21-alpine
+    ports:
+    - containerPort: 80
+      protocol: TCP
+    resources:
+      requests:
+        memory: "64Mi"
+        cpu: "250m"
+      limits:
+        memory: "128Mi"
+        cpu: "500m"
+    livenessProbe:
+      httpGet:
+        path: /
+        port: 80
+      initialDelaySeconds: 30
+      periodSeconds: 10
+    readinessProbe:
+      httpGet:
+        path: /
+        port: 80
+      initialDelaySeconds: 5
+      periodSeconds: 5
+    volumeMounts:
+    - name: config
+      mountPath: /etc/nginx/conf.d
+    - name: cache
+      mountPath: /var/cache/nginx
+  volumes:
+  - name: config
+    configMap:
+      name: nginx-config
+  - name: cache
+    emptyDir: {}
+  restartPolicy: Always
+  nodeSelector:
+    disktype: ssd
+  tolerations:
+  - key: "key1"
+    operator: "Equal"
+    value: "value1"
+    effect: "NoSchedule"`
+      },
+      services: {
+        minimal: `apiVersion: v1
+kind: Service
+metadata:
+  name: my-service
+spec:
+  selector:
+    app: MyApp
+  ports:
+  - port: 80
+    targetPort: 9376`,
+        complete: `apiVersion: v1
+kind: Service
+metadata:
+  name: my-service
+  namespace: default
+  labels:
+    app: MyApp
+    tier: backend
+  annotations:
+    service.beta.kubernetes.io/aws-load-balancer-type: "nlb"
+spec:
+  type: LoadBalancer
+  selector:
+    app: MyApp
+  ports:
+  - name: http
+    port: 80
+    targetPort: 9376
+    protocol: TCP
+  - name: https
+    port: 443
+    targetPort: 9377
+    protocol: TCP
+  sessionAffinity: ClientIP
+  sessionAffinityConfig:
+    clientIP:
+      timeoutSeconds: 10800
+  loadBalancerSourceRanges:
+  - 10.0.0.0/8
+  - 192.168.0.0/16`
+      },
+      configmaps: {
+        minimal: `apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: my-config
+data:
+  key1: value1`,
+        complete: `apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: app-config
+  namespace: default
+  labels:
+    app: myapp
+    environment: production
+data:
+  # Application properties
+  application.yaml: |
+    server:
+      port: 8080
+      host: 0.0.0.0
+    database:
+      host: postgres.default.svc.cluster.local
+      port: 5432
+      name: myapp
+    cache:
+      type: redis
+      ttl: 300
+  # Nginx configuration
+  nginx.conf: |
+    server {
+      listen 80;
+      server_name example.com;
+      location / {
+        proxy_pass http://backend:8080;
+        proxy_set_header Host $host;
+        proxy_set_header X-Real-IP $remote_addr;
+      }
+    }
+  # Environment variables
+  DATABASE_URL: "postgres://user:password@postgres:5432/myapp"
+  REDIS_URL: "redis://redis:6379/0"
+  LOG_LEVEL: "info"
+  FEATURE_FLAGS: "new-ui=true,dark-mode=false"
+binaryData:
+  # Binary content (base64 encoded)
+  ssl.crt: LS0tLS1CRUdJTi...`
+      },
+      secrets: {
+        minimal: `apiVersion: v1
+kind: Secret
+metadata:
+  name: my-secret
+type: Opaque
+data:
+  username: YWRtaW4=
+  password: MWYyZDFlMmU2N2Rm`,
+        complete: `apiVersion: v1
+kind: Secret
+metadata:
+  name: app-secrets
+  namespace: default
+  labels:
+    app: myapp
+    environment: production
+type: Opaque
+data:
+  # Base64 encoded values
+  username: YWRtaW4=  # admin
+  password: cGFzc3dvcmQ=  # password
+  api-key: YXBpLWtleS0xMjM0NTY=
+  database-password: ZGItcGFzc3dvcmQ=
+stringData:
+  # Plain text values (will be base64 encoded automatically)
+  config.json: |
+    {
+      "apiUrl": "https://api.example.com",
+      "timeout": 30,
+      "retries": 3
+    }
+---
+apiVersion: v1
+kind: Secret
+metadata:
+  name: docker-registry-secret
+  namespace: default
+type: kubernetes.io/dockerconfigjson
+data:
+  .dockerconfigjson: eyJhdXRocyI6eyJodHRwczovL2luZGV4LmRvY2tlci5pby92MS8iOnsidXNlcm5hbWUiOiJ1c2VyIiwicGFzc3dvcmQiOiJwYXNzIiwiZW1haWwiOiJ1c2VyQGV4YW1wbGUuY29tIiwiYXV0aCI6ImRYTmxjanB3WVhOeiJ9fX0=
+---
+apiVersion: v1
+kind: Secret
+metadata:
+  name: tls-secret
+  namespace: default
+type: kubernetes.io/tls
+data:
+  tls.crt: LS0tLS1CRUdJTiBDRVJUSUZJQ0FURS0tLS0t...
+  tls.key: LS0tLS1CRUdJTiBQUklWQVRFIEtFWS0tLS0t...`
+      },
+      deployments: {
+        minimal: `apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: nginx-deployment
+spec:
+  replicas: 3
+  selector:
+    matchLabels:
+      app: nginx
+  template:
+    metadata:
+      labels:
+        app: nginx
+    spec:
+      containers:
+      - name: nginx
+        image: nginx:1.14.2
+        ports:
+        - containerPort: 80`,
+        complete: `apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: nginx-deployment
+  namespace: default
+  labels:
+    app: nginx
+    tier: frontend
+  annotations:
+    deployment.kubernetes.io/revision: "1"
+spec:
+  replicas: 3
+  revisionHistoryLimit: 10
+  progressDeadlineSeconds: 600
+  strategy:
+    type: RollingUpdate
+    rollingUpdate:
+      maxSurge: 1
+      maxUnavailable: 1
+  selector:
+    matchLabels:
+      app: nginx
+  template:
+    metadata:
+      labels:
+        app: nginx
+        version: v1
+      annotations:
+        prometheus.io/scrape: "true"
+        prometheus.io/port: "9090"
+    spec:
+      containers:
+      - name: nginx
+        image: nginx:1.21-alpine
+        imagePullPolicy: IfNotPresent
+        ports:
+        - name: http
+          containerPort: 80
+          protocol: TCP
+        - name: metrics
+          containerPort: 9090
+          protocol: TCP
+        env:
+        - name: POD_NAME
+          valueFrom:
+            fieldRef:
+              fieldPath: metadata.name
+        - name: POD_NAMESPACE
+          valueFrom:
+            fieldRef:
+              fieldPath: metadata.namespace
+        resources:
+          requests:
+            memory: "128Mi"
+            cpu: "100m"
+          limits:
+            memory: "256Mi"
+            cpu: "200m"
+        livenessProbe:
+          httpGet:
+            path: /
+            port: http
+          initialDelaySeconds: 30
+          periodSeconds: 10
+          timeoutSeconds: 5
+          successThreshold: 1
+          failureThreshold: 3
+        readinessProbe:
+          httpGet:
+            path: /
+            port: http
+          initialDelaySeconds: 5
+          periodSeconds: 5
+        lifecycle:
+          preStop:
+            exec:
+              command: ["/bin/sh", "-c", "sleep 15"]
+        volumeMounts:
+        - name: config
+          mountPath: /etc/nginx/conf.d
+        - name: cache
+          mountPath: /var/cache/nginx
+      initContainers:
+      - name: init-myservice
+        image: busybox:1.28
+        command: ['sh', '-c', "until nslookup myservice.default.svc.cluster.local; do echo waiting for myservice; sleep 2; done"]
+      volumes:
+      - name: config
+        configMap:
+          name: nginx-config
+      - name: cache
+        emptyDir: {}
+      affinity:
+        podAntiAffinity:
+          requiredDuringSchedulingIgnoredDuringExecution:
+          - labelSelector:
+              matchExpressions:
+              - key: app
+                operator: In
+                values:
+                - nginx
+            topologyKey: kubernetes.io/hostname
+      tolerations:
+      - key: "dedicated"
+        operator: "Equal"
+        value: "frontend"
+        effect: "NoSchedule"
+      nodeSelector:
+        disktype: ssd`
+      },
+      namespaces: {
+        minimal: `apiVersion: v1
+kind: Namespace
+metadata:
+  name: my-namespace`,
+        complete: `apiVersion: v1
+kind: Namespace
+metadata:
+  name: production
+  labels:
+    name: production
+    environment: prod
+    istio-injection: enabled
+  annotations:
+    scheduler.alpha.kubernetes.io/node-selector: "env=prod"
+    description: "Production namespace for application workloads"
+spec:
+  finalizers:
+  - kubernetes
+---
+apiVersion: v1
+kind: ResourceQuota
+metadata:
+  name: production-quota
+  namespace: production
+spec:
+  hard:
+    requests.cpu: "100"
+    requests.memory: 200Gi
+    limits.cpu: "200"
+    limits.memory: 400Gi
+    persistentvolumeclaims: "10"
+    services: "20"
+    services.loadbalancers: "2"
+---
+apiVersion: v1
+kind: LimitRange
+metadata:
+  name: production-limitrange
+  namespace: production
+spec:
+  limits:
+  - max:
+      cpu: "2"
+      memory: "2Gi"
+    min:
+      cpu: "100m"
+      memory: "128Mi"
+    default:
+      cpu: "500m"
+      memory: "512Mi"
+    defaultRequest:
+      cpu: "100m"
+      memory: "128Mi"
+    type: Container
+  - max:
+      storage: "10Gi"
+    min:
+      storage: "1Gi"
+    type: PersistentVolumeClaim`
+      },
+      persistentvolumeclaims: {
+        minimal: `apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: my-pvc
+spec:
+  accessModes:
+    - ReadWriteOnce
+  resources:
+    requests:
+      storage: 1Gi`,
+        complete: `apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: database-pvc
+  namespace: default
+  labels:
+    app: postgres
+    tier: database
+  annotations:
+    volume.beta.kubernetes.io/storage-class: "fast-ssd"
+spec:
+  accessModes:
+    - ReadWriteOnce
+  volumeMode: Filesystem
+  resources:
+    requests:
+      storage: 20Gi
+  storageClassName: fast-ssd
+  selector:
+    matchLabels:
+      release: "stable"
+    matchExpressions:
+      - {key: environment, operator: In, values: [prod]}`
+      }
+    };
+
+    // Get examples for the resource, fallback to generic if not found
+    const resourceExamples = examples[resourceName] || {
+      minimal: existingExample || `apiVersion: v1
+kind: ${resourceName}
+metadata:
+  name: my-${resourceName}
+spec:
+  # Add your specification here`,
+      complete: existingExample || `apiVersion: v1
+kind: ${resourceName}
+metadata:
+  name: my-${resourceName}
+  namespace: default
+  labels:
+    app: myapp
+  annotations:
+    description: "Example ${resourceName}"
+spec:
+  # Add your specification here`
+    };
+
+    return resourceExamples;
+  };
+
   const renderExample = () => {
-    if (!schema?.example) return null;
+    if (!selectedNode || selectedNode.type !== 'resource') return null;
+    
+    const resource = selectedNode.data as APIResource;
+    const examples = generateEnhancedExample(resource.name, schema?.example);
+    const currentExample = examples[activeExample];
     
     return (
       <div className="space-y-4">
         <div className="flex items-center justify-between mb-4">
-          <h4 className="text-sm font-medium">Example YAML</h4>
+          <div className="flex items-center gap-4">
+            <h4 className="text-sm font-medium">Example Manifests</h4>
+            <div className="flex gap-1 bg-muted rounded-lg p-1">
+              <Button
+                variant={activeExample === 'minimal' ? 'default' : 'ghost'}
+                size="sm"
+                onClick={() => setActiveExample('minimal')}
+                className="h-7 px-3"
+              >
+                Minimal
+              </Button>
+              <Button
+                variant={activeExample === 'complete' ? 'default' : 'ghost'}
+                size="sm"
+                onClick={() => setActiveExample('complete')}
+                className="h-7 px-3"
+              >
+                Complete
+              </Button>
+            </div>
+          </div>
           <div className="flex gap-2">
             <TooltipProvider>
               <Tooltip>
@@ -1397,7 +2024,7 @@ export default function APIDocumentationPanelV3({ context, selectedNode }: APIDo
                   <Button
                     variant="outline"
                     size="sm"
-                    onClick={() => copyToClipboard(schema.example)}
+                    onClick={() => copyToClipboard(currentExample)}
                   >
                     {copiedField === 'example' ? (
                       <Check className="h-4 w-4 text-green-500" />
@@ -1417,12 +2044,13 @@ export default function APIDocumentationPanelV3({ context, selectedNode }: APIDo
                     variant="outline"
                     size="sm"
                     onClick={() => {
-                      const blob = new Blob([schema.example], { type: 'text/yaml' });
+                      const blob = new Blob([currentExample], { type: 'text/yaml' });
                       const url = URL.createObjectURL(blob);
                       const a = document.createElement('a');
                       a.href = url;
-                      a.download = `${selectedNode?.data?.name || 'resource'}-example.yaml`;
+                      a.download = `${resource.name}-${activeExample}-example.yaml`;
                       a.click();
+                      URL.revokeObjectURL(url);
                     }}
                   >
                     <Download className="h-4 w-4 mr-2" />
@@ -1437,7 +2065,7 @@ export default function APIDocumentationPanelV3({ context, selectedNode }: APIDo
         <div className="relative">
           <pre className="bg-muted p-4 rounded-lg overflow-x-auto">
             <code className="text-xs" style={{ fontFamily: "'JetBrains Mono', 'Courier New', monospace" }}>
-              {schema.example.split('\n').map((line, idx) => {
+              {currentExample.split('\n').map((line, idx) => {
                 // Basic YAML syntax highlighting
                 const isComment = line.trim().startsWith('#');
                 const isKey = line.match(/^\s*[\w-]+:/);
@@ -1472,10 +2100,10 @@ export default function APIDocumentationPanelV3({ context, selectedNode }: APIDo
     <div className="h-full flex flex-col">
       <Tabs value={activeTab} onValueChange={setActiveTab} className="h-full flex flex-col">
         <TabsList className="grid w-full grid-cols-4 bg-muted/50">
-          <TabsTrigger value="overview">Overview</TabsTrigger>
-          <TabsTrigger value="schema" disabled={!schema}>Schema</TabsTrigger>
-          <TabsTrigger value="example" disabled={!schema}>Example</TabsTrigger>
-          <TabsTrigger value="explain" disabled={!explanation}>Explain</TabsTrigger>
+          <TabsTrigger value="overview" className="rounded-none border-r border-gray-600 dark:border-gray-600 data-[state=active]:shadow-none">Overview</TabsTrigger>
+          <TabsTrigger value="schema" disabled={!schema} className="rounded-none border-r border-gray-600 dark:border-gray-600 data-[state=active]:shadow-none">Schema</TabsTrigger>
+          <TabsTrigger value="example" disabled={!schema} className="rounded-none border-r border-gray-600 dark:border-gray-600 data-[state=active]:shadow-none">Example</TabsTrigger>
+          <TabsTrigger value="explain" disabled={!explanation} className="rounded-none data-[state=active]:shadow-none">Explain</TabsTrigger>
         </TabsList>
         
         <div className="flex-1 overflow-hidden">
@@ -1491,7 +2119,7 @@ export default function APIDocumentationPanelV3({ context, selectedNode }: APIDo
               {renderExample()}
             </TabsContent>
             
-            <TabsContent value="explain" className="h-full">
+            <TabsContent value="explain" className="h-full overflow-hidden">
               {renderExplain()}
             </TabsContent>
         </div>

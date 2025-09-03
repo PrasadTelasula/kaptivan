@@ -49,12 +49,12 @@ export default function APIDocsPage() {
   }, []);
 
   return (
-    <div className="min-h-screen bg-background">
+    <div className="h-screen bg-background flex flex-col">
       <Header />
-      <div className="flex">
+      <div className="flex flex-1 overflow-hidden">
         <Sidebar className="hidden lg:block border-r" />
-        <main className="flex-1">
-          <div className="h-[calc(100vh-64px)]">
+        <main className="flex-1 overflow-hidden">
+          <div className="h-full">
             <ResizablePanelGroup direction="horizontal" className="h-full">
               <ResizablePanel defaultSize={30} minSize={20} maxSize={40}>
                 <div className="h-full border-r overflow-hidden">
