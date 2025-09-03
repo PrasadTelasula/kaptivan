@@ -86,24 +86,64 @@ func SetupRoutes(r *gin.Engine) {
 			servicesGroup.DELETE("/:context/:namespace/:name", services.DeleteService)
 		}
 		
-		// Manifest endpoints (new structured handlers)
-		manifestGroup := v1.Group("/manifests")
+		// Manifest endpoints
+		manifestsGroup := v1.Group("/manifests")
 		{
-			manifestGroup.POST("/apply", manifests.Apply)
-			manifestGroup.POST("/compare", manifests.Compare)
-			manifestGroup.POST("/validate", manifests.Validate)
-			manifestGroup.GET("/resource", manifests.GetResource)
-			manifestGroup.POST("/resource", manifests.UpdateResource)
-			manifestGroup.DELETE("/resource", manifests.DeleteResource)
+			manifestsGroup.GET("/discover", manifests.ListAPIResources)
+			manifestsGroup.POST("/list", manifests.ListResources)
+			manifestsGroup.GET("/get", manifests.GetManifest)
+			manifestsGroup.GET("/related", manifests.GetRelatedResources)
+			// Add path-based route for related resources to match frontend expectations
+			manifestsGroup.GET("/:context/:name/related", manifests.GetRelatedResourcesWithPath)
 		}
 		
 		// Topology endpoints
+		// Initialize topology handler if not already done
+		if topology.GetHandler() == nil && manager != nil {
+			topology.Initialize(manager)
+		}
+		
 		topologyGroup := v1.Group("/topology")
 		{
-			topologyGroup.POST("/deployment", topology.GetDeploymentTopology)
-			topologyGroup.POST("/daemonset", topology.GetDaemonSetTopology)
-			topologyGroup.POST("/job", topology.GetJobTopology)
-			topologyGroup.POST("/cronjob", topology.GetCronJobTopology)
+			topologyHandler := topology.GetHandler()
+			
+			if topologyHandler != nil {
+				topologyGroup.GET("/namespaces", topologyHandler.ListNamespaces)
+				topologyGroup.GET("/deployments/list", topologyHandler.ListDeployments)
+				topologyGroup.GET("/deployment", topologyHandler.GetDeploymentTopology)
+				topologyGroup.GET("/daemonsets/list", topologyHandler.ListDaemonSets)
+				topologyGroup.GET("/daemonset", topologyHandler.GetDaemonSetTopology)
+				topologyGroup.GET("/jobs/list", topologyHandler.ListJobs)
+				topologyGroup.GET("/job", topologyHandler.GetJobTopology)
+				topologyGroup.GET("/cronjobs/list", topologyHandler.ListCronJobs)
+				topologyGroup.GET("/cronjob", topologyHandler.GetCronJobTopology)
+				
+				// WebSocket endpoint for real-time updates
+				topologyGroup.GET("/ws", func(c *gin.Context) {
+					context := c.Query("context")
+					
+					// Try to get clientset, if not connected, try to connect
+					clientset, err := manager.GetClientset(context)
+					if err != nil {
+						// Try to connect to the cluster
+						log.Printf("Cluster not connected, attempting to connect: %s", context)
+						if connectErr := manager.ConnectToCluster(context); connectErr != nil {
+							c.JSON(500, gin.H{"error": fmt.Sprintf("Failed to connect to cluster %s: %v", context, connectErr)})
+							return
+						}
+						// Try again after connecting
+						clientset, err = manager.GetClientset(context)
+						if err != nil {
+							c.JSON(500, gin.H{"error": fmt.Sprintf("Failed to get clientset after connecting: %v", err)})
+							return
+						}
+					}
+					topology.HandleTopologyWebSocket(clientset)(c)
+				})
+			} else {
+				// Log error but don't crash - topology endpoints won't work
+				println("Warning: Topology handler not initialized - topology endpoints will not be available")
+			}
 		}
 		
 		// APIDocs endpoints
@@ -130,27 +170,30 @@ func SetupRoutes(r *gin.Engine) {
 			resources.POST("/services", handlers.ListServices)
 			resources.GET("/namespaces", handlers.ListNamespaces)
 			resources.GET("/nodes", handlers.ListNodes)
-			resources.GET("/events", handlers.ListEvents)
-			resources.POST("/apply", handlers.ApplyManifest)
-			resources.POST("/delete", handlers.DeleteResource)
+			// TODO: Implement these handlers
+			// resources.GET("/events", handlers.ListEvents)
+			// resources.POST("/apply", handlers.ApplyManifest)
+			// resources.POST("/delete", handlers.DeleteResource)
 		}
 		
 		// Test endpoints (only in debug mode)
-		if gin.Mode() == gin.DebugMode {
-			v1.GET("/test/kubectl", handlers.TestKubectl)
-			v1.GET("/test/clusters", handlers.TestClusters)
-		}
+		// TODO: Implement test handlers
+		// if gin.Mode() == gin.DebugMode {
+		// 	v1.GET("/test/kubectl", handlers.TestKubectl)
+		// 	v1.GET("/test/clusters", handlers.TestClusters)
+		// }
 		
 		// Auth endpoints
 		v1.POST("/auth/login", handlers.Login)
 	}
 	
 	// Websocket endpoints
-	v1.GET("/ws/exec", handlers.WebSocketExec)
-	v1.GET("/ws/logs", handlers.WebSocketLogs)
+	// TODO: Implement WebSocket handlers
+	// v1.GET("/ws/exec", handlers.WebSocketExec)
+	// v1.GET("/ws/logs", handlers.WebSocketLogs)
 	
 	// Catch-all for debugging
-	v1.NoRoute(func(c *gin.Context) {
+	r.NoRoute(func(c *gin.Context) {
 		c.JSON(404, gin.H{
 			"error": "Endpoint not found",
 			"path":  c.Request.URL.Path,
