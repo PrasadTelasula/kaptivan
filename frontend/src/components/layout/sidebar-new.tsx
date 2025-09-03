@@ -1,4 +1,4 @@
-import { useState, useRef, useEffect } from 'react'
+import { useState, useRef, useEffect, useLayoutEffect } from 'react'
 import { cn } from "@/utils/cn"
 import { Button } from "@/components/ui/button"
 import { ScrollArea } from "@/components/ui/scroll-area"
@@ -154,6 +154,20 @@ export function Sidebar({ className, defaultCollapsed = false }: SidebarProps) {
   const navigate = useNavigate()
   const { user, logout } = useAuthStore()
   const scrollAreaRef = useRef<HTMLDivElement>(null)
+  const [isRestoring, setIsRestoring] = useState(false)
+  
+  // Save scroll position continuously as user scrolls
+  useEffect(() => {
+    const scrollElement = scrollAreaRef.current?.querySelector('[data-radix-scroll-area-viewport]')
+    if (!scrollElement) return
+    
+    const saveScrollPosition = () => {
+      sessionStorage.setItem('sidebar-scroll-position', scrollElement.scrollTop.toString())
+    }
+    
+    scrollElement.addEventListener('scroll', saveScrollPosition)
+    return () => scrollElement.removeEventListener('scroll', saveScrollPosition)
+  }, [])
   
   // Store scroll position before navigation
   const handleNavigation = (href: string) => {
@@ -167,21 +181,20 @@ export function Sidebar({ className, defaultCollapsed = false }: SidebarProps) {
     navigate(href)
   }
   
-  // Restore scroll position after navigation
-  useEffect(() => {
-    const timer = setTimeout(() => {
-      if (scrollAreaRef.current) {
-        const scrollElement = scrollAreaRef.current.querySelector('[data-radix-scroll-area-viewport]')
-        if (scrollElement) {
-          // Restore from sessionStorage
-          const savedPosition = sessionStorage.getItem('sidebar-scroll-position')
-          if (savedPosition) {
-            scrollElement.scrollTop = parseFloat(savedPosition)
-          }
-        }
-      }
-    }, 50) // Small delay to ensure DOM is ready
-    return () => clearTimeout(timer)
+  // Restore scroll position immediately using useLayoutEffect to prevent visual blip
+  useLayoutEffect(() => {
+    const scrollElement = scrollAreaRef.current?.querySelector('[data-radix-scroll-area-viewport]')
+    if (!scrollElement) return
+    
+    const savedPosition = sessionStorage.getItem('sidebar-scroll-position')
+    if (savedPosition) {
+      setIsRestoring(true)
+      scrollElement.scrollTop = parseFloat(savedPosition)
+      // Small delay to allow scroll to settle before showing
+      requestAnimationFrame(() => {
+        setIsRestoring(false)
+      })
+    }
   }, [location.pathname])
   
   const toggleGroup = (groupKey: string) => {
@@ -219,7 +232,13 @@ export function Sidebar({ className, defaultCollapsed = false }: SidebarProps) {
         </Button>
       </div>
 
-      <ScrollArea className="h-full" ref={scrollAreaRef}>
+      <ScrollArea 
+        className={cn(
+          "h-full transition-opacity duration-75",
+          isRestoring && "opacity-95"
+        )} 
+        ref={scrollAreaRef}
+      >
         <div className="flex flex-col h-full">
           <div className="flex-1 space-y-4 py-4">
           {menuItems.map((section, idx) => (
