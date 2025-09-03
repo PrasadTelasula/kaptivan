@@ -9,6 +9,12 @@ import {
   CollapsibleTrigger,
 } from "@/components/ui/collapsible"
 import {
+  motion,
+  useMotionValue,
+  useSpring,
+  useTransform,
+} from 'motion/react'
+import {
   ChevronLeft,
   ChevronRight,
   ChevronDown,
@@ -59,6 +65,184 @@ interface MenuSection {
   title: string;
   items?: MenuItem[];
   groups?: MenuGroup[];
+}
+
+interface CollapsedSidebarItemProps {
+  item: MenuItem
+  isActive: boolean
+  onNavigate: (href: string) => void
+  mouseY: any
+  magnification: number
+  distance: number
+  springConfig: any
+  sectionTitle: string
+}
+
+// Component for collapsed group icons with animation
+function CollapsedGroupItem({
+  group,
+  groupKey,
+  onGroupClick,
+  mouseY,
+  magnification,
+  distance,
+  springConfig
+}: {
+  group: MenuGroup
+  groupKey: string
+  onGroupClick: () => void
+  mouseY: any
+  magnification: number
+  distance: number
+  springConfig: any
+}) {
+  const itemRef = useRef<HTMLDivElement>(null)
+  
+  const mouseDistance = useTransform(mouseY, (val) => {
+    if (!itemRef.current) return distance + 1
+    const rect = itemRef.current.getBoundingClientRect()
+    return Math.abs(val - (rect.y + rect.height / 2))
+  })
+  
+  const scale = useTransform(
+    mouseDistance,
+    [0, distance / 2, distance],
+    [1.6, 1.3, 1.0] // Larger scale to create pop-out effect
+  )
+  
+  const springScale = useSpring(scale, springConfig)
+  
+  return (
+    <div key={groupKey} className="space-y-1">
+      <motion.div
+        ref={itemRef}
+        style={{ scale: springScale }}
+        className="flex justify-center relative z-50 overflow-visible"
+      >
+        <Button
+          variant="ghost"
+          className="justify-center w-8 h-8 p-0 rounded-full hover:rounded-full"
+          onClick={onGroupClick}
+          title={group.label}
+        >
+          <group.icon className="h-4 w-4 flex-shrink-0 text-pink-500 dark:text-pink-400" />
+        </Button>
+      </motion.div>
+    </div>
+  )
+}
+
+// Component for collapsed user section buttons with animation
+function CollapsedUserButton({
+  icon: Icon,
+  title,
+  iconClassName,
+  onClick,
+  mouseY,
+  magnification,
+  distance,
+  springConfig
+}: {
+  icon: any
+  title: string
+  iconClassName: string
+  onClick?: () => void
+  mouseY: any
+  magnification: number
+  distance: number
+  springConfig: any
+}) {
+  const itemRef = useRef<HTMLDivElement>(null)
+  
+  const mouseDistance = useTransform(mouseY, (val) => {
+    if (!itemRef.current) return distance + 1
+    const rect = itemRef.current.getBoundingClientRect()
+    return Math.abs(val - (rect.y + rect.height / 2))
+  })
+  
+  const scale = useTransform(
+    mouseDistance,
+    [0, distance / 2, distance],
+    [1.6, 1.3, 1.0] // Larger scale to create pop-out effect
+  )
+  
+  const springScale = useSpring(scale, springConfig)
+  
+  return (
+    <motion.div
+      ref={itemRef}
+      style={{ scale: springScale }}
+      className="flex justify-center relative z-50 overflow-visible"
+    >
+      <Button
+        variant="ghost"
+        className="justify-center w-8 h-8 p-0 rounded-full hover:rounded-full"
+        onClick={onClick}
+        title={title}
+      >
+        <Icon className={cn("h-4 w-4", iconClassName)} />
+      </Button>
+    </motion.div>
+  )
+}
+
+// Separate component to handle individual item animations
+function CollapsedSidebarItem({ 
+  item, 
+  isActive, 
+  onNavigate, 
+  mouseY, 
+  magnification, 
+  distance, 
+  springConfig,
+  sectionTitle 
+}: CollapsedSidebarItemProps) {
+  const itemRef = useRef<HTMLDivElement>(null)
+  
+  // Calculate distance from mouse for each icon
+  const mouseDistance = useTransform(mouseY, (val) => {
+    if (!itemRef.current) return distance + 1
+    const rect = itemRef.current.getBoundingClientRect()
+    return Math.abs(val - (rect.y + rect.height / 2))
+  })
+  
+  // Scale based on distance - allow popping outside sidebar
+  const scale = useTransform(
+    mouseDistance,
+    [0, distance / 2, distance],
+    [1.6, 1.3, 1.0] // Larger scale to create pop-out effect
+  )
+  
+  const springScale = useSpring(scale, springConfig)
+  
+  return (
+    <motion.div
+      ref={itemRef}
+      style={{ scale: springScale }}
+      className="flex justify-center relative z-50 overflow-visible"
+    >
+      <Button
+        variant={isActive ? "secondary" : "ghost"}
+        className="justify-center w-8 h-8 p-0 rounded-full hover:rounded-full"
+        onClick={() => onNavigate(item.href)}
+        title={item.label}
+      >
+        <item.icon className={cn(
+          "h-4 w-4 flex-shrink-0",
+          // Add colors based on section
+          sectionTitle === "Overview" && "text-blue-500 dark:text-blue-400",
+          sectionTitle === "Workloads" && "text-violet-500 dark:text-violet-400",
+          sectionTitle === "Networking" && "text-emerald-500 dark:text-emerald-400",
+          sectionTitle === "Storage" && "text-orange-500 dark:text-orange-400",
+          sectionTitle === "Configuration" && "text-purple-500 dark:text-purple-400",
+          sectionTitle === "Security" && "text-red-500 dark:text-red-400",
+          sectionTitle === "Cluster" && "text-cyan-500 dark:text-cyan-400",
+          sectionTitle === "Tools" && "text-yellow-500 dark:text-yellow-400",
+          sectionTitle === "Advanced" && "text-pink-500 dark:text-pink-400"
+        )} />
+      </Button>
+    </motion.div>
+  )
 }
 
 const menuItems: MenuSection[] = [
@@ -162,6 +346,12 @@ export function Sidebar({ className, defaultCollapsed = false }: SidebarProps) {
   const [isRestoring, setIsRestoring] = useState(false)
   const connectionHealth = useConnectionHealth()
   
+  // Dock animation setup
+  const mouseY = useMotionValue(Infinity)
+  const springConfig = { mass: 0.1, stiffness: 200, damping: 15 }
+  const magnification = 48 // Much smaller magnification to prevent overlap
+  const distance = 80 // Reduced distance for tighter control
+  
   // Save scroll position continuously as user scrolls
   useEffect(() => {
     const scrollElement = scrollAreaRef.current?.querySelector('[data-radix-scroll-area-viewport]')
@@ -219,7 +409,7 @@ export function Sidebar({ className, defaultCollapsed = false }: SidebarProps) {
     <div 
       className={cn(
         "relative h-full bg-background transition-all duration-300",
-        collapsed ? "w-12 overflow-x-visible" : "w-58",
+        collapsed ? "w-12 overflow-visible" : "w-58",
         className
       )}
     >
@@ -241,36 +431,56 @@ export function Sidebar({ className, defaultCollapsed = false }: SidebarProps) {
       <ScrollArea 
         className={cn(
           "h-full transition-opacity duration-75",
-          isRestoring && "opacity-95"
+          isRestoring && "opacity-95",
+          collapsed && "overflow-visible"
         )} 
         ref={scrollAreaRef}
+        onMouseMove={(e) => {
+          if (collapsed) {
+            const rect = e.currentTarget.getBoundingClientRect()
+            mouseY.set(e.clientY)
+          }
+        }}
+        onMouseLeave={() => {
+          if (collapsed) {
+            mouseY.set(Infinity)
+          }
+        }}
       >
         <div className="flex flex-col h-full">
           <div className="flex-1 space-y-4 py-4">
           {menuItems.map((section, idx) => (
-            <div key={idx} className={cn("py-2", collapsed ? "px-1" : "px-3")}>
+            <div key={idx} className={cn("py-2", collapsed ? "px-1 overflow-visible" : "px-3")}>
               {!collapsed && (
                 <h2 className="mb-2 px-4 text-xs font-semibold tracking-tight text-muted-foreground uppercase">
                   {section.title}
                 </h2>
               )}
               <div className="space-y-1">
-                {section.items?.map((item) => {
+                {section.items?.map((item, index) => {
                   const isActive = location.pathname === item.href
-                  return (
+                  
+                  return collapsed ? (
+                    <CollapsedSidebarItem
+                      key={item.href}
+                      item={item}
+                      isActive={isActive}
+                      onNavigate={handleNavigation}
+                      mouseY={mouseY}
+                      magnification={magnification}
+                      distance={distance}
+                      springConfig={springConfig}
+                      sectionTitle={section.title}
+                    />
+                  ) : (
                     <Button
                       key={item.href}
                       variant={isActive ? "secondary" : "ghost"}
-                      className={cn(
-                        "w-full justify-start",
-                        collapsed && "justify-center px-2 py-2"
-                      )}
+                      className="w-full justify-start"
                       onClick={() => handleNavigation(item.href)}
-                      title={collapsed ? item.label : undefined}
                     >
                       <item.icon className={cn(
-                        "h-4 w-4 flex-shrink-0",
-                        !collapsed && "mr-2",
+                        "h-4 w-4 flex-shrink-0 mr-2",
                         // Add colors based on section
                         section.title === "Overview" && "text-blue-500 dark:text-blue-400",
                         section.title === "Workloads" && "text-violet-500 dark:text-violet-400",
@@ -282,7 +492,7 @@ export function Sidebar({ className, defaultCollapsed = false }: SidebarProps) {
                         section.title === "Tools" && "text-yellow-500 dark:text-yellow-400",
                         section.title === "Advanced" && "text-pink-500 dark:text-pink-400"
                       )} />
-                      {!collapsed && item.label}
+                      {item.label}
                     </Button>
                   )
                 })}
@@ -294,25 +504,21 @@ export function Sidebar({ className, defaultCollapsed = false }: SidebarProps) {
                   const hasActiveItem = group.items.some(item => location.pathname === item.href)
                   
                   if (collapsed) {
-                    // In collapsed mode, just show the group icon
+                    // In collapsed mode, show the group icon with dock animation
                     return (
-                      <div key={groupKey} className="space-y-1">
-                        <Button
-                          variant="ghost"
-                          className="w-full justify-center px-2 py-2"
-                          onClick={() => {
-                            setCollapsed(false)
-                            toggleGroup(groupKey)
-                          }}
-                          title={group.label}
-                        >
-                          <group.icon className={cn(
-                            "h-4 w-4 flex-shrink-0",
-                            // Advanced section gets pink color
-                            "text-pink-500 dark:text-pink-400"
-                          )} />
-                        </Button>
-                      </div>
+                      <CollapsedGroupItem
+                        key={groupKey}
+                        group={group}
+                        groupKey={groupKey}
+                        onGroupClick={() => {
+                          setCollapsed(false)
+                          toggleGroup(groupKey)
+                        }}
+                        mouseY={mouseY}
+                        magnification={magnification}
+                        distance={distance}
+                        springConfig={springConfig}
+                      />
                     )
                   }
                   
@@ -420,24 +626,26 @@ export function Sidebar({ className, defaultCollapsed = false }: SidebarProps) {
           ) : (
             <div className="space-y-2">
               {user && (
-                <Button
-                  variant="ghost"
-                  size="icon"
-                  className="w-full"
+                <CollapsedUserButton
+                  icon={User}
                   title={user.email}
-                >
-                  <User className="h-4 w-4 text-slate-500 dark:text-slate-400" />
-                </Button>
+                  iconClassName="text-slate-500 dark:text-slate-400"
+                  mouseY={mouseY}
+                  magnification={magnification}
+                  distance={distance}
+                  springConfig={springConfig}
+                />
               )}
-              <Button
-                variant="ghost"
-                size="icon"
-                className="w-full"
-                onClick={handleLogout}
+              <CollapsedUserButton
+                icon={LogOut}
                 title="Sign Out"
-              >
-                <LogOut className="h-4 w-4 text-red-500 dark:text-red-400" />
-              </Button>
+                iconClassName="text-red-500 dark:text-red-400"
+                onClick={handleLogout}
+                mouseY={mouseY}
+                magnification={magnification}
+                distance={distance}
+                springConfig={springConfig}
+              />
             </div>
           )}
         </div>
