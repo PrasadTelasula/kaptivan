@@ -16,7 +16,9 @@ Thumbs.db
 
 # Logs
 *.log
-logs/
+/logs/
+/backend/logs/
+/frontend/logs/
 
 # Dependencies
 node_modules/

@@ -9,6 +9,7 @@ import { ShellWindow } from '../windows/ShellWindow';
 import { LogsWindow } from '../windows/LogsWindow';
 import { TerminalPortal } from '../windows/TerminalPortal';
 import { formatAge } from '../../utils/age-formatter';
+import { terminalManager } from '@/services/terminal-manager';
 
 interface ContainerNodeProps {
   data: {
@@ -28,6 +29,7 @@ const ContainerNodeV2: React.FC<ContainerNodeProps> = ({ data }) => {
   const [showShell, setShowShell] = useState(false);
   const [showLogs, setShowLogs] = useState(false);
   const [showInfo, setShowInfo] = useState(false);
+  const terminalIdRef = React.useRef<string | null>(null);
   
   const formatResource = (value: string) => {
     if (!value) return 'N/A';
@@ -35,6 +37,22 @@ const ContainerNodeV2: React.FC<ContainerNodeProps> = ({ data }) => {
     if (value.includes('Mi') || value.includes('Gi')) return value;
     return value;
   };
+  
+  // Handle shell window state changes
+  React.useEffect(() => {
+    // When shell is closed, cleanup the terminal
+    if (!showShell && terminalIdRef.current) {
+      const terminalId = terminalIdRef.current;
+      // Destroy the terminal
+      terminalManager.destroyTerminal(terminalId);
+      terminalIdRef.current = null;
+    }
+  }, [showShell]);
+  
+  // Store terminal ID when shell window reports it
+  const handleTerminalCreated = React.useCallback((terminalId: string) => {
+    terminalIdRef.current = terminalId;
+  }, []);
   
   const handleOpenShell = (e: React.MouseEvent) => {
     e.stopPropagation();
@@ -319,6 +337,7 @@ const ContainerNodeV2: React.FC<ContainerNodeProps> = ({ data }) => {
           context={data.context}
           containerName={data.label}
           onClose={() => setShowShell(false)}
+          onTerminalCreated={handleTerminalCreated}
         />
       </TerminalPortal>
     )}

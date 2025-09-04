@@ -116,13 +116,28 @@ class TerminalManager {
   
   attachToDOM(id: string, container: HTMLElement): void {
     const instance = this.terminals.get(id)
-    if (!instance) return
+    if (!instance) {
+      console.warn(`Terminal ${id} not found`)
+      return
+    }
+    
+    // Check if container is valid and visible
+    if (!container || !container.offsetParent) {
+      console.warn(`Container not ready for terminal ${id}`)
+      return
+    }
     
     // If already attached to the same container, just ensure it's visible
     if (instance.container === container) {
       if (instance.terminal.element && instance.terminal.element.parentNode === container) {
-        // Already attached to this container, just fit
-        instance.fitAddon.fit()
+        // Already attached to this container, just fit if dimensions are valid
+        try {
+          if (container.offsetWidth > 0 && container.offsetHeight > 0) {
+            instance.fitAddon.fit()
+          }
+        } catch (e) {
+          console.warn('Failed to fit terminal:', e)
+        }
         return
       }
     }
@@ -133,7 +148,16 @@ class TerminalManager {
       if (instance.terminal.element) {
         container.appendChild(instance.terminal.element)
         instance.container = container
-        instance.fitAddon.fit()
+        // Fit after a small delay to ensure DOM is ready
+        setTimeout(() => {
+          try {
+            if (container.offsetWidth > 0 && container.offsetHeight > 0) {
+              instance.fitAddon.fit()
+            }
+          } catch (e) {
+            console.warn('Failed to fit terminal:', e)
+          }
+        }, 10)
         return
       }
     }
@@ -141,14 +165,36 @@ class TerminalManager {
     // First time attachment
     if (!instance.terminal.element) {
       // Terminal hasn't been opened yet
-      instance.terminal.open(container)
-      instance.container = container
-      instance.fitAddon.fit()
+      try {
+        instance.terminal.open(container)
+        instance.container = container
+        // Fit after a small delay to ensure terminal is ready
+        setTimeout(() => {
+          try {
+            if (container.offsetWidth > 0 && container.offsetHeight > 0) {
+              instance.fitAddon.fit()
+            }
+          } catch (e) {
+            console.warn('Failed to fit terminal:', e)
+          }
+        }, 10)
+      } catch (e) {
+        console.error('Failed to open terminal:', e)
+      }
     } else {
       // Terminal was opened before but detached, reattach it
       container.appendChild(instance.terminal.element)
       instance.container = container
-      instance.fitAddon.fit()
+      // Fit after a small delay to ensure DOM is ready
+      setTimeout(() => {
+        try {
+          if (container.offsetWidth > 0 && container.offsetHeight > 0) {
+            instance.fitAddon.fit()
+          }
+        } catch (e) {
+          console.warn('Failed to fit terminal:', e)
+        }
+      }, 10)
     }
   }
   
@@ -264,18 +310,28 @@ class TerminalManager {
     const instance = this.terminals.get(id)
     if (!instance || !instance.container) return
     
+    // Check if container has valid dimensions
+    if (!instance.container.offsetWidth || !instance.container.offsetHeight) {
+      return
+    }
+    
+    // Check if terminal is properly initialized
+    if (!instance.terminal.element) {
+      return
+    }
+    
     try {
       instance.fitAddon.fit()
       
       // Send resize command to backend if connected (in format backend expects)
       if (instance.websocket?.readyState === WebSocket.OPEN) {
         const dimensions = instance.fitAddon.proposeDimensions()
-        if (dimensions) {
+        if (dimensions && dimensions.cols > 0 && dimensions.rows > 0) {
           instance.websocket.send(`resize:${dimensions.cols},${dimensions.rows}`)
         }
       }
     } catch (error) {
-      // Ignore resize errors when terminal is being destroyed
+      // Ignore resize errors when terminal is being destroyed or not ready
       if (this.terminals.has(id)) {
         console.error(`Error resizing terminal ${id}:`, error)
       }
@@ -354,6 +410,29 @@ class TerminalManager {
     }
   }
   
+  // Send termination signals but keep the terminal alive for a moment
+  sendTerminationSignals(id: string): void {
+    const instance = this.terminals.get(id)
+    if (!instance) return
+    
+    if (instance.websocket?.readyState === WebSocket.OPEN) {
+      console.log(`Sending termination signals to terminal ${id}`)
+      
+      // Send multiple termination signals to ensure shell process exits
+      // 1. Send Ctrl+C to interrupt any running command
+      instance.websocket.send('\x03')
+      
+      // 2. Send Ctrl+D (EOF) to signal end of input  
+      instance.websocket.send('\x04')
+      
+      // 3. Send exit command as fallback
+      instance.websocket.send('exit\r')
+      
+      // 4. Send another Ctrl+D for good measure
+      instance.websocket.send('\x04')
+    }
+  }
+  
   destroyTerminal(id: string): void {
     const instance = this.terminals.get(id)
     if (!instance) {
@@ -365,21 +444,15 @@ class TerminalManager {
     if (instance.websocket?.readyState === WebSocket.OPEN) {
       console.log(`Destroying terminal ${id} - sending termination signals`)
       
-      // Send multiple termination signals immediately to ensure shell process exits
-      // 1. Send Ctrl+C to interrupt any running command
-      instance.websocket.send('\x03')
+      // Send termination signals
+      this.sendTerminationSignals(id)
       
-      // 2. Send Ctrl+D (EOF) to signal end of input
-      instance.websocket.send('\x04')
-      
-      // 3. Send exit command as fallback
-      instance.websocket.send('exit\r')
-      
-      // 4. Send another Ctrl+D for good measure
-      instance.websocket.send('\x04')
-      
-      // 5. Close the WebSocket connection immediately
-      instance.websocket.close(1000, 'Terminal closed by user')
+      // Give a small delay for signals to be processed before closing
+      setTimeout(() => {
+        if (instance.websocket?.readyState === WebSocket.OPEN) {
+          instance.websocket.close(1000, 'Terminal closed by user')
+        }
+      }, 100)
     } else if (instance.websocket?.readyState === WebSocket.CONNECTING) {
       // If still connecting, abort the connection
       console.log(`Terminal ${id} still connecting, aborting connection`)

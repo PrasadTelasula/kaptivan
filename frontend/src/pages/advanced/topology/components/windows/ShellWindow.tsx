@@ -13,6 +13,7 @@ interface ShellWindowProps {
   context: string;
   containerName?: string;
   onClose: () => void;
+  onTerminalCreated?: (terminalId: string) => void;
 }
 
 
@@ -21,7 +22,8 @@ export const ShellWindow: React.FC<ShellWindowProps> = ({
   namespace,
   context,
   containerName,
-  onClose
+  onClose,
+  onTerminalCreated
 }) => {
   const { theme } = useTheme();
   const [isMaximized, setIsMaximized] = useState(false);
@@ -46,8 +48,42 @@ export const ShellWindow: React.FC<ShellWindowProps> = ({
   // Initialize terminal only once when terminalId is set
   // Use a ref to track if we've already initialized to prevent StrictMode double-execution
   const initializedRef = useRef(false);
+  const [containerReady, setContainerReady] = useState(false);
   
+  // Monitor when container is ready
   useEffect(() => {
+    if (terminalContainerRef.current) {
+      // Use ResizeObserver to detect when container becomes visible
+      const resizeObserver = new ResizeObserver((entries) => {
+        for (const entry of entries) {
+          const { width, height } = entry.contentRect;
+          if (width > 0 && height > 0 && !containerReady) {
+            setContainerReady(true);
+          }
+        }
+      });
+      
+      resizeObserver.observe(terminalContainerRef.current);
+      
+      // Also check immediately
+      const container = terminalContainerRef.current;
+      if (container.offsetWidth > 0 && container.offsetHeight > 0) {
+        setContainerReady(true);
+      }
+      
+      return () => {
+        resizeObserver.disconnect();
+      };
+    }
+  }, [containerReady]);
+  
+  // Initialize terminal only after container is ready
+  useEffect(() => {
+    // Wait for container to be ready and visible
+    if (!containerReady || !terminalContainerRef.current) {
+      return;
+    }
+    
     // Prevent double initialization in StrictMode
     if (initializedRef.current) {
       return;
@@ -56,61 +92,79 @@ export const ShellWindow: React.FC<ShellWindowProps> = ({
     // Create terminal if it doesn't exist
     if (!terminalManager.hasTerminal(terminalId)) {
       initializedRef.current = true;
-      terminalManager.createTerminal(terminalId, theme);
       
-      // Connect WebSocket only once when creating
-      const wsUrl = apiUrls.pods.execWs(context, namespace, podName, containerName);
-      terminalManager.connectWebSocket(terminalId, wsUrl);
+      // Small delay to ensure DOM is fully ready
+      const initTimer = setTimeout(() => {
+        if (!terminalContainerRef.current) return;
+        
+        // Create and immediately attach to DOM
+        terminalManager.createTerminal(terminalId, theme);
+        terminalManager.attachToDOM(terminalId, terminalContainerRef.current);
+        
+        // Notify parent that terminal was created
+        onTerminalCreated?.(terminalId);
+        
+        // Connect WebSocket after attaching to DOM
+        const wsUrl = apiUrls.pods.execWs(context, namespace, podName, containerName);
+        terminalManager.connectWebSocket(terminalId, wsUrl);
+        
+        // Initial resize and focus after terminal is ready
+        setTimeout(() => {
+          if (terminalManager.hasTerminal(terminalId)) {
+            terminalManager.resizeTerminal(terminalId);
+            terminalManager.focusTerminal(terminalId);
+          }
+        }, 100);
+      }, 50);
+      
+      return () => clearTimeout(initTimer);
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [terminalId]); // Only depend on terminalId which is stable for the same pod/container
-
-  // Attach terminal to DOM once container is ready
-  useEffect(() => {
-    if (terminalContainerRef.current && terminalManager.hasTerminal(terminalId)) {
-      // Attach terminal to DOM
-      terminalManager.attachToDOM(terminalId, terminalContainerRef.current);
-      
-      // Initial resize and focus
-      setTimeout(() => {
-        terminalManager.resizeTerminal(terminalId);
-        terminalManager.focusTerminal(terminalId);
-      }, 100);
-    }
-  }, [terminalId]);
+  }, [containerReady, terminalId, theme]); // Depend on containerReady, terminalId and theme
 
   // Handle window resize
   useEffect(() => {
-    if (isMinimized) return;
+    if (isMinimized || !containerReady) return;
     
     const handleResize = () => {
-      terminalManager.resizeTerminal(terminalId);
+      if (terminalManager.hasTerminal(terminalId)) {
+        terminalManager.resizeTerminal(terminalId);
+      }
     };
     
     // Resize terminal when window size changes
-    handleResize();
-  }, [terminalId, size, isMinimized]);
+    // Add a small delay to ensure DOM updates are complete
+    const resizeTimer = setTimeout(handleResize, 10);
+    
+    return () => clearTimeout(resizeTimer);
+  }, [terminalId, size, isMinimized, containerReady]);
 
-  // Cleanup on actual page navigation (not StrictMode remounts)
+  // Cleanup when component unmounts (for page navigation)
   useEffect(() => {
     const currentTerminalId = terminalId;
     
-    // Cleanup on actual unmount (page navigation, not StrictMode)
+    // Cleanup on page unload
     const handleBeforeUnload = () => {
-      terminalManager.destroyTerminal(currentTerminalId);
+      // Immediately destroy terminal on page unload
+      if (terminalManager.hasTerminal(currentTerminalId)) {
+        terminalManager.destroyTerminal(currentTerminalId);
+      }
     };
     
     window.addEventListener('beforeunload', handleBeforeUnload);
     
     return () => {
       window.removeEventListener('beforeunload', handleBeforeUnload);
-      // Don't destroy here - let the close button handle it
+      // Note: Don't destroy here as it may not complete before unmount
+      // The handleClose function handles proper cleanup
     };
   }, [terminalId]);
   
   // Proper cleanup when window is closed
   const handleClose = useCallback(() => {
+    // Immediately destroy terminal - the destroyTerminal already sends signals
     terminalManager.destroyTerminal(terminalId);
+    // Then notify parent to unmount the component
     onClose();
   }, [terminalId, onClose]);
 
@@ -170,11 +224,15 @@ export const ShellWindow: React.FC<ShellWindowProps> = ({
         });
         setPosition(position);
         // Resize terminal after size change
-        setTimeout(() => terminalManager.resizeTerminal(terminalId), 0);
+        if (containerReady && terminalManager.hasTerminal(terminalId)) {
+          setTimeout(() => terminalManager.resizeTerminal(terminalId), 10);
+        }
       }}
       onResize={() => {
         // Also resize during resize drag for smooth experience
-        terminalManager.resizeTerminal(terminalId);
+        if (containerReady && terminalManager.hasTerminal(terminalId)) {
+          terminalManager.resizeTerminal(terminalId);
+        }
       }}
       minWidth={400}
       minHeight={300}
