@@ -20,8 +20,7 @@ export default defineConfig({
   },
   optimizeDeps: {
     include: [
-      'react-window',
-      'react-virtualized-auto-sizer',
+      '@tanstack/react-virtual',
     ],
     exclude: [],
     esbuildOptions: {
@@ -30,7 +29,7 @@ export default defineConfig({
   },
   build: {
     commonjsOptions: {
-      include: [/react-window/, /node_modules/],
+      include: [/@tanstack/, /node_modules/],
       transformMixedEsModules: true,
     },
   },

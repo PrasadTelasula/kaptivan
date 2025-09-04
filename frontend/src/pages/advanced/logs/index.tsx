@@ -5,9 +5,9 @@ import { Header } from '@/components/layout/header'
 import { Sidebar } from '@/components/layout/sidebar-new'
 import { Card } from '@/components/ui/card'
 import { Separator } from '@/components/ui/separator'
-import { VirtualLogViewer } from './components/VirtualLogViewer'
+import { OptimizedLogViewer } from './components/OptimizedLogViewer'
 import { LogSearch } from './components/LogSearch'
-import { LogFilters } from './components/LogFilters'
+import { LogFiltersEnhanced as LogFilters } from './components/LogFiltersEnhanced'
 import { LogDisplaySettings, type DisplaySettings } from './components/LogDisplaySettings'
 import ConnectionHealth from './components/ConnectionHealth'
 import type { LogFilters as LogFiltersType } from './types/logs'
@@ -172,7 +172,7 @@ const LogsPage: React.FC = () => {
     if (!isStreaming && filters.clusters.length > 0 && filters.namespaces.length > 0 && filters.pods.length > 0 && filters.containers.length > 0) {
       fetchLogs()
     }
-  }, [filters.clusters, filters.namespaces, filters.pods, filters.containers, filters.logLevels])
+  }, [filters.clusters, filters.namespaces, filters.pods, filters.containers, filters.logLevels, filters.timeRange.preset])
   
   const handleSearch = (query: string) => {
     setFilters(prev => ({ ...prev, searchTerm: query }))
@@ -187,10 +187,17 @@ const LogsPage: React.FC = () => {
   }
   
   const handleTimeRangeChange = (range: string) => {
+    console.log('Time range changed in main component:', range)
     setFilters(prev => ({
       ...prev,
       timeRange: { preset: range as any }
     }))
+    // Trigger log fetch if we have all required filters
+    if (filters.clusters.length > 0 && filters.namespaces.length > 0 && 
+        filters.pods.length > 0 && filters.containers.length > 0) {
+      console.log('Fetching logs with new time range:', range)
+      fetchLogs()
+    }
   }
   
   return (
@@ -238,7 +245,7 @@ const LogsPage: React.FC = () => {
             {showFilters ? (
               <ResizablePanelGroup direction="horizontal">
                 <ResizablePanel defaultSize={20} minSize={15} maxSize={30}>
-                  <div className="h-full p-4 overflow-auto space-y-4">
+                  <div className="h-full border-r bg-muted/5">
                     <LogFilters
                       filters={filters}
                       onFiltersChange={setFilters}
@@ -251,7 +258,9 @@ const LogsPage: React.FC = () => {
                       loadingContainers={loadingContainers}
                     />
                     {isStreaming && showFilters && (
-                      <ConnectionHealth health={connectionHealth} />
+                      <div className="px-4 pb-4">
+                        <ConnectionHealth health={connectionHealth} />
+                      </div>
                     )}
                   </div>
                 </ResizablePanel>
@@ -269,7 +278,7 @@ const LogsPage: React.FC = () => {
                         </Card>
                       </div>
                     ) : (
-                      <VirtualLogViewer
+                      <OptimizedLogViewer
                         logs={logs}
                         loading={loading}
                         searchTerm={filters.searchTerm}
@@ -303,7 +312,7 @@ const LogsPage: React.FC = () => {
                       </Card>
                     </div>
                   ) : (
-                    <VirtualLogViewer
+                    <OptimizedLogViewer
                       logs={logs}
                       loading={loading}
                       searchTerm={filters.searchTerm}

@@ -89,6 +89,7 @@ export const LogSearch: React.FC<LogSearchProps> = ({
   }
   
   const handleTimeRangeSelect = (value: string) => {
+    console.log('Time range selected:', value)
     setSelectedTimeRange(value)
     onTimeRangeChange(value)
   }
@@ -131,21 +132,31 @@ export const LogSearch: React.FC<LogSearchProps> = ({
         {/* Time range selector */}
         <DropdownMenu>
           <DropdownMenuTrigger asChild>
-            <Button variant="outline" size="default" className="gap-2">
+            <Button variant="outline" size="default" className="gap-2 min-w-[160px]">
               <Clock className="h-4 w-4" />
-              {timeRanges.find(r => r.value === selectedTimeRange)?.label || 'Time Range'}
+              <span className="font-medium">
+                {timeRanges.find(r => r.value === selectedTimeRange)?.label || 'Time Range'}
+              </span>
             </Button>
           </DropdownMenuTrigger>
-          <DropdownMenuContent align="end">
+          <DropdownMenuContent align="end" className="w-[200px]">
             <DropdownMenuLabel>Time Range</DropdownMenuLabel>
             <DropdownMenuSeparator />
             {timeRanges.map(range => (
               <DropdownMenuItem
                 key={range.value}
                 onClick={() => handleTimeRangeSelect(range.value)}
-                className={selectedTimeRange === range.value ? 'bg-accent' : ''}
+                className={cn(
+                  "cursor-pointer",
+                  selectedTimeRange === range.value && "bg-accent font-medium"
+                )}
               >
-                {range.label}
+                <div className="flex items-center justify-between w-full">
+                  <span>{range.label}</span>
+                  {selectedTimeRange === range.value && (
+                    <div className="h-2 w-2 rounded-full bg-primary" />
+                  )}
+                </div>
               </DropdownMenuItem>
             ))}
           </DropdownMenuContent>
