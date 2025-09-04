@@ -164,9 +164,10 @@ type Condition struct {
 
 // EndpointsRef represents an Endpoints resource
 type EndpointsRef struct {
-	Name      string            `json:"name"`
-	Addresses []EndpointAddress `json:"addresses"`
-	Ports     []EndpointPort    `json:"ports"`
+	Name              string            `json:"name"`
+	Addresses         []EndpointAddress `json:"addresses"`
+	Ports             []EndpointPort    `json:"ports"`
+	CreationTimestamp *time.Time        `json:"creationTimestamp,omitempty"`
 }
 
 // EndpointAddress represents an endpoint address

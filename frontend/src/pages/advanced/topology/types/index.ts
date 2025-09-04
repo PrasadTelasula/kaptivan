@@ -84,6 +84,7 @@ export interface ServiceAccountRef {
 
 export interface EndpointsRef {
   name: string;
+  creationTimestamp?: string;
   addresses: {
     ip: string;
     nodeName?: string;

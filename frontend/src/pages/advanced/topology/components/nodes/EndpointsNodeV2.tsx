@@ -1,12 +1,13 @@
 import React, { useState } from 'react';
 
-import { GitBranch, Server, Link , FileCode } from 'lucide-react';
+import { GitBranch, Server, Link, FileCode, Clock } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
 import { YamlWindow } from '../windows/YamlWindow';
 import { TerminalPortal } from '../windows/TerminalPortal';
 import { cn } from '@/lib/utils';
 import MultiHandleWrapper from './MultiHandleWrapper';
+import { formatAge } from '../../utils/age-formatter';
 
 interface EndpointsNodeProps {
   data: {
@@ -54,23 +55,33 @@ const EndpointsNodeV2: React.FC<EndpointsNodeProps> = ({ data }) => {
             </div>
           </div>
           
-          {/* Address count with animated dots */}
-          <div className="flex items-center justify-between bg-gradient-to-r from-violet-50 to-purple-50 dark:from-violet-900/20 dark:to-purple-900/20 rounded-lg px-2 py-1">
-            <div className="flex items-center gap-1.5">
-              <Server className="h-3 w-3 text-violet-600 dark:text-violet-400" />
-              <span className="text-xs font-medium text-violet-700 dark:text-violet-300">
-                {addressCount} endpoint{addressCount !== 1 ? 's' : ''}
-              </span>
+          {/* Address count with animated dots and age */}
+          <div className="space-y-2">
+            <div className="flex items-center justify-between bg-gradient-to-r from-violet-50 to-purple-50 dark:from-violet-900/20 dark:to-purple-900/20 rounded-lg px-2 py-1">
+              <div className="flex items-center gap-1.5">
+                <Server className="h-3 w-3 text-violet-600 dark:text-violet-400" />
+                <span className="text-xs font-medium text-violet-700 dark:text-violet-300">
+                  {addressCount} endpoint{addressCount !== 1 ? 's' : ''}
+                </span>
+              </div>
+              <div className="flex gap-0.5">
+                {[...Array(Math.min(3, addressCount))].map((_, i) => (
+                  <div 
+                    key={i}
+                    className="w-1.5 h-1.5 bg-gradient-to-r from-violet-500 to-purple-500 rounded-full animate-pulse"
+                    style={{ animationDelay: `${i * 200}ms` }}
+                  />
+                ))}
+              </div>
             </div>
-            <div className="flex gap-0.5">
-              {[...Array(Math.min(3, addressCount))].map((_, i) => (
-                <div 
-                  key={i}
-                  className="w-1.5 h-1.5 bg-gradient-to-r from-violet-500 to-purple-500 rounded-full animate-pulse"
-                  style={{ animationDelay: `${i * 200}ms` }}
-                />
-              ))}
-            </div>
+            
+            {/* Age information */}
+            {resource.creationTimestamp && (
+              <div className="flex items-center gap-1.5 text-[10px] text-gray-500">
+                <Clock className="h-3 w-3 text-gray-400" />
+                <span>Age: {formatAge(resource.creationTimestamp)}</span>
+              </div>
+            )}
           </div>
           
           {/* IP Addresses */}

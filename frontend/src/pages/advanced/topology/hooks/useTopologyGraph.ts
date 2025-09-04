@@ -73,10 +73,10 @@ export const useTopologyGraph = (
       const centerNode = rawNodes.find(n => n.type === 'deployment' || n.type === 'daemonset' || n.type === 'job');
       if (centerNode) {
         // Set main resource at center
-        centerNode.position = { x: 400, y: 300 };
-        // Arrange other nodes in circles around it
+        centerNode.position = { x: 600, y: 400 };
+        // Arrange other nodes in circles around it with increased radius
         const otherNodes = rawNodes.filter(n => n.id !== centerNode.id);
-        const radius = 250;
+        const radius = 400; // Increased radius to prevent overlap
         const angleStep = (2 * Math.PI) / otherNodes.length;
         
         layoutedNodes = [
@@ -84,8 +84,8 @@ export const useTopologyGraph = (
           ...otherNodes.map((node, index) => ({
             ...node,
             position: {
-              x: 400 + radius * Math.cos(index * angleStep),
-              y: 300 + radius * Math.sin(index * angleStep)
+              x: 600 + radius * Math.cos(index * angleStep),
+              y: 400 + radius * Math.sin(index * angleStep)
             }
           }))
         ];

@@ -890,9 +890,10 @@ func (s *Service) getVolumeMounts(ctx context.Context, namespace string, deploym
 // buildEndpointsRef builds an EndpointsRef from Kubernetes Endpoints
 func (s *Service) buildEndpointsRef(endpoints *corev1.Endpoints) EndpointsRef {
 	ref := EndpointsRef{
-		Name:      endpoints.Name,
-		Addresses: []EndpointAddress{},
-		Ports:     []EndpointPort{},
+		Name:              endpoints.Name,
+		Addresses:         []EndpointAddress{},
+		Ports:             []EndpointPort{},
+		CreationTimestamp: &endpoints.CreationTimestamp.Time,
 	}
 	
 	// Build addresses

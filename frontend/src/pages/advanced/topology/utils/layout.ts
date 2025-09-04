@@ -25,11 +25,11 @@ export const applyDagreLayout = (
   // Balanced spacing - avoiding overlaps for group nodes
   g.setGraph({
     rankdir: options.layout === 'horizontal' ? 'LR' : 'TB',  // Respect layout option
-    ranksep: 150,   // Increased space between ranks to avoid group node overlaps
-    nodesep: 120,    // Increased horizontal spacing for larger nodes
-    edgesep: 40,    // Reasonable edge separation
-    marginx: 50,    // Increased margins for group nodes
-    marginy: 50,
+    ranksep: 200,   // Increased space between ranks to avoid overlaps on different screens
+    nodesep: 180,    // Increased horizontal spacing to prevent container overlap
+    edgesep: 60,    // Increased edge separation for cleaner routing
+    marginx: 80,    // Increased margins for group nodes
+    marginy: 80,
     acyclicer: 'greedy',
     ranker: 'tight-tree',  // More compact ranking algorithm
     align: 'DR'     // Down-right alignment for tighter grouping

@@ -1,9 +1,10 @@
 import React, { useState } from 'react';
-import { Box, Circle, AlertTriangle, CheckCircle2, Clock, XCircle, FileCode, Info, Container, Cpu, MemoryStick, RefreshCw } from 'lucide-react';
+import { Box, Circle, AlertTriangle, CheckCircle2, Clock, XCircle, FileCode, Info, Container, Cpu, MemoryStick, RefreshCw, Server } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import MultiHandleWrapper from './MultiHandleWrapper';
 import { Button } from '@/components/ui/button';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
+import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import { YamlWindow } from '../windows/YamlWindow';
 import { TerminalPortal } from '../windows/TerminalPortal';
 import { Badge } from '@/components/ui/badge';
@@ -314,21 +315,50 @@ const PodNodeV2: React.FC<PodNodeProps> = ({ data }) => {
           </div>
         </div>
         
-        {/* Node and IP info - all on single line */}
+        {/* Node icon and IP info - all on single line */}
         {(resource.nodeName || resource.podIP || resource.hostIP) && (
           <div className="px-3 pb-3 -mt-1">
             <div className="text-[10px] text-gray-500 dark:text-gray-400 flex items-center gap-2 flex-wrap">
               {resource.nodeName && (
-                <>
-                  <span>Node:</span>
-                  <span className="font-medium text-gray-700 dark:text-gray-300 mr-2">
-                    {resource.nodeName}
-                  </span>
-                </>
+                <Popover>
+                  <PopoverTrigger asChild>
+                    <Button
+                      size="icon"
+                      variant="ghost"
+                      className="h-5 w-5 hover:bg-gray-100 dark:hover:bg-gray-800 p-0.5"
+                    >
+                      <Server className="h-3.5 w-3.5 text-gray-500 dark:text-gray-400" />
+                    </Button>
+                  </PopoverTrigger>
+                  <PopoverContent className="w-80" side="top">
+                    <div className="space-y-2">
+                      <div className="flex items-center gap-2">
+                        <Server className="h-4 w-4 text-gray-500" />
+                        <span className="font-medium text-sm">Node Details</span>
+                      </div>
+                      <div className="space-y-1 text-xs">
+                        <div className="flex items-start gap-2">
+                          <span className="text-gray-500 min-w-[60px]">Name:</span>
+                          <span className="font-mono text-gray-700 dark:text-gray-300 break-all">
+                            {resource.nodeName}
+                          </span>
+                        </div>
+                        {resource.hostIP && (
+                          <div className="flex items-start gap-2">
+                            <span className="text-gray-500 min-w-[60px]">Node IP:</span>
+                            <span className="font-mono text-gray-700 dark:text-gray-300">
+                              {resource.hostIP}
+                            </span>
+                          </div>
+                        )}
+                      </div>
+                    </div>
+                  </PopoverContent>
+                </Popover>
               )}
               {resource.podIP && (
                 <>
-                  <span className="border-l border-gray-300 dark:border-gray-600 pl-2">Pod IP:</span>
+                  <span>Pod IP:</span>
                   <span className="font-mono font-medium text-gray-700 dark:text-gray-300 mr-2">
                     {resource.podIP}
                   </span>
