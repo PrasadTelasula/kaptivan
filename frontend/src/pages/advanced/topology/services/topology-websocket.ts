@@ -33,9 +33,9 @@ export class TopologyWebSocketClient {
   ) {
     // Convert HTTP URL to WebSocket URL
     const wsUrl = baseUrl.replace('http', 'ws');
-    this.url = `${wsUrl}/api/v1/topology/ws/${context}/${namespace}`;
+    this.url = `${wsUrl}/api/v1/topology/ws?context=${context}&namespace=${namespace}`;
     if (resourceName) {
-      this.url += `?${resourceType}=${resourceName}`;
+      this.url += `&${resourceType}=${resourceName}`;
     }
   }
 
