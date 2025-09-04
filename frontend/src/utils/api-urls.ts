@@ -194,6 +194,18 @@ export const apiUrls = {
       }
       return `${API_BASE_URL}/api/v1/manifests/get?${queryParams.toString()}`
     },
+    
+    related: (context: string, name: string, params: { kind: string; apiVersion: string; namespace?: string }) => {
+      const queryParams = new URLSearchParams()
+      queryParams.append('context', context)
+      queryParams.append('name', name)
+      queryParams.append('kind', params.kind)
+      queryParams.append('apiVersion', params.apiVersion)
+      if (params.namespace) {
+        queryParams.append('namespace', params.namespace)
+      }
+      return `${API_BASE_URL}/api/v1/manifests/related?${queryParams.toString()}`
+    },
   },
   
   // Cluster endpoints

@@ -22,6 +22,7 @@ import {
   Link2
 } from 'lucide-react'
 import { cn } from '@/utils/cn'
+import { apiUrls } from '@/utils/api-urls'
 
 interface RelatedResource {
   name: string
@@ -80,14 +81,11 @@ export function RelatedResourcesPopover({
     setError(null)
     
     try {
-      const params = new URLSearchParams()
-      params.append('kind', resourceKind)
-      params.append('apiVersion', resourceApiVersion)
-      if (resourceNamespace) {
-        params.append('namespace', resourceNamespace)
-      }
-
-      const url = `/api/v1/manifests/${clusterContext}/${resourceName}/related?${params.toString()}`
+      const url = apiUrls.manifests.related(clusterContext, resourceName, {
+        kind: resourceKind,
+        apiVersion: resourceApiVersion,
+        namespace: resourceNamespace
+      })
       console.log('Fetching related resources from:', url)
       
       const response = await fetch(url)
