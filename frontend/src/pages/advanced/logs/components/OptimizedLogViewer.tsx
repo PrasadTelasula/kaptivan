@@ -1,12 +1,12 @@
 import React, { useRef, useEffect, useState, useCallback, memo, useMemo } from 'react'
 import { useVirtualizer } from '@tanstack/react-virtual'
-import { LogEntryOptimized } from './LogEntryOptimized'
+import { LogEntryProfessional as LogEntryOptimized } from './LogEntryProfessional'
 import type { LogEntry as LogEntryType } from '../types/logs'
 import type { DisplaySettings } from './LogDisplaySettings'
 import { cn } from '@/utils/cn'
 import { FileText, Loader2 } from 'lucide-react'
-import { ScrollArea } from '@/components/ui/scroll-area'
 import { JsonDrawer } from './JsonDrawer'
+import { TextScramble } from '../../../../../components/motion-primitives/text-scramble'
 
 interface OptimizedLogViewerProps {
   logs: LogEntryType[]
@@ -49,34 +49,66 @@ export const OptimizedLogViewer = memo(({
   const [jsonDrawerTitle, setJsonDrawerTitle] = useState('Log JSON Data')
   const [jsonDrawerDescription, setJsonDrawerDescription] = useState('')
   
-  // Generate unique key for each log entry
-  const getLogKey = useCallback((log: LogEntryType, index: number) => {
-    return `${log.timestamp}-${log.lineNumber}-${index}`
+  // Generate stable unique key for each log entry (not dependent on array position)
+  const getLogKey = useCallback((log: LogEntryType, index?: number) => {
+    // Include a hash of the message content to ensure uniqueness
+    const messageHash = log.message.length > 0 ? 
+      log.message.split('').reduce((hash, char) => {
+        const code = char.charCodeAt(0)
+        hash = ((hash << 5) - hash) + code
+        return hash & hash // Convert to 32bit integer
+      }, 0) : 0
+    
+    return `${log.timestamp}-${log.lineNumber}-${log.cluster}-${log.pod}-${log.container}-${Math.abs(messageHash)}-${index ?? 0}`
   }, [])
+  
+  // Create reversed logs for display (latest first)
+  const reversedLogs = useMemo(() => {
+    return [...logs].reverse()
+  }, [logs])
   
   // Calculate dynamic row height based on expanded state
   const estimateSize = useCallback((index: number) => {
-    // Return a minimal estimate, let measureElement handle actual sizing
-    return 60 // Base estimate for any row
-  }, [])
+    const log = reversedLogs[index]
+    if (!log) return 60
+    
+    const key = getLogKey(log, index)
+    const isExpanded = expandedItems.has(key)
+    
+    // Return estimated height based on expansion state
+    if (isExpanded) {
+      // Estimate expanded height based on content
+      const messageLength = log.message.length
+      const estimatedLines = Math.ceil(messageLength / 80) + 10 // Extra for metadata and padding
+      return Math.max(200, estimatedLines * 20) // Minimum 200px, scale with content
+    }
+    
+    return 60 // Collapsed height
+  }, [reversedLogs, expandedItems, getLogKey])
   
   const virtualizer = useVirtualizer({
-    count: logs.length,
+    count: reversedLogs.length,
     getScrollElement: () => parentRef.current,
     estimateSize,
-    overscan: 5,
-    measureElement: (element) => {
-      if (element) {
-        const rect = element.getBoundingClientRect()
-        return rect.height
-      }
-      return 60
+    overscan: 3,
+    getItemKey: (index) => {
+      if (index >= reversedLogs.length) return `item-${index}`
+      const log = reversedLogs[index]
+      return getLogKey(log, index)
     },
   })
   
+  // Disable virtualization during streaming to prevent glitches
+  const [isStreamingLogs, setIsStreamingLogs] = useState(false)
+  
+  // Detect when streaming starts/stops
+  useEffect(() => {
+    setIsStreamingLogs(loading && logs.length > 0)
+  }, [loading, logs.length])
+  
   // Handle log entry expansion
   const handleToggleExpand = useCallback((index: number) => {
-    const log = logs[index]
+    const log = reversedLogs[index]
     const key = getLogKey(log, index)
     
     setExpandedItems(prev => {
@@ -89,11 +121,9 @@ export const OptimizedLogViewer = memo(({
       return newSet
     })
     
-    // Force virtualizer to re-measure immediately after expansion state changes
-    requestAnimationFrame(() => {
-      virtualizer.measure()
-    })
-  }, [logs, getLogKey, virtualizer])
+    // Since we're using non-virtualized rendering, expansion happens naturally
+    // without jumping or layout shifts
+  }, [reversedLogs, getLogKey])
   
   // Handle opening JSON drawer
   const handleOpenJsonDrawer = useCallback((data: any, log: LogEntryType) => {
@@ -102,6 +132,7 @@ export const OptimizedLogViewer = memo(({
     setJsonDrawerDescription(`From ${log.pod} at ${new Date(log.timestamp).toLocaleString()}`)
     setJsonDrawerOpen(true)
   }, [])
+  
   
   // Handle scroll detection
   useEffect(() => {
@@ -132,18 +163,13 @@ export const OptimizedLogViewer = memo(({
     }
   }, [])
   
-  // Auto-scroll to bottom when new logs arrive
+  // Auto-scroll to top when new logs arrive (since latest are now at top)
   useEffect(() => {
     if (autoScroll && !isUserScrolling && parentRef.current && logs.length > 0) {
       const scrollElement = parentRef.current
-      scrollElement.scrollTop = scrollElement.scrollHeight
+      scrollElement.scrollTop = 0
     }
   }, [logs.length, autoScroll, isUserScrolling])
-  
-  // Force re-measure when logs or expansion state changes
-  useEffect(() => {
-    virtualizer.measure()
-  }, [logs, expandedItems, virtualizer])
   
   // Show empty state if no logs and not loading
   if (logs.length === 0 && !loading) {
@@ -157,7 +183,15 @@ export const OptimizedLogViewer = memo(({
           
           {!hasSelectedClusters ? (
             <>
-              <p className="text-lg font-semibold">Welcome to Multi-Cluster Logs</p>
+              <TextScramble 
+                key="welcome"
+                className="text-lg font-semibold"
+                duration={1.2}
+                speed={0.04}
+                trigger={true}
+              >
+                Welcome to Multi-Cluster Logs
+              </TextScramble>
               <div className="max-w-md mx-auto space-y-2">
                 <p className="text-sm">To view logs, follow these steps:</p>
                 <ol className="text-sm text-left space-y-1 mx-auto max-w-sm">
@@ -182,18 +216,55 @@ export const OptimizedLogViewer = memo(({
             </>
           ) : !hasSelectedNamespaces ? (
             <>
-              <p className="text-lg font-semibold">Select Namespaces</p>
+              <TextScramble 
+                key="select-namespaces"
+                className="text-lg font-semibold"
+                duration={1.2}
+                speed={0.04}
+                trigger={true}
+              >
+                Select Namespaces
+              </TextScramble>
               <p className="text-sm">Choose one or more namespaces to view logs from</p>
             </>
           ) : !hasSelectedPods ? (
             <>
-              <p className="text-lg font-semibold">Select Pods</p>
+              <TextScramble 
+                key="select-pods"
+                className="text-lg font-semibold"
+                duration={1.2}
+                speed={0.04}
+                trigger={true}
+              >
+                Select Pods
+              </TextScramble>
               <p className="text-sm">Choose specific pods to stream logs</p>
+            </>
+          ) : !hasSelectedContainers ? (
+            <>
+              <TextScramble 
+                key="select-containers"
+                className="text-lg font-semibold"
+                duration={1.2}
+                speed={0.04}
+                trigger={true}
+              >
+                Select Containers
+              </TextScramble>
+              <p className="text-sm">Pick containers to view their logs</p>
             </>
           ) : (
             <>
-              <p className="text-lg font-semibold">No Logs Available</p>
-              <p className="text-sm">The selected pods don't have any logs yet</p>
+              <TextScramble 
+                key="no-logs"
+                className="text-lg font-semibold"
+                duration={1.2}
+                speed={0.04}
+                trigger={true}
+              >
+                No Logs Available
+              </TextScramble>
+              <p className="text-sm">The selected containers don't have any logs yet</p>
             </>
           )}
         </div>
@@ -216,60 +287,35 @@ export const OptimizedLogViewer = memo(({
     )
   }
   
-  const items = virtualizer.getVirtualItems()
-  
   return (
     <div className={cn("h-full relative", className)}>
-      <ScrollArea 
+      <div 
         ref={parentRef}
-        className="h-full"
+        className="h-full overflow-y-auto"
       >
-        <div
-          style={{
-            height: `${virtualizer.getTotalSize()}px`,
-            width: '100%',
-            position: 'relative',
-          }}
-        >
-          {items.map((virtualRow) => {
-            const log = logs[virtualRow.index]
-            const key = getLogKey(log, virtualRow.index)
+        {/* Always use non-virtualized rendering to prevent jumping issues */}
+        <div className="w-full">
+          {reversedLogs.map((log, index) => {
+            const key = getLogKey(log, index)
+            const isExpanded = expandedItems.has(key)
+            const originalLineNumber = logs.length - index
             
             return (
-              <div
-                key={virtualRow.key}
-                data-index={virtualRow.index}
-                ref={virtualizer.measureElement}
-                className="relative w-full"
-                style={{
-                  position: 'absolute',
-                  top: 0,
-                  left: 0,
-                  width: '100%',
-                  minHeight: 'auto',
-                  transform: `translateY(${virtualRow.start}px)`,
-                  zIndex: expandedItems.has(key) ? 10 : 1,
-                }}
-              >
-                <div className={cn(
-                  "transition-all",
-                  expandedItems.has(key) && "shadow-lg rounded-md bg-background"
-                )}>
-                  <LogEntryOptimized
-                    log={log}
-                    expanded={expandedItems.has(key)}
-                    onToggle={() => handleToggleExpand(virtualRow.index)}
-                    searchTerm={searchTerm}
-                    displaySettings={displaySettings}
-                    lineNumber={virtualRow.index + 1}
-                    onOpenJsonDrawer={(data) => handleOpenJsonDrawer(data, log)}
-                  />
-                </div>
+              <div key={key} className="w-full" data-log-key={key}>
+                <LogEntryOptimized
+                  log={log}
+                  expanded={isExpanded}
+                  onToggle={() => handleToggleExpand(index)}
+                  searchTerm={searchTerm}
+                  displaySettings={displaySettings}
+                  lineNumber={originalLineNumber}
+                  onOpenJsonDrawer={(data) => handleOpenJsonDrawer(data, log)}
+                />
               </div>
             )
           })}
         </div>
-      </ScrollArea>
+      </div>
       
       {loading && logs.length > 0 && (
         <div className="absolute bottom-4 right-4 bg-background/80 backdrop-blur-sm px-3 py-2 rounded-md shadow-lg flex items-center gap-2">
