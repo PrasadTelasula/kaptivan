@@ -19,6 +19,9 @@ Thumbs.db
 /logs/
 /backend/logs/
 
+# Playwright MCP screenshots
+.playwright-mcp/
+
 # Dependencies
 node_modules/
 vendor/
