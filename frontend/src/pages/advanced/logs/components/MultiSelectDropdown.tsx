@@ -30,8 +30,8 @@ interface MultiSelectDropdownProps {
 }
 
 export const MultiSelectDropdown: React.FC<MultiSelectDropdownProps> = ({
-  options,
-  selected,
+  options = [],
+  selected = [],
   onChange,
   placeholder = 'Select items...',
   searchPlaceholder = 'Search...',
@@ -43,15 +43,19 @@ export const MultiSelectDropdown: React.FC<MultiSelectDropdownProps> = ({
   const [open, setOpen] = useState(false)
   const [search, setSearch] = useState('')
 
-  const filteredOptions = options.filter(option =>
+  // Ensure options is always an array
+  const safeOptions = options || []
+  const safeSelected = selected || []
+
+  const filteredOptions = safeOptions.filter(option =>
     option.toLowerCase().includes(search.toLowerCase())
   )
 
   const handleSelect = (value: string) => {
-    if (selected.includes(value)) {
-      onChange(selected.filter(item => item !== value))
+    if (safeSelected.includes(value)) {
+      onChange(safeSelected.filter(item => item !== value))
     } else {
-      onChange([...selected, value])
+      onChange([...safeSelected, value])
     }
   }
 
@@ -61,14 +65,14 @@ export const MultiSelectDropdown: React.FC<MultiSelectDropdownProps> = ({
   }
 
   const handleSelectAll = () => {
-    if (selected.length === options.length) {
+    if (safeSelected.length === safeOptions.length) {
       onChange([])
     } else {
-      onChange([...options])
+      onChange([...safeOptions])
     }
   }
 
-  const isAllSelected = selected.length === options.length && options.length > 0
+  const isAllSelected = safeSelected.length === safeOptions.length && safeOptions.length > 0
 
   return (
     <Popover open={open} onOpenChange={setOpen}>
@@ -77,10 +81,10 @@ export const MultiSelectDropdown: React.FC<MultiSelectDropdownProps> = ({
           variant="outline"
           role="combobox"
           aria-expanded={open}
-          disabled={disabled || (options.length === 0 && !loading)}
+          disabled={disabled || (safeOptions.length === 0 && !loading)}
           className={cn(
             'w-full justify-between font-normal',
-            !selected.length && 'text-muted-foreground',
+            !safeSelected.length && 'text-muted-foreground',
             className
           )}
         >
@@ -90,10 +94,10 @@ export const MultiSelectDropdown: React.FC<MultiSelectDropdownProps> = ({
                 <Loader2 className="h-3 w-3 animate-spin" />
                 <span className="text-xs">Loading...</span>
               </div>
-            ) : selected.length > 0 ? (
+            ) : safeSelected.length > 0 ? (
               <div className="flex items-center gap-1 overflow-hidden">
-                {selected.length <= 2 ? (
-                  selected.map(item => (
+                {safeSelected.length <= 2 ? (
+                  safeSelected.map(item => (
                     <Badge
                       key={item}
                       variant="secondary"
@@ -107,7 +111,7 @@ export const MultiSelectDropdown: React.FC<MultiSelectDropdownProps> = ({
                     variant="secondary"
                     className="h-5 px-1.5 text-xs"
                   >
-                    {selected.length} selected
+                    {safeSelected.length} selected
                   </Badge>
                 )}
               </div>
@@ -116,7 +120,7 @@ export const MultiSelectDropdown: React.FC<MultiSelectDropdownProps> = ({
             )}
           </div>
           <div className="flex items-center gap-1 ml-2">
-            {selected.length > 0 && !disabled && (
+            {safeSelected.length > 0 && !disabled && (
               <X
                 className="h-3 w-3 opacity-50 hover:opacity-100"
                 onClick={handleClear}
@@ -161,7 +165,7 @@ export const MultiSelectDropdown: React.FC<MultiSelectDropdownProps> = ({
                     <Check
                       className={cn(
                         'mr-2 h-4 w-4',
-                        selected.includes(option) ? 'opacity-100' : 'opacity-0'
+                        safeSelected.includes(option) ? 'opacity-100' : 'opacity-0'
                       )}
                     />
                     <span className="truncate">{option}</span>

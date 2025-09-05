@@ -11,6 +11,8 @@ export const useLogFetcher = (filters: LogFilters) => {
   const [isStreaming, setIsStreaming] = useState(false)
   
   const wsRef = useRef<LogWebSocket | null>(null)
+  const isStreamingRef = useRef(false)
+  const initialLogsRef = useRef<LogEntry[]>([]) // Store initial logs to revert to when streaming stops
   const { health, updateHealth, resetHealth } = useConnectionHealth()
   
   // Build query from filters
@@ -60,6 +62,7 @@ export const useLogFetcher = (filters: LogFilters) => {
   const fetchLogs = useCallback(async () => {
     if (filters.clusters.length === 0 || filters.namespaces.length === 0 || filters.pods.length === 0 || filters.containers.length === 0) {
       setLogs([])
+      initialLogsRef.current = []
       return
     }
     
@@ -70,25 +73,51 @@ export const useLogFetcher = (filters: LogFilters) => {
       const query = buildQuery()
       const response = await LogService.fetchLogs(query)
       setLogs(response.logs)
+      initialLogsRef.current = response.logs // Store as initial logs
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Failed to fetch logs')
       setLogs([])
+      initialLogsRef.current = []
     } finally {
       setLoading(false)
     }
   }, [filters, buildQuery])
   
   // Start streaming
-  const startStreaming = useCallback(() => {
+  const startStreaming = useCallback(async () => {
     if (wsRef.current) {
       wsRef.current.disconnect()
     }
     
     resetHealth()
     
+    // First, fetch initial logs based on time range
+    setLoading(true)
+    try {
+      const query = buildQuery()
+      const response = await LogService.fetchLogs(query)
+      setLogs(response.logs)
+      initialLogsRef.current = response.logs // Store initial logs
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Failed to fetch initial logs')
+      setLogs([])
+      initialLogsRef.current = []
+      setLoading(false)
+      return
+    }
+    setLoading(false)
+    
+    // Then start WebSocket for new logs
     const ws = new LogWebSocket(
       (message) => {
+        // Only process messages if this is still the active WebSocket connection
+        if (wsRef.current !== ws || !isStreamingRef.current) {
+          console.log('Ignoring message from inactive WebSocket connection')
+          return
+        }
+        
         if (message.type === 'logs' && Array.isArray(message.data)) {
+          // Append new logs to existing logs (initial + previously streamed)
           setLogs(prev => [...prev, ...message.data])
         } else if (message.type === 'error') {
           setError(message.data)
@@ -96,16 +125,21 @@ export const useLogFetcher = (filters: LogFilters) => {
       },
       (error) => {
         setError(error.message)
+        isStreamingRef.current = false
         setIsStreaming(false)
+        // Revert to initial logs on error
+        setLogs(initialLogsRef.current)
       },
       () => {
-        // Connected
+        // Connected - send query for streaming
         const query = buildQuery()
         ws.sendQuery(query)
       },
       () => {
-        // Disconnected
+        // Disconnected - revert to initial logs
+        isStreamingRef.current = false
         setIsStreaming(false)
+        setLogs(initialLogsRef.current)
       },
       // Health change callback
       (newHealth) => {
@@ -115,6 +149,7 @@ export const useLogFetcher = (filters: LogFilters) => {
     
     ws.connect(buildQuery())
     wsRef.current = ws
+    isStreamingRef.current = true
     setIsStreaming(true)
   }, [buildQuery, updateHealth, resetHealth])
   
@@ -124,7 +159,10 @@ export const useLogFetcher = (filters: LogFilters) => {
       wsRef.current.disconnect()
       wsRef.current = null
     }
+    isStreamingRef.current = false
     setIsStreaming(false)
+    // Revert to initial logs (e.g., last 5 minutes) when streaming stops
+    setLogs(initialLogsRef.current)
   }, [])
   
   // Toggle streaming
@@ -146,9 +184,11 @@ export const useLogFetcher = (filters: LogFilters) => {
       query.searchTerm = searchTerm
       const response = await LogService.searchLogs(query)
       setLogs(response.logs)
+      initialLogsRef.current = response.logs // Update initial logs ref for search results
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Failed to search logs')
       setLogs([])
+      initialLogsRef.current = []
     } finally {
       setLoading(false)
     }
@@ -157,6 +197,7 @@ export const useLogFetcher = (filters: LogFilters) => {
   // Clear logs
   const clearLogs = useCallback(() => {
     setLogs([])
+    initialLogsRef.current = []
   }, [])
   
   // Cleanup on unmount

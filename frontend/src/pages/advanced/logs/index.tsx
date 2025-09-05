@@ -7,7 +7,7 @@ import { Card } from '@/components/ui/card'
 import { Separator } from '@/components/ui/separator'
 import { OptimizedLogViewer } from './components/OptimizedLogViewer'
 import { LogSearch } from './components/LogSearch'
-import { LogFiltersEnhanced as LogFilters } from './components/LogFiltersEnhanced'
+import { LogFiltersMinimal as LogFilters } from './components/LogFiltersMinimal'
 import { LogDisplaySettings, type DisplaySettings } from './components/LogDisplaySettings'
 import ConnectionHealth from './components/ConnectionHealth'
 import type { LogFilters as LogFiltersType } from './types/logs'
@@ -266,7 +266,7 @@ const LogsPage: React.FC = () => {
                 </ResizablePanel>
                 <ResizableHandle />
                 <ResizablePanel defaultSize={80}>
-                  <div className="h-full bg-background">
+                  <div className="h-full bg-background overflow-hidden">
                     {error ? (
                       <div className="flex items-center justify-center h-full">
                         <Card className="p-6 max-w-md">
@@ -288,6 +288,7 @@ const LogsPage: React.FC = () => {
                         hasSelectedPods={filters.pods.length > 0}
                         hasSelectedContainers={filters.containers.length > 0}
                         displaySettings={displaySettings}
+                        className="h-full"
                       />
                     )}
                   </div>
@@ -300,7 +301,7 @@ const LogsPage: React.FC = () => {
                     <ConnectionHealth health={connectionHealth} />
                   </div>
                 )}
-                <div className="flex-1">
+                <div className="flex-1 overflow-hidden">
                   {error ? (
                     <div className="flex items-center justify-center h-full">
                       <Card className="p-6 max-w-md">
@@ -322,6 +323,7 @@ const LogsPage: React.FC = () => {
                       hasSelectedPods={filters.pods.length > 0}
                       hasSelectedContainers={filters.containers.length > 0}
                       displaySettings={displaySettings}
+                      className="h-full"
                     />
                   )}
                 </div>

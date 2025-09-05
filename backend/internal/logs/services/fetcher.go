@@ -26,7 +26,9 @@ func (a *LogAggregator) fetchPodLogs(ctx context.Context, client kubernetes.Inte
 			Timestamps: true,
 		}
 		
-		if query.Tail > 0 {
+		// Only use TailLines if no time range is specified
+		// When both TailLines and SinceTime are set, TailLines takes precedence
+		if query.Tail > 0 && query.StartTime.IsZero() {
 			tailLines := int64(query.Tail)
 			opts.TailLines = &tailLines
 		}

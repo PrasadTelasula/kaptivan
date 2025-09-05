@@ -3,6 +3,7 @@ package handlers
 import (
 	"context"
 	"net/http"
+	"sync"
 	"time"
 	
 	"github.com/gin-gonic/gin"
@@ -23,6 +24,31 @@ type StreamHandler struct {
 	aggregator *services.LogAggregator
 }
 
+// SafeWebSocketConn wraps websocket connection with mutex for thread safety
+type SafeWebSocketConn struct {
+	conn *websocket.Conn
+	mu   sync.Mutex
+}
+
+// WriteJSON safely writes JSON to websocket
+func (s *SafeWebSocketConn) WriteJSON(v interface{}) error {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	return s.conn.WriteJSON(v)
+}
+
+// ReadJSON safely reads JSON from websocket
+func (s *SafeWebSocketConn) ReadJSON(v interface{}) error {
+	return s.conn.ReadJSON(v)
+}
+
+// Close safely closes the websocket connection
+func (s *SafeWebSocketConn) Close() error {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	return s.conn.Close()
+}
+
 // NewStreamHandler creates a new stream handler
 func NewStreamHandler(manager *kubernetes.ClusterManager) *StreamHandler {
 	return &StreamHandler{
@@ -32,11 +58,12 @@ func NewStreamHandler(manager *kubernetes.ClusterManager) *StreamHandler {
 
 // StreamLogs handles WebSocket connections for real-time log streaming
 func (h *StreamHandler) StreamLogs(c *gin.Context) {
-	conn, err := upgrader.Upgrade(c.Writer, c.Request, nil)
+	rawConn, err := upgrader.Upgrade(c.Writer, c.Request, nil)
 	if err != nil {
 		c.JSON(http.StatusBadRequest, gin.H{"error": "Failed to upgrade connection"})
 		return
 	}
+	conn := &SafeWebSocketConn{conn: rawConn}
 	defer conn.Close()
 	
 	// Create context for this connection
@@ -54,7 +81,7 @@ func (h *StreamHandler) StreamLogs(c *gin.Context) {
 }
 
 // handlePing sends periodic ping messages to keep connection alive
-func (h *StreamHandler) handlePing(conn *websocket.Conn, cancel context.CancelFunc) {
+func (h *StreamHandler) handlePing(conn *SafeWebSocketConn, cancel context.CancelFunc) {
 	ticker := time.NewTicker(30 * time.Second)
 	defer ticker.Stop()
 	
@@ -73,7 +100,7 @@ func (h *StreamHandler) handlePing(conn *websocket.Conn, cancel context.CancelFu
 }
 
 // handleMessages handles incoming WebSocket messages
-func (h *StreamHandler) handleMessages(ctx context.Context, conn *websocket.Conn, cancel context.CancelFunc) {
+func (h *StreamHandler) handleMessages(ctx context.Context, conn *SafeWebSocketConn, cancel context.CancelFunc) {
 	for {
 		var query models.LogQuery
 		if err := conn.ReadJSON(&query); err != nil {
@@ -87,23 +114,28 @@ func (h *StreamHandler) handleMessages(ctx context.Context, conn *websocket.Conn
 }
 
 // streamLogsForQuery streams logs based on query
-func (h *StreamHandler) streamLogsForQuery(ctx context.Context, conn *websocket.Conn, query models.LogQuery) {
+func (h *StreamHandler) streamLogsForQuery(ctx context.Context, conn *SafeWebSocketConn, query models.LogQuery) {
 	// Set follow to true for streaming
 	query.Follow = true
 	
 	ticker := time.NewTicker(2 * time.Second)
 	defer ticker.Stop()
 	
-	lastFetch := time.Now()
+	// Start with a slight buffer to catch recently written logs
+	lastFetch := time.Now().Add(-5 * time.Second)
 	
 	for {
 		select {
 		case <-ctx.Done():
 			return
 		case <-ticker.C:
+			now := time.Now()
+			
 			// Update query to fetch only new logs
+			// Set StartTime to last fetch and EndTime to now
 			query.StartTime = lastFetch
-			lastFetch = time.Now()
+			query.EndTime = now
+			lastFetch = now.Add(-1 * time.Second) // Small overlap to avoid missing logs
 			
 			// Fetch new logs
 			response, err := h.aggregator.FetchLogs(ctx, query)

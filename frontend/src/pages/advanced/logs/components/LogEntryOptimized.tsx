@@ -286,26 +286,11 @@ export const LogEntryOptimized = memo(({
           </Button>
         )}
         
-        {/* Message */}
+        {/* Message - Always show raw log message in main line */}
         <div className="flex-1 min-w-0">
-          {messageData.isJson ? (
-            <div className="space-y-1">
-              {messageData.text && (
-                <div className="font-mono text-sm break-all">
-                  {highlightSearchTerm(messageData.text, searchTerm)}
-                </div>
-              )}
-              {!isExpanded && (
-                <div className="font-mono text-xs text-muted-foreground truncate max-w-full">
-                  {JSON.stringify(messageData.data).substring(0, 100)}...
-                </div>
-              )}
-            </div>
-          ) : (
-            <div className="font-mono text-sm break-all">
-              {highlightSearchTerm(messageData.text || '', searchTerm)}
-            </div>
-          )}
+          <div className="font-mono text-sm break-all">
+            {highlightSearchTerm(log.message, searchTerm)}
+          </div>
         </div>
         
         {/* Copy button */}
@@ -342,12 +327,28 @@ export const LogEntryOptimized = memo(({
             </div>
           </div>
           
-          {/* Full message or JSON viewer */}
-          <div className="bg-background rounded-md p-3 max-h-96 overflow-auto">
-            {messageData.isJson ? (
+          {/* Raw log message first - Always visible */}
+          <div className="space-y-3">
+            <div className="bg-red-50 dark:bg-red-950/20 p-1 rounded">
+              <div className="text-sm font-semibold mb-2 flex items-center gap-2 text-red-700 dark:text-red-300">
+                <span>📝 Raw Log Message:</span>
+                <Badge variant="outline" className="text-xs bg-red-100 dark:bg-red-900">Original</Badge>
+              </div>
+              <div className="bg-white dark:bg-gray-800 rounded-md p-4 max-h-48 overflow-auto border-2 border-red-200 dark:border-red-800">
+                <div className="text-sm font-mono whitespace-pre-wrap break-all text-gray-900 dark:text-gray-100">
+                  {log.message || 'No message content'}
+                </div>
+              </div>
+            </div>
+            
+            {/* Formatted content (if JSON) */}
+            {messageData.isJson && (
               <div>
-                <div className="flex items-center justify-between mb-2">
-                  <span className="text-xs text-muted-foreground">Click to expand JSON in drawer</span>
+                <div className="flex items-center justify-between mb-1">
+                  <div className="text-xs text-muted-foreground font-semibold flex items-center gap-2">
+                    <span>Formatted JSON:</span>
+                    <Badge variant="secondary" className="text-xs">Parsed</Badge>
+                  </div>
                   <Button
                     variant="outline"
                     size="sm"
@@ -358,17 +359,15 @@ export const LogEntryOptimized = memo(({
                     Open in Drawer
                   </Button>
                 </div>
-                <JsonViewer
-                  data={messageData.data}
-                  searchTerm={searchTerm}
-                  defaultExpanded={false}
-                  maxDepth={3}
-                  className=""
-                />
-              </div>
-            ) : (
-              <div className="text-xs font-mono whitespace-pre-wrap break-all">
-                {log.message}
+                <div className="bg-card rounded-md p-3 max-h-96 overflow-auto border border-border">
+                  <JsonViewer
+                    data={messageData.data}
+                    searchTerm={searchTerm}
+                    defaultExpanded={false}
+                    maxDepth={3}
+                    className=""
+                  />
+                </div>
               </div>
             )}
           </div>
