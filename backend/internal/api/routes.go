@@ -8,6 +8,7 @@ import (
 	"github.com/prasad/kaptivan/backend/internal/api/handlers"
 	"github.com/prasad/kaptivan/backend/internal/api/handlers/apidocs"
 	"github.com/prasad/kaptivan/backend/internal/api/handlers/deployments"
+	"github.com/prasad/kaptivan/backend/internal/api/handlers/events"
 	"github.com/prasad/kaptivan/backend/internal/api/handlers/manifests"
 	"github.com/prasad/kaptivan/backend/internal/api/handlers/pods"
 	"github.com/prasad/kaptivan/backend/internal/api/handlers/services"
@@ -39,6 +40,8 @@ func SetupRoutes(r *gin.Engine) {
 		topology.Initialize(manager)
 		// Initialize APIDocs handlers
 		apidocs.Initialize(manager)
+		// Initialize events handlers
+		events.Initialize(manager)
 	}
 	
 	r.GET("/health", handlers.Health)
@@ -179,6 +182,14 @@ func SetupRoutes(r *gin.Engine) {
 			}
 		}
 		
+		// Events endpoints
+		eventsGroup := v1.Group("/events")
+		{
+			eventsGroup.GET("/list", events.List)
+			eventsGroup.GET("/reasons", events.GetReasons)
+			eventsGroup.GET("/ws", events.EventsWebSocket) // WebSocket for real-time events
+		}
+		
 		// Logs V2 endpoints (with connection pooling and search optimization)
 		logsV2 := v1.Group("/logs/v2")
 		{
@@ -208,7 +219,6 @@ func SetupRoutes(r *gin.Engine) {
 			resources.GET("/namespaces", handlers.ListNamespaces)
 			resources.GET("/nodes", handlers.ListNodes)
 			// TODO: Implement these handlers
-			// resources.GET("/events", handlers.ListEvents)
 			// resources.POST("/apply", handlers.ApplyManifest)
 			// resources.POST("/delete", handlers.DeleteResource)
 		}
@@ -246,6 +256,7 @@ func SetupRoutes(r *gin.Engine) {
 				"/api/v1/manifests/*",
 				"/api/v1/topology/*",
 				"/api/v1/apidocs/*",
+				"/api/v1/events/*",
 				"/api/v1/logs/*",
 				"/api/v1/resources/*",
 			},

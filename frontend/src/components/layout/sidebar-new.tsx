@@ -251,7 +251,6 @@ const menuItems: MenuSection[] = [
     items: [
       { icon: Home, label: "Dashboard", href: "/" },
       { icon: BarChart3, label: "Metrics", href: "/metrics" },
-      { icon: Activity, label: "Events", href: "/events" },
     ],
   },
   {
@@ -314,6 +313,7 @@ const menuItems: MenuSection[] = [
       { icon: FileText, label: "Manifest Viewer", href: "/advanced/manifests" },
       { icon: Book, label: "API Documentation", href: "/advanced/api-docs" },
       { icon: FileText, label: "Multi-Cluster Logs", href: "/advanced/logs" },
+      { icon: Activity, label: "Cluster Events", href: "/advanced/events" },
     ],
     groups: [
       {

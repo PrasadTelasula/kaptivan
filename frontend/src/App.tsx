@@ -14,6 +14,7 @@ import JobTopologyPage from '@/pages/advanced/job-topology'
 import CronJobTopologyPage from '@/pages/advanced/topology/CronJobTopology'
 import APIDocsPage from '@/pages/advanced/api-docs'
 import LogsPage from '@/pages/advanced/logs'
+import EventsPage from '@/pages/advanced/events'
 import ConnectionHealthDemo from '@/pages/connection-health-demo'
 import { useAuthStore } from '@/stores/auth.store'
 
@@ -123,6 +124,14 @@ function App() {
             element={
               <ProtectedRoute>
                 <LogsPage />
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="/advanced/events"
+            element={
+              <ProtectedRoute>
+                <EventsPage />
               </ProtectedRoute>
             }
           />
