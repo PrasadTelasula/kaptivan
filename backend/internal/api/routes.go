@@ -168,13 +168,34 @@ func SetupRoutes(r *gin.Engine) {
 		{
 			if manager != nil {
 				logsHandler := logsHandlers.NewLogsHandler(manager)
-				streamHandler := logsHandlers.NewStreamHandler(manager)
+				// Use optimized streaming handler for production performance
+				streamHandler := logsHandlers.NewStreamHandlerOptimized(manager)
 				
 				logsGroup.GET("/", logsHandler.GetLogs)
 				logsGroup.POST("/search", logsHandler.SearchLogs)
 				logsGroup.GET("/stream", streamHandler.StreamLogs)
 			} else {
 				println("Warning: Logs handler not initialized - logs endpoints will not be available")
+			}
+		}
+		
+		// Logs V2 endpoints (with connection pooling and search optimization)
+		logsV2 := v1.Group("/logs/v2")
+		{
+			if manager != nil {
+				// Create pooled manager wrapper
+				poolConfig := logsHandlers.DefaultPoolConfig()
+				pooledManager := logsHandlers.NewClusterManagerWithPool(manager, poolConfig)
+				
+				// Optimized streaming handler (removed duplicate - already defined above)
+				
+				// Search handler with optimization
+				searchHandler := logsHandlers.NewSearchHandler(pooledManager)
+				logsV2.GET("/search", searchHandler.HandleSearchLogs)
+				logsV2.GET("/search/metrics", searchHandler.GetSearchMetrics)
+				logsV2.POST("/search/cache/clear", searchHandler.ClearSearchCache)
+			} else {
+				println("Warning: Logs V2 handler not initialized - optimized logs endpoints will not be available")
 			}
 		}
 		

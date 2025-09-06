@@ -78,17 +78,17 @@ export const LogFiltersMinimal: React.FC<LogFiltersProps> = ({
         <div className="p-4 space-y-4">
           {/* Log Levels */}
           <div>
-            <Label className="text-xs uppercase tracking-wide text-muted-foreground mb-2 block">
+            <Label className="text-[10px] uppercase tracking-wide text-muted-foreground mb-1.5 block">
               Log Levels
             </Label>
-            <div className="flex flex-wrap gap-1">
+            <div className="flex flex-wrap gap-0.5">
               {LOG_LEVELS.map(level => (
                 <Button
                   key={level}
                   variant={filters.logLevels.includes(level) ? "default" : "outline"}
                   size="sm"
                   onClick={() => handleLogLevelToggle(level)}
-                  className="h-7 px-2 text-xs"
+                  className="h-6 px-1.5 text-[10px] font-medium"
                 >
                   {level}
                 </Button>
@@ -100,7 +100,7 @@ export const LogFiltersMinimal: React.FC<LogFiltersProps> = ({
 
           {/* Clusters */}
           <div>
-            <Label className="text-xs uppercase tracking-wide text-muted-foreground mb-2 block">
+            <Label className="text-[10px] uppercase tracking-wide text-muted-foreground mb-1.5 block">
               Clusters
             </Label>
             <MultiSelectDropdown
@@ -116,7 +116,7 @@ export const LogFiltersMinimal: React.FC<LogFiltersProps> = ({
 
           {/* Namespaces */}
           <div>
-            <Label className="text-xs uppercase tracking-wide text-muted-foreground mb-2 block">
+            <Label className="text-[10px] uppercase tracking-wide text-muted-foreground mb-1.5 block">
               Namespaces
             </Label>
             {loadingNamespaces ? (
@@ -141,7 +141,7 @@ export const LogFiltersMinimal: React.FC<LogFiltersProps> = ({
 
           {/* Pods */}
           <div>
-            <Label className="text-xs uppercase tracking-wide text-muted-foreground mb-2 block">
+            <Label className="text-[10px] uppercase tracking-wide text-muted-foreground mb-1.5 block">
               Pods
             </Label>
             {loadingPods ? (
@@ -166,7 +166,7 @@ export const LogFiltersMinimal: React.FC<LogFiltersProps> = ({
 
           {/* Containers */}
           <div>
-            <Label className="text-xs uppercase tracking-wide text-muted-foreground mb-2 block">
+            <Label className="text-[10px] uppercase tracking-wide text-muted-foreground mb-1.5 block">
               Containers
             </Label>
             {loadingContainers ? (

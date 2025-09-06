@@ -36,7 +36,43 @@ export class LogWebSocket {
   ) {}
   
   connect(query: LogQuery) {
-    const wsUrl = `ws://localhost:8080/api/v1/logs/stream`
+    // Build URL with query parameters
+    const params = new URLSearchParams()
+    
+    // Add clusters
+    if (query.clusters && query.clusters.length > 0) {
+      query.clusters.forEach(cluster => params.append('clusters', cluster))
+    }
+    
+    // Add namespaces
+    if (query.namespaces && query.namespaces.length > 0) {
+      query.namespaces.forEach(ns => params.append('namespaces', ns))
+    }
+    
+    // Add pods
+    if (query.pods && query.pods.length > 0) {
+      query.pods.forEach(pod => params.append('pods', pod))
+    }
+    
+    // Add containers
+    if (query.containers && query.containers.length > 0) {
+      query.containers.forEach(container => params.append('containers', container))
+    }
+    
+    // Add log levels
+    if (query.logLevels && query.logLevels.length > 0) {
+      query.logLevels.forEach(level => params.append('logLevels', level))
+    }
+    
+    const wsUrl = `ws://localhost:8080/api/v1/logs/stream?${params.toString()}`
+    console.log('Connecting to WebSocket with URL:', wsUrl)
+    console.log('Query details:', {
+      clusters: query.clusters,
+      namespaces: query.namespaces,
+      pods: query.pods,
+      containers: query.containers,
+      logLevels: query.logLevels
+    })
     
     try {
       this.updateHealthStatus('reconnecting')
@@ -52,8 +88,8 @@ export class LogWebSocket {
         this.startPingInterval()
         this.onConnect?.()
         
-        // Send initial query
-        this.sendQuery(query)
+        // No need to send initial query anymore - it's in the URL
+        // this.sendQuery(query)
       }
       
       this.ws.onmessage = (event) => {
@@ -113,11 +149,9 @@ export class LogWebSocket {
   }
   
   sendQuery(query: LogQuery) {
-    if (this.ws?.readyState === WebSocket.OPEN) {
-      this.ws.send(JSON.stringify(query))
-      this.health.metrics.messagesSent++
-      this.updateHealth()
-    }
+    // Query is now sent via URL parameters, not as a message
+    // This method is kept for backward compatibility but not used
+    console.warn('sendQuery is deprecated - query parameters are now sent via URL')
   }
   
   disconnect() {

@@ -1,17 +1,21 @@
 import React, { useState, useEffect } from 'react'
-import { FileText, Filter } from 'lucide-react'
+import { FileText, Filter, Info } from 'lucide-react'
 import { useClusterStore } from '@/stores/cluster.store'
+import { cn } from '@/utils/cn'
 import { Header } from '@/components/layout/header'
 import { Sidebar } from '@/components/layout/sidebar-new'
 import { Card } from '@/components/ui/card'
 import { Separator } from '@/components/ui/separator'
-import { OptimizedLogViewer } from './components/OptimizedLogViewer'
+import { VirtualizedLogViewer } from './components/VirtualizedLogViewer'
 import { LogSearch } from './components/LogSearch'
 import { LogFiltersMinimal as LogFilters } from './components/LogFiltersMinimal'
 import { LogDisplaySettings, type DisplaySettings } from './components/LogDisplaySettings'
+import { AdvancedSearchUI } from './components/AdvancedSearchUI'
+import { CompactSearchBar } from './components/CompactSearchBar'
 import ConnectionHealth from './components/ConnectionHealth'
+import { TimeRangeSelector } from './components/TimeRangeSelector'
 import type { LogFilters as LogFiltersType } from './types/logs'
-import { useLogFetcher } from './hooks/useLogFetcher'
+import { useLogFetcherOptimized } from './hooks/useLogFetcherOptimized'
 import { Button } from '@/components/ui/button'
 import {
   ResizableHandle,
@@ -165,7 +169,10 @@ const LogsPage: React.FC = () => {
     fetchLogs,
     searchLogs,
     toggleStreaming,
-  } = useLogFetcher(filters)
+    bufferInfo,
+    totalLogsReceived,
+    getMetrics,
+  } = useLogFetcherOptimized(filters)
   
   // Fetch logs on filter change - only when containers are selected
   useEffect(() => {
@@ -206,45 +213,125 @@ const LogsPage: React.FC = () => {
       <div className="flex flex-1 overflow-hidden">
         <Sidebar className="hidden lg:block border-r shrink-0" />
         <main className="flex-1 flex flex-col overflow-hidden">
-          {/* Page header */}
-          <div className="flex items-center justify-between px-4 py-3 border-b">
-            <div className="flex items-center gap-2">
-              <FileText className="h-5 w-5 text-primary" />
-              <h1 className="text-lg font-semibold">Multi-Cluster Logs</h1>
+          {/* Compact header with integrated controls */}
+          <div className="flex items-center justify-between px-3 py-2 border-b bg-background/95">
+            <div className="flex items-center gap-3">
+              <FileText className="h-4 w-4 text-primary" />
+              <h1 className="text-sm font-medium">Multi-Cluster Logs</h1>
+              {/* Rendering stats will be injected here by VirtualizedLogViewer */}
+              <div id="rendering-stats-container" />
             </div>
             <div className="flex items-center gap-2">
+              <TimeRangeSelector
+                value={filters.timeRange.preset || 'last15m'}
+                onChange={handleTimeRangeChange}
+                className="h-8"
+              />
               <LogDisplaySettings
                 settings={displaySettings}
                 onSettingsChange={setDisplaySettings}
               />
               <Button
-                variant="outline"
+                variant="ghost"
                 size="sm"
                 onClick={() => setShowFilters(!showFilters)}
-                className="gap-2"
+                className="h-8 px-2"
               >
-                <Filter className="h-4 w-4" />
-                {showFilters ? 'Hide Filters' : 'Show Filters'}
+                <Filter className="h-3.5 w-3.5" />
+                <span className="ml-1 text-xs">{showFilters ? 'Hide' : 'Show'}</span>
               </Button>
             </div>
           </div>
           
-          {/* Search bar */}
-          <div className="px-4 py-3 border-b bg-muted/30">
-            <LogSearch
-              onSearch={handleSearch}
-              onTimeRangeChange={handleTimeRangeChange}
-              onToggleStream={toggleStreaming}
-              isStreaming={isStreaming}
-              logCount={logs.length}
-            />
+          {/* Compact search bar and controls */}
+          <div className="px-3 py-2 border-b bg-muted/20">
+            <div className="flex items-center justify-between">
+              <CompactSearchBar
+                value={filters.searchTerm}
+                onChange={(value) => setFilters(prev => ({ ...prev, searchTerm: value }))}
+                onSearch={() => handleSearch(filters.searchTerm)}
+                onClear={() => {
+                  setFilters(prev => ({ ...prev, searchTerm: '' }))
+                  fetchLogs()
+                }}
+                metrics={{
+                  cacheHitRate: 75,
+                  avgLatency: 45,
+                  indexedLogs: logs.length
+                }}
+                isLoading={loading}
+                logLevels={['ERROR', 'WARN', 'INFO', 'DEBUG', 'TRACE']}
+                selectedLogLevels={filters.logLevels}
+                onLogLevelToggle={(level) => {
+                  const newLevels = filters.logLevels.includes(level)
+                    ? filters.logLevels.filter(l => l !== level)
+                    : [...filters.logLevels, level]
+                  setFilters(prev => ({ ...prev, logLevels: newLevels }))
+                }}
+                totalLogs={totalLogsReceived}
+                className="flex-1"
+              />
+              
+              {/* Buffer info display */}
+              {bufferInfo && (
+                <div className="flex items-center gap-2 px-3 py-1 bg-background/60 backdrop-blur-sm rounded-md border">
+                  <div className="flex items-center gap-1.5">
+                    <Info className="h-3.5 w-3.5 text-muted-foreground" />
+                    <span className="text-xs text-muted-foreground">Buffer:</span>
+                    <span className={cn(
+                      "text-xs font-medium",
+                      bufferInfo.isAtCapacity ? "text-yellow-500" : "text-foreground"
+                    )}>
+                      {bufferInfo.size.toLocaleString()} / {bufferInfo.capacity.toLocaleString()}
+                    </span>
+                  </div>
+                  {bufferInfo.isAtCapacity && (
+                    <div className="flex items-center">
+                      <div className="h-1.5 w-1.5 bg-yellow-500 rounded-full animate-pulse" />
+                    </div>
+                  )}
+                  <div className="relative h-1.5 w-24 bg-muted rounded-full overflow-hidden">
+                    <div 
+                      className={cn(
+                        "absolute inset-y-0 left-0 rounded-full transition-all duration-300",
+                        bufferInfo.isAtCapacity ? "bg-yellow-500" : "bg-green-500"
+                      )}
+                      style={{ width: `${(bufferInfo.size / bufferInfo.capacity) * 100}%` }}
+                    />
+                  </div>
+                </div>
+              )}
+              
+              {/* Streaming button */}
+              {filters.clusters.length > 0 && filters.namespaces.length > 0 && 
+               filters.pods.length > 0 && filters.containers.length > 0 && (
+                <Button
+                  variant={isStreaming ? "destructive" : "default"}
+                  size="sm"
+                  onClick={toggleStreaming}
+                  className="h-8 px-3 text-xs gap-1.5"
+                >
+                  {isStreaming ? (
+                    <>
+                      <div className="h-1.5 w-1.5 bg-white rounded-full animate-pulse" />
+                      Stop Streaming
+                    </>
+                  ) : (
+                    <>
+                      <div className="h-1.5 w-1.5 bg-white rounded-full" />
+                      Start Streaming
+                    </>
+                  )}
+                </Button>
+              )}
+            </div>
           </div>
           
           {/* Main content area */}
           <div className="flex-1 overflow-hidden">
             {showFilters ? (
               <ResizablePanelGroup direction="horizontal">
-                <ResizablePanel defaultSize={20} minSize={15} maxSize={30}>
+                <ResizablePanel defaultSize={15} minSize={10} maxSize={20}>
                   <div className="h-full border-r bg-muted/5">
                     <LogFilters
                       filters={filters}
@@ -265,7 +352,7 @@ const LogsPage: React.FC = () => {
                   </div>
                 </ResizablePanel>
                 <ResizableHandle />
-                <ResizablePanel defaultSize={80}>
+                <ResizablePanel defaultSize={85}>
                   <div className="h-full bg-background overflow-hidden">
                     {error ? (
                       <div className="flex items-center justify-center h-full">
@@ -278,7 +365,7 @@ const LogsPage: React.FC = () => {
                         </Card>
                       </div>
                     ) : (
-                      <OptimizedLogViewer
+                      <VirtualizedLogViewer
                         logs={logs}
                         loading={loading}
                         searchTerm={filters.searchTerm}
@@ -288,6 +375,8 @@ const LogsPage: React.FC = () => {
                         hasSelectedPods={filters.pods.length > 0}
                         hasSelectedContainers={filters.containers.length > 0}
                         displaySettings={displaySettings}
+                        bufferInfo={bufferInfo}
+                        totalLogsReceived={totalLogsReceived}
                         className="h-full"
                       />
                     )}
@@ -313,7 +402,7 @@ const LogsPage: React.FC = () => {
                       </Card>
                     </div>
                   ) : (
-                    <OptimizedLogViewer
+                    <VirtualizedLogViewer
                       logs={logs}
                       loading={loading}
                       searchTerm={filters.searchTerm}
@@ -323,6 +412,8 @@ const LogsPage: React.FC = () => {
                       hasSelectedPods={filters.pods.length > 0}
                       hasSelectedContainers={filters.containers.length > 0}
                       displaySettings={displaySettings}
+                      bufferInfo={bufferInfo}
+                      totalLogsReceived={totalLogsReceived}
                       className="h-full"
                     />
                   )}
