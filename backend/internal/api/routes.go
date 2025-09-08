@@ -13,6 +13,7 @@ import (
 	"github.com/prasad/kaptivan/backend/internal/api/handlers/pods"
 	"github.com/prasad/kaptivan/backend/internal/api/handlers/services"
 	"github.com/prasad/kaptivan/backend/internal/api/handlers/topology"
+	"github.com/prasad/kaptivan/backend/internal/api/handlers/resources"
 	"github.com/prasad/kaptivan/backend/internal/api/middleware"
 	logsHandlers "github.com/prasad/kaptivan/backend/internal/logs/handlers"
 )
@@ -42,6 +43,8 @@ func SetupRoutes(r *gin.Engine) {
 		apidocs.Initialize(manager)
 		// Initialize events handlers
 		events.Initialize(manager)
+		// Initialize namespace resources handlers
+		resources.Initialize(manager)
 	}
 	
 	r.GET("/health", handlers.Health)
@@ -210,14 +213,24 @@ func SetupRoutes(r *gin.Engine) {
 			}
 		}
 		
-		// Resource endpoints (legacy, will be deprecated)
-		resources := v1.Group("/resources")
+		// Namespace resources endpoints
+		namespaceResources := v1.Group("/namespace-resources")
 		{
-			resources.POST("/pods", handlers.ListPods)
-			resources.POST("/deployments", handlers.ListDeployments)
-			resources.POST("/services", handlers.ListServices)
-			resources.GET("/namespaces", handlers.ListNamespaces)
-			resources.GET("/nodes", handlers.ListNodes)
+			namespaceResources.GET("/single", resources.GetNamespaceResources)
+			namespaceResources.GET("/all", resources.GetAllNamespaceResources)
+			namespaceResources.GET("/:namespace/details", resources.GetNamespaceDetails)
+			namespaceResources.GET("/:namespace/yaml", resources.GetNamespaceYaml)
+			namespaceResources.POST("/resource-names", resources.GetResourceNames)
+		}
+		
+		// Resource endpoints (legacy, will be deprecated)
+		resourcesLegacy := v1.Group("/resources")
+		{
+			resourcesLegacy.POST("/pods", handlers.ListPods)
+			resourcesLegacy.POST("/deployments", handlers.ListDeployments)
+			resourcesLegacy.POST("/services", handlers.ListServices)
+			resourcesLegacy.GET("/namespaces", handlers.ListNamespaces)
+			resourcesLegacy.GET("/nodes", handlers.ListNodes)
 			// TODO: Implement these handlers
 			// resources.POST("/apply", handlers.ApplyManifest)
 			// resources.POST("/delete", handlers.DeleteResource)

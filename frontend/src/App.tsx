@@ -16,6 +16,7 @@ import APIDocsPage from '@/pages/advanced/api-docs'
 import LogsPage from '@/pages/advanced/logs'
 import EventsPage from '@/pages/advanced/events'
 import ConnectionHealthDemo from '@/pages/connection-health-demo'
+import { MultiClusterNamespaces } from '@/pages/namespaces'
 import { useAuthStore } from '@/stores/auth.store'
 
 function App() {
@@ -60,6 +61,14 @@ function App() {
             element={
               <ProtectedRoute>
                 <ServicesPage />
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="/namespaces"
+            element={
+              <ProtectedRoute>
+                <MultiClusterNamespaces />
               </ProtectedRoute>
             }
           />

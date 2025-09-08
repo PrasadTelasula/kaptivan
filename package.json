@@ -2,5 +2,8 @@
   "dependencies": {
     "react-resizable-panels": "^3.0.5",
     "ws": "^8.18.3"
+  },
+  "devDependencies": {
+    "shadcn": "^3.2.1"
   }
 }

@@ -1,12 +1,12 @@
-# ---
-# # Namespace
-# apiVersion: v1
-# kind: Namespace
-# metadata:
-#   name: apps
-#   labels:
-#     name: apps
-#     environment: production
+---
+# Namespace
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: apps
+  labels:
+    name: apps
+    environment: production
 
 ---
 # ConfigMap 1: Application Configuration
@@ -103,23 +103,23 @@ data:
   cache.size: "1000"
   cache.eviction: "LRU"
 
----
-# ConfigMap 6: Security Policies
-apiVersion: v1
-kind: ConfigMap
-metadata:
-  name: security-policies
-  namespace: apps
-data:
-  cors.allowed-origins: "https://example.com,https://app.example.com"
-  cors.allowed-methods: "GET,POST,PUT,DELETE,OPTIONS"
-  cors.allowed-headers: "Content-Type,Authorization,X-Requested-With"
-  rate.limit.requests: "1000"
-  rate.limit.window: "60"
-  security.headers: |
-    X-Frame-Options: DENY
-    X-Content-Type-Options: nosniff
-    X-XSS-Protection: 1; mode=block
+# ---
+# # ConfigMap 6: Security Policies
+# apiVersion: v1
+# kind: ConfigMap
+# metadata:
+#   name: security-policies
+#   namespace: apps
+# data:
+#   cors.allowed-origins: "https://example.com,https://app.example.com"
+#   cors.allowed-methods: "GET,POST,PUT,DELETE,OPTIONS"
+#   cors.allowed-headers: "Content-Type,Authorization,X-Requested-With"
+#   rate.limit.requests: "1000"
+#   rate.limit.window: "60"
+#   security.headers: |
+#     X-Frame-Options: DENY
+#     X-Content-Type-Options: nosniff
+#     X-XSS-Protection: 1; mode=block
 
 ---
 # ConfigMap 7: Notification Templates
@@ -665,7 +665,7 @@ metadata:
     app: sample-app
     version: v1
 spec:
-  replicas: 2
+  replicas: 1
   selector:
     matchLabels:
       app: sample-app
@@ -965,11 +965,11 @@ spec:
             configMapKeyRef:
               name: cache-config
               key: cache.ttl
-        - name: CORS_ORIGINS
-          valueFrom:
-            configMapKeyRef:
-              name: security-policies
-              key: cors.allowed-origins
+        # - name: CORS_ORIGINS
+        #   valueFrom:
+        #     configMapKeyRef:
+        #       name: security-policies
+        #       key: cors.allowed-origins
         - name: SLACK_WEBHOOK
           valueFrom:
             configMapKeyRef:
@@ -1002,8 +1002,8 @@ spec:
           mountPath: /etc/logging
         - name: cache-config-volume
           mountPath: /etc/cache
-        - name: security-policies-volume
-          mountPath: /etc/security
+        # - name: security-policies-volume
+        #   mountPath: /etc/security
         - name: notification-templates-volume
           mountPath: /etc/notifications
         - name: monitoring-config-volume
@@ -1146,10 +1146,6 @@ spec:
                         <div class="card config-info">
                             <h3>5. cache-config</h3>
                             <p>Redis config, TTL=$CACHE_TTL seconds</p>
-                        </div>
-                        <div class="card config-info">
-                            <h3>6. security-policies</h3>
-                            <p>CORS settings, rate limiting, security headers</p>
                         </div>
                         <div class="card config-info">
                             <h3>7. notification-templates</h3>
@@ -1351,9 +1347,9 @@ spec:
       - name: cache-config-volume
         configMap:
           name: cache-config
-      - name: security-policies-volume
-        configMap:
-          name: security-policies
+      # - name: security-policies-volume
+      #   configMap:
+      #     name: security-policies
       - name: notification-templates-volume
         configMap:
           name: notification-templates
