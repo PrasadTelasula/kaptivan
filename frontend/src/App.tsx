@@ -17,6 +17,7 @@ import LogsPage from '@/pages/advanced/logs'
 import EventsPage from '@/pages/advanced/events'
 import ConnectionHealthDemo from '@/pages/connection-health-demo'
 import { MultiClusterNamespaces } from '@/pages/namespaces'
+import { NamespaceComparison } from '@/pages/advanced/namespace-comparison'
 import { useAuthStore } from '@/stores/auth.store'
 
 function App() {
@@ -69,6 +70,14 @@ function App() {
             element={
               <ProtectedRoute>
                 <MultiClusterNamespaces />
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="/advanced/namespace-comparison"
+            element={
+              <ProtectedRoute>
+                <NamespaceComparison />
               </ProtectedRoute>
             }
           />

@@ -14,6 +14,7 @@ import (
 	"github.com/prasad/kaptivan/backend/internal/api/handlers/services"
 	"github.com/prasad/kaptivan/backend/internal/api/handlers/topology"
 	"github.com/prasad/kaptivan/backend/internal/api/handlers/resources"
+	"github.com/prasad/kaptivan/backend/internal/api/handlers/namespaces"
 	"github.com/prasad/kaptivan/backend/internal/api/middleware"
 	logsHandlers "github.com/prasad/kaptivan/backend/internal/logs/handlers"
 )
@@ -221,6 +222,20 @@ func SetupRoutes(r *gin.Engine) {
 			namespaceResources.GET("/:namespace/details", resources.GetNamespaceDetails)
 			namespaceResources.GET("/:namespace/yaml", resources.GetNamespaceYaml)
 			namespaceResources.POST("/resource-names", resources.GetResourceNames)
+			namespaceResources.GET("/resource-details", resources.GetNamespaceResourcesDetails)
+		}
+		
+		// Namespace comparison endpoints
+		namespacesGroup := v1.Group("/namespaces")
+		{
+			if manager != nil {
+				nsHandler := namespaces.NewHandler(manager)
+				namespacesGroup.GET("/snapshot", nsHandler.GetNamespaceSnapshot)
+				namespacesGroup.POST("/compare", nsHandler.CompareNamespaces)
+				namespacesGroup.GET("/list", nsHandler.ListNamespaces)
+			} else {
+				println("Warning: Namespace comparison handler not initialized - comparison endpoints will not be available")
+			}
 		}
 		
 		// Resource endpoints (legacy, will be deprecated)

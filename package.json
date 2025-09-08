@@ -1,5 +1,6 @@
 {
   "dependencies": {
+    "framer-motion": "^12.23.12",
     "react-resizable-panels": "^3.0.5",
     "ws": "^8.18.3"
   },

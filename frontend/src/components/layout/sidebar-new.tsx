@@ -314,6 +314,7 @@ const menuItems: MenuSection[] = [
       { icon: Book, label: "API Documentation", href: "/advanced/api-docs" },
       { icon: FileText, label: "Multi-Cluster Logs", href: "/advanced/logs" },
       { icon: Activity, label: "Cluster Events", href: "/advanced/events" },
+      { icon: GitBranch, label: "Namespace Comparison", href: "/advanced/namespace-comparison" },
     ],
     groups: [
       {
