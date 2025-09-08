@@ -30,3 +30,4 @@ dist-ssr
 backend/bin/
 backend/server
 *.exe
+backend/bin/
