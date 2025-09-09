@@ -315,6 +315,7 @@ const menuItems: MenuSection[] = [
       { icon: FileText, label: "Multi-Cluster Logs", href: "/advanced/logs" },
       { icon: Activity, label: "Cluster Events", href: "/advanced/events" },
       { icon: GitBranch, label: "Namespace Comparison", href: "/advanced/namespace-comparison" },
+      { icon: Database, label: "SQL Query Editor", href: "/advanced/sql-query" },
     ],
     groups: [
       {

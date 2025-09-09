@@ -15,6 +15,7 @@ import (
 	"github.com/prasad/kaptivan/backend/internal/api/handlers/topology"
 	"github.com/prasad/kaptivan/backend/internal/api/handlers/resources"
 	"github.com/prasad/kaptivan/backend/internal/api/handlers/namespaces"
+	"github.com/prasad/kaptivan/backend/internal/api/handlers/sqlquery"
 	"github.com/prasad/kaptivan/backend/internal/api/middleware"
 	logsHandlers "github.com/prasad/kaptivan/backend/internal/logs/handlers"
 )
@@ -46,6 +47,8 @@ func SetupRoutes(r *gin.Engine) {
 		events.Initialize(manager)
 		// Initialize namespace resources handlers
 		resources.Initialize(manager)
+		// Initialize SQL query handlers
+		sqlquery.Initialize(manager)
 	}
 	
 	r.GET("/health", handlers.Health)
@@ -238,6 +241,14 @@ func SetupRoutes(r *gin.Engine) {
 			}
 		}
 		
+		// SQL Query endpoints
+		sqlGroup := v1.Group("/sql")
+		{
+			sqlGroup.POST("/query", sqlquery.HandleQuery)
+			sqlGroup.GET("/health", sqlquery.HandleHealth)
+			sqlGroup.GET("/schema", sqlquery.HandleSchema)
+		}
+		
 		// Resource endpoints (legacy, will be deprecated)
 		resourcesLegacy := v1.Group("/resources")
 		{
@@ -286,6 +297,7 @@ func SetupRoutes(r *gin.Engine) {
 				"/api/v1/apidocs/*",
 				"/api/v1/events/*",
 				"/api/v1/logs/*",
+				"/api/v1/sql/*",
 				"/api/v1/resources/*",
 			},
 		})

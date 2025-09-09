@@ -18,6 +18,7 @@ import EventsPage from '@/pages/advanced/events'
 import ConnectionHealthDemo from '@/pages/connection-health-demo'
 import { MultiClusterNamespaces } from '@/pages/namespaces'
 import { NamespaceComparison } from '@/pages/advanced/namespace-comparison'
+import { SqlQueryEditorPage } from '@/pages/advanced/sqlqueryeditor/sql-query-editor'
 import { useAuthStore } from '@/stores/auth.store'
 
 function App() {
@@ -150,6 +151,14 @@ function App() {
             element={
               <ProtectedRoute>
                 <EventsPage />
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="/advanced/sql-query"
+            element={
+              <ProtectedRoute>
+                <SqlQueryEditorPage />
               </ProtectedRoute>
             }
           />
