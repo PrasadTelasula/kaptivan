@@ -78,7 +78,7 @@ export function QueryResults({ results, error, isLoading }: QueryResultsProps) {
   }
 
   return (
-    <div className="space-y-4 animate-in fade-in-0 slide-in-from-bottom-2 duration-500">
+    <div className="space-y-4 animate-in fade-in-0 slide-in-from-bottom-2 duration-500 w-full max-w-full overflow-hidden">
       <div className="flex items-center justify-between">
         <div className="flex items-center gap-4">
           <Badge variant="outline" className="bg-green-500/10 animate-in zoom-in-95 duration-300">
@@ -107,12 +107,13 @@ export function QueryResults({ results, error, isLoading }: QueryResultsProps) {
 
       <AnimatedTabs
         defaultValue="table"
+        className="w-full max-w-full overflow-hidden"
         tabs={[
           {
             value: 'table',
             label: 'Table View',
             content: (
-              <>
+              <div className="w-full max-w-full overflow-x-auto">
                 <DraggableQueryTable data={data} isLoading={isLoading} />
                 {results.errors && results.errors.length > 0 && (
                   <Alert className="mt-4 animate-in fade-in-0 slide-in-from-top-2 duration-500">
@@ -127,7 +128,7 @@ export function QueryResults({ results, error, isLoading }: QueryResultsProps) {
                     </AlertDescription>
                   </Alert>
                 )}
-              </>
+              </div>
             ),
           },
           {

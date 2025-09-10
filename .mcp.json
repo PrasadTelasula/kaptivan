@@ -19,10 +19,6 @@
       "args": [
         "@playwright/mcp@latest"
       ]
-    },
-    "kubernetes": {
-      "command": "npx",
-      "args": ["mcp-server-kubernetes"]
     }
   }
 }

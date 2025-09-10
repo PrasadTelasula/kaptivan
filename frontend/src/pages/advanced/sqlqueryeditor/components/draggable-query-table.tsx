@@ -173,8 +173,8 @@ export function DraggableQueryTable({ data, isLoading }: DraggableQueryTableProp
   }
 
   return (
-    <div className="w-full">
-      <div className="rounded-md border">
+    <div className="w-full max-w-full" style={{width: '100%', maxWidth: '100%'}}>
+      <div className="rounded-md border overflow-x-auto max-w-full" style={{width: '100%', maxWidth: '100%'}}>
         <DndContext
           id={useId()}
           collisionDetection={closestCenter}
