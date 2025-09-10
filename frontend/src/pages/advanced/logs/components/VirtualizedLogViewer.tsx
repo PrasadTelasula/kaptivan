@@ -70,32 +70,24 @@ export const VirtualizedLogViewer = memo(({
     return [...logs].reverse()
   }, [logs])
   
-  // Calculate dynamic row height based on expanded state
-  const estimateSize = useCallback((index: number) => {
-    const log = reversedLogs[index]
-    if (!log) return 60
-    
-    const key = getLogKey(log, index)
-    const isExpanded = expandedItems.has(key)
-    
-    // Return estimated height based on expansion state
-    if (isExpanded) {
-      // Estimate expanded height based on content
-      const messageLength = log.message.length
-      const estimatedLines = Math.ceil(messageLength / 80) + 10 // Extra for metadata and padding
-      return Math.max(200, Math.min(estimatedLines * 20, 600)) // Min 200px, max 600px
-    }
-    
-    return 60 // Collapsed height
-  }, [reversedLogs, expandedItems, getLogKey])
+  // Use dynamic sizing - let virtualizer measure actual DOM heights
+  const estimateSize = useCallback(() => {
+    // Return a reasonable default - virtualizer will measure actual heights
+    return 100
+  }, [])
   
-  // Setup virtualizer with proper configuration
+  // Setup virtualizer with proper configuration for dynamic measurement
   const virtualizer = useVirtualizer({
     count: reversedLogs.length,
     getScrollElement: () => parentRef.current,
     estimateSize,
-    overscan: 5, // Render 5 items outside visible area
+    overscan: 3, // Reduced overscan for better performance with dynamic sizing
     getItemKey: (index) => getLogKey(reversedLogs[index], index),
+    // Enable dynamic measurement
+    measureElement: (element) => {
+      if (!element) return 0
+      return element.getBoundingClientRect().height
+    },
   })
   
   // Handle log entry expansion
@@ -113,9 +105,23 @@ export const VirtualizedLogViewer = memo(({
       return newSet
     })
     
-    // Notify virtualizer about size change
-    virtualizer.measure()
+    // Force re-measurement after state change with multiple attempts
+    setTimeout(() => virtualizer.measure(), 0)
+    setTimeout(() => virtualizer.measure(), 100)
+    setTimeout(() => virtualizer.measure(), 300)
   }, [reversedLogs, getLogKey, virtualizer])
+  
+  // Simplified resize handling for dynamic measurement
+  useEffect(() => {
+    const handleLogResize = () => {
+      virtualizer.measure()
+    }
+    
+    window.addEventListener('logEntryResized', handleLogResize)
+    return () => {
+      window.removeEventListener('logEntryResized', handleLogResize)
+    }
+  }, [virtualizer])
   
   // Handle opening JSON drawer
   const handleOpenJsonDrawer = useCallback((data: any, log: LogEntryType) => {
@@ -305,12 +311,13 @@ export const VirtualizedLogViewer = memo(({
             return (
               <div
                 key={virtualItem.key}
+                data-index={virtualItem.index}
+                ref={(node) => virtualizer.measureElement(node)}
                 style={{
                   position: 'absolute',
                   top: 0,
                   left: 0,
                   width: '100%',
-                  height: `${virtualItem.size}px`,
                   transform: `translateY(${virtualItem.start}px)`,
                 }}
               >

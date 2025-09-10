@@ -112,6 +112,7 @@ export const LogEntryProfessional = memo(({
   const [copied, setCopied] = useState(false)
   const [rawLogFontSize, setRawLogFontSize] = useState(13) // Base font size in pixels
   const contentRef = useRef<HTMLDivElement>(null)
+  const expandedContentRef = useRef<HTMLDivElement>(null)
   
   const levelConfig = LogLevelConfig[log.level as keyof typeof LogLevelConfig] || LogLevelConfig.INFO
   const IconComponent = levelConfig.icon
@@ -183,6 +184,13 @@ export const LogEntryProfessional = memo(({
   const handleToggle = useCallback(() => {
     setIsExpanded(!isExpanded)
     onToggle?.()
+    
+    // Immediately notify about size change for responsive feel
+    setTimeout(() => {
+      if (typeof window !== 'undefined' && window.dispatchEvent) {
+        window.dispatchEvent(new CustomEvent('logEntryResized'))
+      }
+    }, 10) // Very short delay to ensure state has updated
   }, [isExpanded, onToggle])
   
   const handleCopy = useCallback(() => {
@@ -211,6 +219,24 @@ export const LogEntryProfessional = memo(({
   const decreaseFontSize = useCallback(() => {
     setRawLogFontSize(prev => Math.max(prev - 1, 8)) // Min font size 8px
   }, [])
+  
+  // Use ResizeObserver to detect actual content size changes
+  useEffect(() => {
+    if (!isExpanded || !expandedContentRef.current) return
+    
+    const resizeObserver = new ResizeObserver(() => {
+      // Notify parent about size change when content actually resizes
+      if (typeof window !== 'undefined' && window.dispatchEvent) {
+        window.dispatchEvent(new CustomEvent('logEntryResized'))
+      }
+    })
+    
+    resizeObserver.observe(expandedContentRef.current)
+    
+    return () => {
+      resizeObserver.disconnect()
+    }
+  }, [isExpanded])
   
   return (
     <TooltipProvider>
@@ -406,19 +432,26 @@ export const LogEntryProfessional = memo(({
         </div>
         
         {/* Expanded details with smooth collapse animation */}
-        <motion.div
-          animate={{
-            height: isExpanded ? 'auto' : 0,
-            opacity: isExpanded ? 1 : 0
-          }}
-          initial={false}
-          transition={{
-            height: { duration: 0.4, ease: [0.04, 0.62, 0.23, 0.98] },
-            opacity: { duration: 0.3, delay: isExpanded ? 0.1 : 0 }
-          }}
-          className="overflow-hidden"
-        >
-          <div className="px-6 pb-3 pt-2">
+        <AnimatePresence initial={false} mode="wait">
+          {isExpanded && (
+            <motion.div
+              key="expanded-content"
+              initial={{ height: 0, opacity: 0 }}
+              animate={{ height: 'auto', opacity: 1 }}
+              exit={{ height: 0, opacity: 0 }}
+              transition={{
+                height: { duration: 0.3, ease: [0.04, 0.62, 0.23, 0.98] },
+                opacity: { duration: 0.2 }
+              }}
+              className="overflow-hidden"
+              onAnimationComplete={() => {
+                // Notify parent about size change after animation completes
+                if (typeof window !== 'undefined' && window.dispatchEvent) {
+                  window.dispatchEvent(new CustomEvent('logEntryResized'))
+                }
+              }}
+            >
+          <div ref={expandedContentRef} className="px-6 pb-3 pt-2">
             <Card className={cn(
               "border shadow-sm bg-card/50 backdrop-blur-sm transition-colors duration-300",
               isExpanded 
@@ -457,130 +490,93 @@ export const LogEntryProfessional = memo(({
                     </div>
                   </div>
                   
-                  {/* Raw log message - Professional styling */}
-                  <div className="space-y-3">
-                    <div className="border rounded-lg shadow-sm bg-card">
-                      <div className="flex items-center justify-between p-3 pb-2 border-b">
-                        <div className="flex items-center gap-2">
-                          <Terminal className="h-4 w-4 text-muted-foreground" />
-                          <span className="text-sm font-medium">Raw Log Message</span>
-                          <Badge variant="secondary" className="text-xs">
-                            Original
-                          </Badge>
+                  {/* Raw log message - Full width */}
+                  <div className="border rounded-lg shadow-sm bg-card">
+                    <div className="flex items-center justify-between p-3 pb-2 border-b">
+                      <div className="flex items-center gap-2">
+                        <Terminal className="h-4 w-4 text-muted-foreground" />
+                        <span className="text-sm font-medium">Raw Log Message</span>
+                        <Badge variant="secondary" className="text-xs">
+                          Original
+                        </Badge>
+                      </div>
+                      <div className="flex items-center gap-1">
+                        <Badge variant="outline" className="text-xs">
+                          {log.message ? `${log.message.length} chars` : '0 chars'}
+                        </Badge>
+                        <div className="flex items-center border rounded-md">
+                          <Tooltip>
+                            <TooltipTrigger asChild>
+                              <Button
+                                variant="ghost"
+                                size="sm"
+                                className="h-6 w-6 p-0 rounded-r-none border-r"
+                                onClick={decreaseFontSize}
+                                disabled={rawLogFontSize <= 8}
+                              >
+                                <Minus className="h-3 w-3" />
+                              </Button>
+                            </TooltipTrigger>
+                            <TooltipContent>
+                              <p className="text-xs">Decrease font size</p>
+                            </TooltipContent>
+                          </Tooltip>
+                          <span className="px-2 text-xs font-mono text-muted-foreground">
+                            {rawLogFontSize}px
+                          </span>
+                          <Tooltip>
+                            <TooltipTrigger asChild>
+                              <Button
+                                variant="ghost"
+                                size="sm"
+                                className="h-6 w-6 p-0 rounded-l-none border-l"
+                                onClick={increaseFontSize}
+                                disabled={rawLogFontSize >= 24}
+                              >
+                                <Plus className="h-3 w-3" />
+                              </Button>
+                            </TooltipTrigger>
+                            <TooltipContent>
+                              <p className="text-xs">Increase font size</p>
+                            </TooltipContent>
+                          </Tooltip>
                         </div>
-                        <div className="flex items-center gap-1">
-                          <Badge variant="outline" className="text-xs">
-                            {log.message ? `${log.message.length} chars` : '0 chars'}
-                          </Badge>
-                          <div className="flex items-center border rounded-md">
-                            <Tooltip>
-                              <TooltipTrigger asChild>
-                                <Button
-                                  variant="ghost"
-                                  size="sm"
-                                  className="h-6 w-6 p-0 rounded-r-none border-r"
-                                  onClick={decreaseFontSize}
-                                  disabled={rawLogFontSize <= 8}
-                                >
-                                  <Minus className="h-3 w-3" />
-                                </Button>
-                              </TooltipTrigger>
-                              <TooltipContent>
-                                <p className="text-xs">Decrease font size</p>
-                              </TooltipContent>
-                            </Tooltip>
-                            <span className="px-2 text-xs font-mono text-muted-foreground">
-                              {rawLogFontSize}px
-                            </span>
-                            <Tooltip>
-                              <TooltipTrigger asChild>
-                                <Button
-                                  variant="ghost"
-                                  size="sm"
-                                  className="h-6 w-6 p-0 rounded-l-none border-l"
-                                  onClick={increaseFontSize}
-                                  disabled={rawLogFontSize >= 24}
-                                >
-                                  <Plus className="h-3 w-3" />
-                                </Button>
-                              </TooltipTrigger>
-                              <TooltipContent>
-                                <p className="text-xs">Increase font size</p>
-                              </TooltipContent>
-                            </Tooltip>
-                          </div>
-                          <Button
-                            variant="ghost"
-                            size="sm"
-                            className="h-6 w-6 p-0"
-                            onClick={() => {
-                              navigator.clipboard.writeText(log.message || '')
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          className="h-6 w-6 p-0"
+                          onClick={() => {
+                            navigator.clipboard.writeText(log.message || '')
+                          }}
+                        >
+                          <Copy className="h-3 w-3" />
+                        </Button>
+                      </div>
+                    </div>
+                    <div className="p-3">
+                      <div className="bg-muted/30 rounded-md border">
+                        <div className="p-3 max-h-96 overflow-auto">
+                          <pre 
+                            className="font-mono whitespace-pre-wrap break-words text-foreground/90 leading-relaxed"
+                            style={{ 
+                              fontSize: `${rawLogFontSize}px`,
+                              wordBreak: 'break-word',
+                              overflowWrap: 'break-word'
                             }}
                           >
-                            <Copy className="h-3 w-3" />
-                          </Button>
-                        </div>
-                      </div>
-                      <div className="p-3">
-                        <div className="bg-muted/30 rounded-md border">
-                          <div className="p-3 max-h-48 overflow-auto">
-                            <pre 
-                              className="font-mono whitespace-pre-wrap break-all text-foreground/90 leading-relaxed"
-                              style={{ fontSize: `${rawLogFontSize}px` }}
-                            >
-                              {log.message || 'No message content'}
-                            </pre>
-                          </div>
+                            {log.message || 'No message content'}
+                          </pre>
                         </div>
                       </div>
                     </div>
-                    
-                    {/* Formatted JSON viewer - Professional styling */}
-                    {messageData.isJson && (
-                      <div className="border rounded-lg shadow-sm bg-card">
-                        <div className="flex items-center justify-between p-3 pb-2 border-b">
-                          <div className="flex items-center gap-2">
-                            <FileJson className="h-4 w-4 text-muted-foreground" />
-                            <span className="text-sm font-medium">Formatted JSON</span>
-                            <Badge variant="secondary" className="text-xs">
-                              Parsed
-                            </Badge>
-                          </div>
-                          <div className="flex items-center gap-1">
-                            <Badge variant="outline" className="text-xs">
-                              {Object.keys(messageData.data || {}).length} keys
-                            </Badge>
-                            <Button
-                              variant="ghost"
-                              size="sm"
-                              className="h-6 w-6 p-0"
-                              onClick={() => onOpenJsonDrawer && onOpenJsonDrawer(messageData.data)}
-                            >
-                              <Maximize2 className="h-3 w-3" />
-                            </Button>
-                          </div>
-                        </div>
-                        <div className="p-3">
-                          <div className="bg-muted/30 rounded-md border max-h-96 overflow-auto">
-                            <div className="p-3">
-                              <JsonViewer
-                                data={messageData.data}
-                                searchTerm={searchTerm}
-                                defaultExpanded={false}
-                                maxDepth={3}
-                                className="text-[13px]"
-                              />
-                            </div>
-                          </div>
-                        </div>
-                      </div>
-                    )}
                   </div>
                 </motion.div>
               </CardContent>
             </Card>
           </div>
-        </motion.div>
+            </motion.div>
+          )}
+        </AnimatePresence>
         
         {/* Bottom border */}
         <div className="absolute bottom-0 left-0 right-0 h-px bg-border/30" />

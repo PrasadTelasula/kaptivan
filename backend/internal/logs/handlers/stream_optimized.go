@@ -10,7 +10,7 @@ import (
 	"net/http"
 	"sync"
 	"time"
-	
+
 	"github.com/gin-gonic/gin"
 	"github.com/prasad/kaptivan/backend/internal/kubernetes"
 	"github.com/prasad/kaptivan/backend/internal/logs/models"
@@ -70,21 +70,21 @@ func (cp *ClientPool) getClient(manager *kubernetes.ClusterManager, cluster stri
 	if client, ok := cp.clients.Load(cluster); ok {
 		return client.(k8sclient.Interface), nil
 	}
-	
+
 	// Create new client
 	cp.mu.Lock()
 	defer cp.mu.Unlock()
-	
+
 	// Double-check after acquiring lock
 	if client, ok := cp.clients.Load(cluster); ok {
 		return client.(k8sclient.Interface), nil
 	}
-	
+
 	client, err := manager.GetClientset(cluster)
 	if err != nil {
 		return nil, fmt.Errorf("failed to get client for cluster %s: %w", cluster, err)
 	}
-	
+
 	cp.clients.Store(cluster, client)
 	return client, nil
 }
@@ -98,11 +98,11 @@ func (h *StreamHandlerOptimized) StreamLogs(c *gin.Context) {
 	}
 	conn := &SafeWebSocketConn{conn: rawConn}
 	defer conn.Close()
-	
+
 	// Create stream context
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
-	
+
 	// Parse query parameters from URL
 	query := models.LogQuery{
 		Clusters:   c.QueryArray("clusters"),
@@ -111,7 +111,7 @@ func (h *StreamHandlerOptimized) StreamLogs(c *gin.Context) {
 		Containers: c.QueryArray("containers"),
 		LogLevels:  c.QueryArray("logLevels"),
 	}
-	
+
 	// Parse time parameters
 	if startTimeStr := c.Query("startTime"); startTimeStr != "" {
 		if t, err := time.Parse(time.RFC3339, startTimeStr); err == nil {
@@ -123,7 +123,7 @@ func (h *StreamHandlerOptimized) StreamLogs(c *gin.Context) {
 			query.EndTime = t
 		}
 	}
-	
+
 	// Create log stream
 	streamID := generateSecureEventID()
 	stream := &LogStream{
@@ -135,12 +135,12 @@ func (h *StreamHandlerOptimized) StreamLogs(c *gin.Context) {
 		parser:  h.parser,
 		query:   query, // Set initial query from URL params
 	}
-	
+
 	// Register stream
 	h.streamManager.mu.Lock()
 	h.streamManager.streams[streamID] = stream
 	h.streamManager.mu.Unlock()
-	
+
 	// Cleanup on exit
 	defer func() {
 		h.streamManager.mu.Lock()
@@ -148,14 +148,14 @@ func (h *StreamHandlerOptimized) StreamLogs(c *gin.Context) {
 		h.streamManager.mu.Unlock()
 		stream.activeJobs.Wait() // Wait for all goroutines to finish
 	}()
-	
+
 	// Start connection health monitor
 	go h.monitorConnection(stream)
-	
+
 	// Log received query parameters for debugging
-	fmt.Printf("[DEBUG] WebSocket connected with query: Clusters=%v, Namespaces=%v, Pods=%v, Containers=%v\n", 
-		query.Clusters, query.Namespaces, query.Pods, query.Containers)
-	
+	fmt.Printf("[DEBUG] WebSocket connected with query: Clusters=%v, Namespaces=%v, Pods=%v, Containers=%v (count: %d)\n",
+		query.Clusters, query.Namespaces, query.Pods, query.Containers, len(query.Containers))
+
 	// Start streaming immediately with URL query params
 	if len(query.Clusters) > 0 && len(query.Namespaces) > 0 && len(query.Pods) > 0 {
 		fmt.Printf("[DEBUG] Starting native streaming for query\n")
@@ -169,10 +169,10 @@ func (h *StreamHandlerOptimized) StreamLogs(c *gin.Context) {
 			EventID: generateSecureEventID(),
 		})
 	}
-	
+
 	// Handle incoming messages for query updates
 	go h.handleStreamMessages(stream)
-	
+
 	// Wait for context to be done
 	<-ctx.Done()
 }
@@ -181,7 +181,7 @@ func (h *StreamHandlerOptimized) StreamLogs(c *gin.Context) {
 func (h *StreamHandlerOptimized) monitorConnection(stream *LogStream) {
 	ticker := time.NewTicker(30 * time.Second)
 	defer ticker.Stop()
-	
+
 	for {
 		select {
 		case <-stream.ctx.Done():
@@ -206,13 +206,13 @@ func (h *StreamHandlerOptimized) handleStreamMessages(stream *LogStream) {
 			stream.cancel()
 			return
 		}
-		
+
 		// Cancel previous query streams if any
 		stream.activeJobs.Wait()
-		
+
 		// Update query
 		stream.query = query
-		
+
 		// Start native Kubernetes log streaming for each pod/container
 		h.startNativeStreaming(stream)
 	}
@@ -222,12 +222,12 @@ func (h *StreamHandlerOptimized) handleStreamMessages(stream *LogStream) {
 func (h *StreamHandlerOptimized) startNativeStreaming(stream *LogStream) {
 	query := stream.query
 	fmt.Printf("[DEBUG] Starting native streaming with query: %+v\n", query)
-	
+
 	// First, send initial logs based on time range
 	if !query.StartTime.IsZero() {
 		h.sendInitialLogs(stream)
 	}
-	
+
 	// Then start streaming for each cluster/namespace/pod/container combination
 	for _, cluster := range query.Clusters {
 		fmt.Printf("[DEBUG] Attempting to connect to cluster: %s\n", cluster)
@@ -241,7 +241,7 @@ func (h *StreamHandlerOptimized) startNativeStreaming(stream *LogStream) {
 			})
 			continue
 		}
-		
+
 		for _, namespace := range query.Namespaces {
 			for _, podName := range query.Pods {
 				fmt.Printf("[DEBUG] Getting pod %s in namespace %s\n", podName, namespace)
@@ -249,9 +249,47 @@ func (h *StreamHandlerOptimized) startNativeStreaming(stream *LogStream) {
 				pod, err := client.CoreV1().Pods(namespace).Get(stream.ctx, podName, metav1.GetOptions{})
 				if err != nil {
 					fmt.Printf("[DEBUG] Failed to get pod %s/%s: %v\n", namespace, podName, err)
+					// Send error to frontend
+					stream.conn.WriteJSON(models.StreamMessage{
+						Type:    "error",
+						Data:    fmt.Sprintf("Failed to get pod %s/%s in cluster %s: %v", namespace, podName, cluster, err),
+						EventID: generateSecureEventID(),
+					})
 					continue
 				}
-				
+
+				// Test log access permissions by trying to get a single log line from first available container
+				fmt.Printf("[DEBUG] Testing log access for pod %s/%s\n", namespace, podName)
+				if len(pod.Spec.Containers) > 0 {
+					testContainer := pod.Spec.Containers[0].Name
+					// If we have container filters, use the first matching one for testing
+					for _, container := range pod.Spec.Containers {
+						if h.shouldIncludeContainer(container.Name, query.Containers) {
+							testContainer = container.Name
+							break
+						}
+					}
+
+					testOpts := &corev1.PodLogOptions{
+						Container: testContainer,
+						TailLines: &[]int64{1}[0],
+					}
+					testReq := client.CoreV1().Pods(namespace).GetLogs(podName, testOpts)
+					testStream, testErr := testReq.Stream(stream.ctx)
+					if testErr != nil {
+						fmt.Printf("[DEBUG] Log access test failed for %s/%s/%s: %v\n", namespace, podName, testContainer, testErr)
+						stream.conn.WriteJSON(models.StreamMessage{
+							Type:    "error",
+							Data:    fmt.Sprintf("No log access permission for pod %s/%s container %s in cluster %s: %v", namespace, podName, testContainer, cluster, testErr),
+							EventID: generateSecureEventID(),
+						})
+						continue
+					} else {
+						testStream.Close()
+						fmt.Printf("[DEBUG] Log access test passed for %s/%s/%s\n", namespace, podName, testContainer)
+					}
+				}
+
 				// Stream logs from each container
 				for _, container := range pod.Spec.Containers {
 					fmt.Printf("[DEBUG] Checking container %s against filter %v\n", container.Name, query.Containers)
@@ -274,11 +312,11 @@ func (h *StreamHandlerOptimized) streamContainerLogs(
 ) {
 	defer stream.activeJobs.Done()
 	fmt.Printf("[DEBUG] streamContainerLogs started for %s/%s/%s/%s\n", cluster, namespace, pod, container)
-	
+
 	retryCount := 0
 	maxRetries := 5
 	lastLogTime := time.Now()
-	
+
 	for {
 		select {
 		case <-stream.ctx.Done():
@@ -293,7 +331,11 @@ func (h *StreamHandlerOptimized) streamContainerLogs(
 				Timestamps: true,
 				TailLines:  &[]int64{10}[0], // Start with last 10 lines for reconnection
 			}
-			
+
+			// Add timeout context for EKS compatibility
+			streamCtx, streamCancel := context.WithTimeout(stream.ctx, 60*time.Second)
+			defer streamCancel()
+
 			// Use the last log time for reconnection to avoid duplicates
 			if retryCount > 0 {
 				sinceTime := metav1.NewTime(lastLogTime)
@@ -304,10 +346,12 @@ func (h *StreamHandlerOptimized) streamContainerLogs(
 				opts.SinceTime = &sinceTime
 				opts.TailLines = nil
 			}
-			
+
 			// Create log stream request
 			req := client.CoreV1().Pods(namespace).GetLogs(pod, opts)
-			logStream, err := req.Stream(stream.ctx)
+			fmt.Printf("[DEBUG] Creating log stream request for %s/%s/%s with opts: %+v\n", cluster, pod, container, opts)
+			logStream, err := req.Stream(streamCtx)
+			fmt.Printf("[DEBUG] Stream creation result for %s/%s/%s - Error: %v\n", cluster, pod, container, err)
 			if err != nil {
 				if retryCount >= maxRetries {
 					stream.conn.WriteJSON(models.StreamMessage{
@@ -317,24 +361,24 @@ func (h *StreamHandlerOptimized) streamContainerLogs(
 					})
 					return
 				}
-				
+
 				// Wait before retry with exponential backoff
 				retryCount++
 				waitTime := time.Duration(retryCount) * time.Second
 				if waitTime > 30*time.Second {
 					waitTime = 30 * time.Second
 				}
-				
+
 				stream.conn.WriteJSON(models.StreamMessage{
 					Type:    "info",
 					Data:    fmt.Sprintf("Reconnecting to %s/%s/%s (attempt %d/%d)...", cluster, pod, container, retryCount, maxRetries),
 					EventID: generateSecureEventID(),
 				})
-				
+
 				time.Sleep(waitTime)
 				continue
 			}
-			
+
 			// Reset retry count on successful connection
 			if retryCount > 0 {
 				stream.conn.WriteJSON(models.StreamMessage{
@@ -344,12 +388,14 @@ func (h *StreamHandlerOptimized) streamContainerLogs(
 				})
 				retryCount = 0
 			}
-			
+
 			// Process log stream in real-time
 			// This will return when the stream ends (timeout or pod restart)
+			fmt.Printf("[DEBUG] Starting to process log stream for %s/%s/%s\n", cluster, pod, container)
 			lastLogTime = h.processLogStreamWithReconnect(stream, logStream, cluster, namespace, pod, container)
+			fmt.Printf("[DEBUG] Log stream processing ended for %s/%s/%s, last log time: %v\n", cluster, pod, container, lastLogTime)
 			logStream.Close()
-			
+
 			// If stream ended normally, try to reconnect after a short delay
 			time.Sleep(2 * time.Second)
 		}
@@ -367,7 +413,7 @@ func (h *StreamHandlerOptimized) processLogStream(
 	batch := make([]models.LogEntry, 0, 10)
 	batchTicker := time.NewTicker(100 * time.Millisecond) // Send batches every 100ms
 	defer batchTicker.Stop()
-	
+
 	// Goroutine to send batches periodically
 	go func() {
 		for {
@@ -382,7 +428,7 @@ func (h *StreamHandlerOptimized) processLogStream(
 			}
 		}
 	}()
-	
+
 	for scanner.Scan() {
 		select {
 		case <-stream.ctx.Done():
@@ -390,14 +436,14 @@ func (h *StreamHandlerOptimized) processLogStream(
 		default:
 			lineNum++
 			line := scanner.Text()
-			
+
 			// Parse log line
 			entry := h.parser.ParseLogLine(line, cluster, namespace, pod, container, lineNum)
-			
+
 			// Apply filters
 			if h.shouldIncludeLog(entry, stream.query) {
 				batch = append(batch, entry)
-				
+
 				// Send batch if it reaches size limit
 				if len(batch) >= 50 {
 					h.sendLogBatch(stream, batch)
@@ -406,12 +452,12 @@ func (h *StreamHandlerOptimized) processLogStream(
 			}
 		}
 	}
-	
+
 	// Send any remaining logs
 	if len(batch) > 0 {
 		h.sendLogBatch(stream, batch)
 	}
-	
+
 	if err := scanner.Err(); err != nil && err != io.EOF {
 		stream.conn.WriteJSON(models.StreamMessage{
 			Type:    "error",
@@ -429,97 +475,137 @@ func (h *StreamHandlerOptimized) processLogStreamWithReconnect(
 ) time.Time {
 	scanner := bufio.NewScanner(reader)
 	lineNum := 0
-	batch := make([]models.LogEntry, 0, 10)
+	var batch []models.LogEntry
+	var batchMu sync.Mutex
 	batchTicker := time.NewTicker(100 * time.Millisecond)
 	defer batchTicker.Stop()
-	
+
 	lastLogTime := time.Now()
-	batchChan := make(chan []models.LogEntry, 100)
+	batchChan := make(chan []models.LogEntry, 10)
 	done := make(chan struct{})
-	
-	// Goroutine to send batches periodically
+
+	// Goroutine to handle batch sending
 	go func() {
 		defer close(done)
 		for {
 			select {
 			case <-stream.ctx.Done():
 				return
-			case <-batchTicker.C:
-				if len(batch) > 0 {
-					batchCopy := make([]models.LogEntry, len(batch))
-					copy(batchCopy, batch)
-					select {
-					case batchChan <- batchCopy:
-						batch = batch[:0]
-					default:
-						// Channel full, skip this batch
-					}
+			case batchToSend, ok := <-batchChan:
+				if !ok {
+					return // Channel closed
 				}
-			case batchToSend := <-batchChan:
 				h.sendLogBatch(stream, batchToSend)
 			}
 		}
 	}()
-	
+
+	// Helper function to safely send batch
+	sendBatch := func(entries []models.LogEntry) {
+		if len(entries) == 0 {
+			return
+		}
+		select {
+		case batchChan <- entries:
+			// Successfully sent
+		case <-stream.ctx.Done():
+			// Context cancelled, stop trying
+		default:
+			// Channel full, send directly to avoid blocking
+			h.sendLogBatch(stream, entries)
+		}
+	}
+
+	// Helper function to safely get and clear batch
+	getBatchAndClear := func() []models.LogEntry {
+		batchMu.Lock()
+		defer batchMu.Unlock()
+		if len(batch) == 0 {
+			return nil
+		}
+		result := make([]models.LogEntry, len(batch))
+		copy(result, batch)
+		batch = batch[:0]
+		return result
+	}
+
+	// Helper function to safely add to batch
+	addToBatch := func(entry models.LogEntry) int {
+		batchMu.Lock()
+		defer batchMu.Unlock()
+		batch = append(batch, entry)
+		return len(batch)
+	}
+
+	fmt.Printf("[DEBUG] Starting scanner loop for %s/%s/%s\n", cluster, pod, container)
+
+	// Periodic batch sending
+	go func() {
+		for {
+			select {
+			case <-stream.ctx.Done():
+				return
+			case <-batchTicker.C:
+				if batchToSend := getBatchAndClear(); batchToSend != nil {
+					sendBatch(batchToSend)
+				}
+			}
+		}
+	}()
+
 	for scanner.Scan() {
 		select {
 		case <-stream.ctx.Done():
+			fmt.Printf("[DEBUG] Context cancelled while scanning logs for %s/%s/%s\n", cluster, pod, container)
+			// Send any remaining batch
+			if batchToSend := getBatchAndClear(); batchToSend != nil {
+				sendBatch(batchToSend)
+			}
 			close(batchChan)
 			<-done
 			return lastLogTime
 		default:
 			lineNum++
 			line := scanner.Text()
-			
+			fmt.Printf("[DEBUG] Read log line %d from %s/%s/%s: %.100s\n", lineNum, cluster, pod, container, line)
+
 			// Parse log line
 			entry := h.parser.ParseLogLine(line, cluster, namespace, pod, container, lineNum)
-			
+
 			// Update last log time
 			if !entry.Timestamp.IsZero() {
 				lastLogTime = entry.Timestamp
 			}
-			
+
 			// Apply filters
 			if h.shouldIncludeLog(entry, stream.query) {
-				batch = append(batch, entry)
-				
+				batchSize := addToBatch(entry)
+
 				// Send batch if it reaches size limit
-				if len(batch) >= 50 {
-					batchCopy := make([]models.LogEntry, len(batch))
-					copy(batchCopy, batch)
-					select {
-					case batchChan <- batchCopy:
-						batch = batch[:0]
-					default:
-						// Channel full, keep accumulating
+				if batchSize >= 50 {
+					if batchToSend := getBatchAndClear(); batchToSend != nil {
+						sendBatch(batchToSend)
 					}
 				}
 			}
 		}
 	}
-	
+
 	// Send remaining batch
-	if len(batch) > 0 {
-		batchCopy := make([]models.LogEntry, len(batch))
-		copy(batchCopy, batch)
-		select {
-		case batchChan <- batchCopy:
-		case <-time.After(100 * time.Millisecond):
-			// Timeout, send directly
-			h.sendLogBatch(stream, batchCopy)
-		}
+	if batchToSend := getBatchAndClear(); batchToSend != nil {
+		sendBatch(batchToSend)
 	}
-	
+
 	close(batchChan)
 	<-done
-	
+
 	// Log when stream ends for debugging
 	stream.conn.WriteJSON(models.StreamMessage{
 		Type:    "info",
 		Data:    fmt.Sprintf("Log stream ended for %s/%s/%s, will reconnect...", cluster, pod, container),
 		EventID: generateSecureEventID(),
 	})
-	
+
 	return lastLogTime
 }
 
@@ -528,11 +614,11 @@ func (h *StreamHandlerOptimized) sendLogBatch(stream *LogStream, logs []models.L
 	if len(logs) == 0 {
 		return
 	}
-	
+
 	// Create a copy to avoid race conditions
 	logsCopy := make([]models.LogEntry, len(logs))
 	copy(logsCopy, logs)
-	
+
 	stream.conn.WriteJSON(models.StreamMessage{
 		Type:    "logs",
 		Data:    logsCopy,
@@ -543,20 +629,20 @@ func (h *StreamHandlerOptimized) sendLogBatch(stream *LogStream, logs []models.L
 // sendInitialLogs sends historical logs based on time range
 func (h *StreamHandlerOptimized) sendInitialLogs(stream *LogStream) {
 	query := stream.query
-	
+
 	for _, cluster := range query.Clusters {
 		client, err := h.clientPool.getClient(h.manager, cluster)
 		if err != nil {
 			continue
 		}
-		
+
 		for _, namespace := range query.Namespaces {
 			for _, podName := range query.Pods {
 				pod, err := client.CoreV1().Pods(namespace).Get(stream.ctx, podName, metav1.GetOptions{})
 				if err != nil {
 					continue
 				}
-				
+
 				for _, container := range pod.Spec.Containers {
 					if h.shouldIncludeContainer(container.Name, query.Containers) {
 						h.fetchHistoricalLogs(stream, client, cluster, namespace, podName, container.Name)
@@ -577,7 +663,7 @@ func (h *StreamHandlerOptimized) fetchHistoricalLogs(
 		Container:  container,
 		Timestamps: true,
 	}
-	
+
 	if !stream.query.StartTime.IsZero() {
 		sinceTime := metav1.NewTime(stream.query.StartTime)
 		opts.SinceTime = &sinceTime
@@ -586,28 +672,28 @@ func (h *StreamHandlerOptimized) fetchHistoricalLogs(
 		tailLines := int64(500)
 		opts.TailLines = &tailLines
 	}
-	
+
 	req := client.CoreV1().Pods(namespace).GetLogs(pod, opts)
 	logStream, err := req.Stream(stream.ctx)
 	if err != nil {
 		return
 	}
 	defer logStream.Close()
-	
+
 	scanner := bufio.NewScanner(logStream)
 	logs := make([]models.LogEntry, 0, 100)
 	lineNum := 0
-	
+
 	for scanner.Scan() {
 		lineNum++
 		line := scanner.Text()
 		entry := h.parser.ParseLogLine(line, cluster, namespace, pod, container, lineNum)
-		
+
 		if h.shouldIncludeLog(entry, stream.query) {
 			logs = append(logs, entry)
 		}
 	}
-	
+
 	if len(logs) > 0 {
 		h.sendLogBatch(stream, logs)
 	}
@@ -615,16 +701,24 @@ func (h *StreamHandlerOptimized) fetchHistoricalLogs(
 
 // shouldIncludeContainer checks if container should be included
 func (h *StreamHandlerOptimized) shouldIncludeContainer(containerName string, containers []string) bool {
+	fmt.Printf("[DEBUG] shouldIncludeContainer: checking %s against filters %v (count: %d)\n", containerName, containers, len(containers))
+
 	if len(containers) == 0 {
-		return true
+		// If no container filter is specified, default to common application containers
+		// This helps with EKS pods that have multiple sidecar containers
+		result := containerName == "app" || containerName == "main" || containerName == "application"
+		fmt.Printf("[DEBUG] shouldIncludeContainer: no filters, defaulting to app containers - %s = %t\n", containerName, result)
+		return result
 	}
-	
+
 	for _, c := range containers {
 		if containerName == c {
+			fmt.Printf("[DEBUG] shouldIncludeContainer: %s matches filter %s = true\n", containerName, c)
 			return true
 		}
 	}
-	
+
+	fmt.Printf("[DEBUG] shouldIncludeContainer: %s does not match any filter = false\n", containerName)
 	return false
 }
 
@@ -643,7 +737,7 @@ func (h *StreamHandlerOptimized) shouldIncludeLog(entry models.LogEntry, query m
 			return false
 		}
 	}
-	
+
 	// Check search term
 	if query.SearchTerm != "" {
 		// Simple case-insensitive search in message
@@ -651,12 +745,12 @@ func (h *StreamHandlerOptimized) shouldIncludeLog(entry models.LogEntry, query m
 			return false
 		}
 	}
-	
+
 	// Check time range
 	if !query.EndTime.IsZero() && entry.Timestamp.After(query.EndTime) {
 		return false
 	}
-	
+
 	return true
 }
 
@@ -666,11 +760,11 @@ func containsIgnoreCase(s, substr string) bool {
 		return true
 	}
 	// Simple implementation - could be optimized with strings.ToLower caching
-	return len(s) >= len(substr) && 
-		   len(substr) > 0 && 
-		   (s == substr || 
-		    len(s) > len(substr) && 
-		    containsSubstring(s, substr))
+	return len(s) >= len(substr) &&
+		len(substr) > 0 &&
+		(s == substr ||
+			len(s) > len(substr) &&
+				containsSubstring(s, substr))
 }
 
 // containsSubstring is a helper for case-insensitive substring search
@@ -678,7 +772,7 @@ func containsSubstring(s, substr string) bool {
 	// Convert both to lowercase for comparison
 	sLower := make([]byte, len(s))
 	substrLower := make([]byte, len(substr))
-	
+
 	for i := 0; i < len(s); i++ {
 		c := s[i]
 		if c >= 'A' && c <= 'Z' {
@@ -686,7 +780,7 @@ func containsSubstring(s, substr string) bool {
 		}
 		sLower[i] = c
 	}
-	
+
 	for i := 0; i < len(substr); i++ {
 		c := substr[i]
 		if c >= 'A' && c <= 'Z' {
@@ -694,7 +788,7 @@ func containsSubstring(s, substr string) bool {
 		}
 		substrLower[i] = c
 	}
-	
+
 	// Search for substring
 	for i := 0; i <= len(sLower)-len(substrLower); i++ {
 		match := true
@@ -708,7 +802,7 @@ func containsSubstring(s, substr string) bool {
 			return true
 		}
 	}
-	
+
 	return false
 }
 
