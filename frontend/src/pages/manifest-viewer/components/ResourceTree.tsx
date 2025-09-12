@@ -8,6 +8,7 @@ import { Separator } from '@/components/ui/separator'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 import { MultiSelectDropdown } from '@/components/multi-select-dropdown'
 import { Checkbox } from '@/components/ui/checkbox'
+import { Switch } from '@/components/ui/switch'
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip'
 import {
   Search,
@@ -65,6 +66,7 @@ export function ResourceTree({
   const [searchInYaml, setSearchInYaml] = useState(false)
   const [selectedResourceTypes, setSelectedResourceTypes] = useState<string[]>([])
   const [expandedCategories, setExpandedCategories] = useState<Set<string>>(new Set(['Workloads']))
+  const [showOldReplicaSets, setShowOldReplicaSets] = useState(false)
   const [selectedResources, setSelectedResources] = useState<Set<string>>(new Set())
   const [isMultiSelectMode, setIsMultiSelectMode] = useState(false)
   
@@ -2336,11 +2338,24 @@ export function ResourceTree({
           )}
             {groupData?.items && groupData.items.length > 0 && (
             <Badge variant="secondary" className="h-5 px-1 text-xs">
-              {groupData.items.length}
+              {(() => {
+                if (group.name === 'ReplicaSets' && !showOldReplicaSets) {
+                  const hasDetailedInfo = groupData.items.some((item: ResourceItem) => (item as any).isCurrent !== undefined)
+                  if (hasDetailedInfo) {
+                    const currentCount = groupData.items.filter((item: ResourceItem) => (item as any).isCurrent === true).length
+                    const oldCount = groupData.items.length - currentCount
+                    return oldCount > 0 ? `${currentCount} (+${oldCount} old)` : currentCount
+                  } else {
+                    // No detailed info available, show total count
+                    return `${groupData.items.length} (fetch details to filter)`
+                  }
+                }
+                return groupData.items.length
+              })()}
             </Badge>
           )}
         </Button>
-          <div className="ml-2">
+          <div className="ml-2 flex items-center gap-2">
             <Button
               size="icon"
               variant="ghost"
@@ -2360,14 +2375,75 @@ export function ResourceTree({
                 <RefreshCw className="h-3 w-3 animate-spin" />
               ) : (
                 <RefreshCw className="h-3 w-3" />
-              )}
-            </Button>
+          )}
+        </Button>
+            
+            {/* ReplicaSets Old/Current Toggle */}
+            {group.name === 'ReplicaSets' && (() => {
+              const hasDetailedInfo = groupData?.items.some((item: ResourceItem) => (item as any).isCurrent !== undefined)
+              const isFetchingDetails = isFetchingGroup.get('ReplicaSets')
+              
+              const handleToggle = () => {
+                if (!hasDetailedInfo) {
+                  // Auto-fetch detailed info for ReplicaSets
+                  onGroupSmartFetch('ReplicaSets', 'ReplicaSet', 'apps/v1')
+                } else {
+                  setShowOldReplicaSets(!showOldReplicaSets)
+                }
+              }
+              
+              return (
+                <TooltipProvider>
+                  <Tooltip>
+                    <TooltipTrigger asChild>
+                      <div className="flex items-center gap-1">
+                        <Switch
+                          id="show-old-replicasets"
+                          checked={showOldReplicaSets}
+                          onCheckedChange={handleToggle}
+                          disabled={isFetchingDetails}
+                          className="h-4 w-7"
+                        />
+                        <Label 
+                          htmlFor="show-old-replicasets" 
+                          className="text-xs text-muted-foreground cursor-pointer"
+                        >
+                          {isFetchingDetails ? 'Fetching...' : 
+                           !hasDetailedInfo ? 'Fetch Details' :
+                           showOldReplicaSets ? 'Hide Old' : 'Show Old'}
+                        </Label>
+                      </div>
+                    </TooltipTrigger>
+                    <TooltipContent>
+                      <p>
+                        {isFetchingDetails ? 'Fetching detailed information...' :
+                         !hasDetailedInfo ? 'Click to fetch detailed info and enable old/current filtering' :
+                         showOldReplicaSets ? 'Hide old ReplicaSets' : 'Show old ReplicaSets'}
+                      </p>
+                    </TooltipContent>
+                  </Tooltip>
+                </TooltipProvider>
+              )
+            })()}
           </div>
         </div>
         
         {groupData?.expanded && (
           <div className="ml-6">
-            {(searchQuery && (group as any).filteredItems ? (group as any).filteredItems : groupData.items).map((item: ResourceItem) => renderResourceItem(item, category))}
+            {(() => {
+              let itemsToRender = searchQuery && (group as any).filteredItems ? (group as any).filteredItems : groupData.items
+              
+              // Filter old ReplicaSets if toggle is off and detailed info is available
+              if (group.name === 'ReplicaSets' && !showOldReplicaSets) {
+                const hasDetailedInfo = itemsToRender.some((item: ResourceItem) => (item as any).isCurrent !== undefined)
+                if (hasDetailedInfo) {
+                  itemsToRender = itemsToRender.filter((item: ResourceItem) => (item as any).isCurrent === true)
+                }
+                // If no detailed info, show all items (can't filter without isCurrent field)
+              }
+              
+              return itemsToRender.map((item: ResourceItem) => renderResourceItem(item, category))
+            })()}
           </div>
         )}
       </div>
