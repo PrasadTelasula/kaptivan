@@ -46,6 +46,8 @@ export function ManifestViewer({ selectedClusters = [], isFullscreen = false, on
   const [compareLeft, setCompareLeft] = useState<{ content: string; title: string }>({ content: '', title: '' })
   const [compareRight, setCompareRight] = useState<{ content: string; title: string }>({ content: '', title: '' })
   const [templateLibraryOpen, setTemplateLibraryOpen] = useState(false)
+  const [enhanceMode, setEnhanceMode] = useState(false)
+  const [isFetchingGroup, setIsFetchingGroup] = useState<Map<string, boolean>>(new Map())
   const editorRefs = useRef<Map<string, any>>(new Map())
 
   // Monaco Editor theme based on app theme
@@ -89,6 +91,9 @@ export function ManifestViewer({ selectedClusters = [], isFullscreen = false, on
     }
   }, [selectedClusters])
 
+  // Note: Removed automatic refetch on enhanceMode change
+  // Users now control when to fetch details via the Sync button
+
   const fetchNamespaces = async () => {
     try {
       const response = await fetch(`/api/v1/resources/namespaces?context=${selectedClusters[0]?.context}`)
@@ -101,7 +106,7 @@ export function ManifestViewer({ selectedClusters = [], isFullscreen = false, on
     }
   }
 
-  const fetchResources = async (groupName: string, kind: string, apiVersion: string) => {
+  const fetchResources = async (groupName: string, kind: string, apiVersion: string, enhance?: boolean) => {
     console.log('fetchResources called:', { groupName, kind, apiVersion, selectedClusters })
     if (!selectedClusters || selectedClusters.length === 0) {
       console.log('No clusters selected')
@@ -132,22 +137,127 @@ export function ManifestViewer({ selectedClusters = [], isFullscreen = false, on
               context: cluster.context,
               namespace: namespace,
               kind: kind,
-              apiVersion: apiVersion
+              apiVersion: apiVersion,
+              enhance: enhance ?? enhanceMode
             })
           })
           
           if (response.ok) {
             const data = await response.json()
-            const items = data.items?.map((item: any) => ({
-              name: item.name,
-              namespace: item.namespace,
-              kind: item.kind,
-              apiVersion: item.apiVersion || apiVersion,
-              uid: item.uid,
-              creationTimestamp: item.creationTimestamp,
-              clusterContext: cluster.context,
-              clusterName: cluster.name
-            })) || []
+            const items = data.items?.map((item: any) => {
+              const mappedItem = {
+                name: item.name,
+                namespace: item.namespace,
+                kind: item.kind,
+                apiVersion: item.apiVersion || apiVersion,
+                uid: item.uid,
+                creationTimestamp: item.creationTimestamp,
+                clusterContext: cluster.context,
+                clusterName: cluster.name,
+                // ReplicaSet specific fields
+                isCurrent: item.isCurrent,
+                desiredReplicas: item.desiredReplicas,
+                readyReplicas: item.readyReplicas,
+                age: item.age,
+                ownerReference: item.ownerReference,
+                // Deployment specific fields
+                availableReplicas: item.availableReplicas,
+                updatedReplicas: item.updatedReplicas,
+                unavailableReplicas: item.unavailableReplicas,
+                // Pod specific fields
+                podStatus: item.podStatus,
+                containerReady: item.containerReady,
+                containerTotal: item.containerTotal,
+                // DaemonSet specific fields
+                daemonSetDesiredReplicas: item.daemonSetDesiredReplicas,
+                daemonSetReadyReplicas: item.daemonSetReadyReplicas,
+                daemonSetAvailableReplicas: item.daemonSetAvailableReplicas,
+                daemonSetUpdatedReplicas: item.daemonSetUpdatedReplicas,
+                daemonSetUnavailableReplicas: item.daemonSetUnavailableReplicas,
+                // StatefulSet specific fields
+                statefulSetDesiredReplicas: item.statefulSetDesiredReplicas,
+                statefulSetReadyReplicas: item.statefulSetReadyReplicas,
+                statefulSetAvailableReplicas: item.statefulSetAvailableReplicas,
+                statefulSetUpdatedReplicas: item.statefulSetUpdatedReplicas,
+                statefulSetUnavailableReplicas: item.statefulSetUnavailableReplicas,
+                // Job specific fields
+                jobStatus: item.jobStatus,
+                jobCompletionTime: item.jobCompletionTime,
+                jobStartTime: item.jobStartTime,
+                jobSucceededCount: item.jobSucceededCount,
+                jobFailedCount: item.jobFailedCount,
+                // CronJob specific fields
+                cronJobLastScheduleTime: item.cronJobLastScheduleTime,
+                cronJobNextScheduleTime: item.cronJobNextScheduleTime,
+                cronJobActiveJobs: item.cronJobActiveJobs,
+                cronJobLastSuccessfulTime: item.cronJobLastSuccessfulTime,
+                // Service specific fields
+                serviceType: item.serviceType,
+                serviceClusterIP: item.serviceClusterIP,
+                serviceExternalIP: item.serviceExternalIP,
+                servicePorts: item.servicePorts,
+                // ConfigMap specific fields
+                configMapDataCount: item.configMapDataCount,
+                // Secret specific fields
+                secretType: item.secretType,
+                secretDataCount: item.secretDataCount,
+                // PersistentVolume specific fields
+                pvStatus: item.pvStatus,
+                pvCapacity: item.pvCapacity,
+                pvAccessModes: item.pvAccessModes,
+                // PersistentVolumeClaim specific fields
+                pvcStatus: item.pvcStatus,
+                pvcCapacity: item.pvcCapacity,
+                pvcAccessModes: item.pvcAccessModes,
+                // Ingress specific fields
+                ingressStatus: item.ingressStatus,
+                ingressRulesCount: item.ingressRulesCount,
+                // Namespace specific fields
+                namespaceStatus: item.namespaceStatus,
+                // ServiceAccount specific fields
+                serviceAccountSecretsCount: item.serviceAccountSecretsCount,
+                serviceAccountImagePullSecretsCount: item.serviceAccountImagePullSecretsCount,
+                // Role specific fields
+                roleRulesCount: item.roleRulesCount,
+                // RoleBinding specific fields
+                roleBindingSubjectsCount: item.roleBindingSubjectsCount,
+                // ClusterRole specific fields
+                clusterRoleRulesCount: item.clusterRoleRulesCount,
+                // ClusterRoleBinding specific fields
+                clusterRoleBindingSubjectsCount: item.clusterRoleBindingSubjectsCount,
+                // NetworkPolicy specific fields
+                networkPolicyRulesCount: item.networkPolicyRulesCount,
+                networkPolicyPodSelectorCount: item.networkPolicyPodSelectorCount,
+                // StorageClass specific fields
+                storageClassProvisioner: item.storageClassProvisioner,
+                storageClassReclaimPolicy: item.storageClassReclaimPolicy,
+                storageClassVolumeBindingMode: item.storageClassVolumeBindingMode,
+                // Event specific fields
+                eventReason: item.eventReason,
+                eventType: item.eventType,
+                eventCount: item.eventCount,
+                // CustomResourceDefinition specific fields
+                crdVersionCount: item.crdVersionCount,
+                crdScope: item.crdScope,
+                // Node specific fields
+                nodeStatus: item.nodeStatus,
+                nodeRole: item.nodeRole,
+                nodeKubernetesVersion: item.nodeKubernetesVersion,
+                nodeOS: item.nodeOS,
+                nodeCapacity: item.nodeCapacity,
+                nodePodCount: item.nodePodCount,
+                // ResourceQuota specific fields
+                resourceQuotaStatus: item.resourceQuotaStatus,
+                resourceQuotaUsed: item.resourceQuotaUsed,
+                resourceQuotaHard: item.resourceQuotaHard,
+                // LimitRange specific fields
+                limitRangeStatus: item.limitRangeStatus,
+                limitRangeLimitsCount: item.limitRangeLimitsCount
+              }
+              
+              
+              return mappedItem
+            }) || []
             
             return { cluster: cluster.context, items }
           }
@@ -292,6 +402,27 @@ export function ManifestViewer({ selectedClusters = [], isFullscreen = false, on
       return updated
     })
   }, [])
+
+  const handleIsolatedGroupFetch = useCallback(async (groupName: string, groupKind: string, groupApiVersion: string) => {
+    if (!selectedClusters?.length) return
+    
+    // Set loading state for this specific group
+    setIsFetchingGroup(prev => new Map(prev).set(groupName, true))
+    
+    try {
+      // Always fetch with detailed info (enhance: true) - completely isolated
+      await fetchResources(groupName, groupKind, groupApiVersion, true)
+    } catch (error) {
+      console.error(`Error fetching details for ${groupName}:`, error)
+    } finally {
+      // Clear loading state for this specific group
+      setIsFetchingGroup(prev => {
+        const updated = new Map(prev)
+        updated.delete(groupName)
+        return updated
+      })
+    }
+  }, [selectedClusters])
 
   // Handle resource group toggle
   const handleGroupToggle = useCallback((groupName: string, groupDef: any) => {
@@ -875,6 +1006,10 @@ export function ManifestViewer({ selectedClusters = [], isFullscreen = false, on
             onRefresh={handleRefresh}
             onBulkCompare={handleBulkCompare}
             onBulkExport={handleBulkExport}
+            enhanceMode={enhanceMode}
+            onEnhanceModeToggle={() => setEnhanceMode(!enhanceMode)}
+            onGroupSmartFetch={handleIsolatedGroupFetch}
+            isFetchingGroup={isFetchingGroup}
           />
         </ResizablePanel>
         
@@ -889,8 +1024,10 @@ export function ManifestViewer({ selectedClusters = [], isFullscreen = false, on
 
       {showTabManager && (
         <TabManager
-          isOpen={showTabManager}
-          onClose={() => setShowTabManager(false)}
+          currentTabs={[]}
+          activeTabId={null}
+          onTabSelect={() => {}}
+          onTabClose={() => {}}
         />
       )}
 

@@ -81,7 +81,7 @@ export function TabManager({
   const [selectedTabsForGroup, setSelectedTabsForGroup] = useState<string[]>([])
   const [newGroupName, setNewGroupName] = useState('')
   
-  const filteredTabs = searchQuery ? searchTabs(searchQuery) : currentTabs
+  const filteredTabs = searchQuery ? searchTabs(searchQuery) : (currentTabs || [])
   
   // Group tabs by their groups
   const groupedTabs = new Map<string | undefined, Tab[]>()
@@ -252,7 +252,7 @@ export function TabManager({
               <DropdownMenuSubContent>
                 <DropdownMenuItem
                   onClick={() => {
-                    setSelectedTabsForGroup(currentTabs.map(t => t.id))
+                    setSelectedTabsForGroup((currentTabs || []).map(t => t.id))
                     setNewGroupName('New Group')
                     // In real implementation, show a dialog
                     handleCreateGroup()
@@ -262,7 +262,7 @@ export function TabManager({
                 </DropdownMenuItem>
                 <DropdownMenuItem
                   onClick={() => {
-                    const tab = currentTabs.find(t => t.id === activeTabId)
+                    const tab = (currentTabs || []).find(t => t.id === activeTabId)
                     if (tab) {
                       const related = getRelatedTabs(tab)
                       if (related.length > 0) {
@@ -306,7 +306,7 @@ export function TabManager({
               onClick={() => {
                 if (activeTabId) closeOtherTabs(activeTabId)
               }}
-              disabled={currentTabs.length <= 1}
+              disabled={(currentTabs || []).length <= 1}
             >
               Close Other Tabs
             </DropdownMenuItem>
@@ -321,7 +321,7 @@ export function TabManager({
             <DropdownMenuItem
               onClick={closeAllTabs}
               className="text-destructive"
-              disabled={currentTabs.length === 0}
+              disabled={(currentTabs || []).length === 0}
             >
               <XCircle className="h-3 w-3 mr-2" />
               Close All Tabs

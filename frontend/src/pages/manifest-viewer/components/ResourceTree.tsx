@@ -1,4 +1,4 @@
-import { useState, useMemo } from 'react'
+import { useState } from 'react'
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
 import { ScrollArea } from '@/components/ui/scroll-area'
@@ -8,6 +8,7 @@ import { Separator } from '@/components/ui/separator'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 import { MultiSelectDropdown } from '@/components/multi-select-dropdown'
 import { Checkbox } from '@/components/ui/checkbox'
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip'
 import {
   Search,
   ChevronRight,
@@ -18,7 +19,10 @@ import {
   FileJson,
   GitCompare,
   Download,
-  Copy,
+  Clock,
+  Users,
+  Package,
+  Info,
 } from 'lucide-react'
 import { cn } from '@/utils/cn'
 import type { ResourceItem, ResourceGroup } from '../types'
@@ -35,6 +39,10 @@ interface ResourceTreeProps {
   onRefresh: () => void
   onBulkCompare?: (resources: ResourceItem[]) => void
   onBulkExport?: (resources: ResourceItem[]) => void
+  enhanceMode: boolean
+  onEnhanceModeToggle: () => void
+  onGroupSmartFetch: (groupName: string, groupKind: string, groupApiVersion: string) => void
+  isFetchingGroup: Map<string, boolean>
 }
 
 export function ResourceTree({
@@ -48,6 +56,10 @@ export function ResourceTree({
   onRefresh,
   onBulkCompare,
   onBulkExport,
+  enhanceMode,
+  onEnhanceModeToggle,
+  onGroupSmartFetch,
+  isFetchingGroup,
 }: ResourceTreeProps) {
   const [searchQuery, setSearchQuery] = useState('')
   const [searchInYaml, setSearchInYaml] = useState(false)
@@ -72,18 +84,48 @@ export function ResourceTree({
       
       filtered = filtered.map(category => ({
         ...category,
-        groups: category.groups.filter(group => {
+        groups: category.groups.map(group => {
           const groupData = resourceGroups.get(group.name)
           
-          if (group.name.toLowerCase().includes(query)) return true
+          // Check if group name matches
+          const groupMatches = group.name.toLowerCase().includes(query)
           
-          if (groupData?.items.some(item => 
-            item.name.toLowerCase().includes(query) ||
-            (item.namespace && item.namespace.toLowerCase().includes(query))
-          )) return true
+          // Filter items within the group
+          const filteredItems = groupData?.items.filter(item => {
+            // Search in basic fields
+            if (item.name.toLowerCase().includes(query)) return true
+            if (item.namespace && item.namespace.toLowerCase().includes(query)) return true
+            if (item.kind && item.kind.toLowerCase().includes(query)) return true
+            if ((item as any).status && (item as any).status.toLowerCase().includes(query)) return true
+            
+            // Search in YAML content if enabled
+            if (searchInYaml && (item as any).yaml) {
+              try {
+                const yamlContent = typeof (item as any).yaml === 'string' ? (item as any).yaml : JSON.stringify((item as any).yaml)
+                if (yamlContent.toLowerCase().includes(query)) return true
+              } catch (e) {
+                // If YAML parsing fails, search in string representation
+                if (String((item as any).yaml).toLowerCase().includes(query)) return true
+              }
+            }
+            
+            // Search in additional metadata fields
+            if (item.clusterContext && item.clusterContext.toLowerCase().includes(query)) return true
+            if (item.creationTimestamp && item.creationTimestamp.toLowerCase().includes(query)) return true
           
           return false
-        })
+          }) || []
+          
+          // Return group if group name matches OR if it has matching items
+          if (groupMatches || filteredItems.length > 0) {
+            return {
+              ...group,
+              filteredItems: filteredItems
+            } as any
+          }
+          
+          return null
+        }).filter(Boolean)
       })).filter(category => category.groups.length > 0)
     }
 
@@ -92,6 +134,24 @@ export function ResourceTree({
   
   const getResourceId = (item: ResourceItem) => 
     `${item.clusterContext}-${item.namespace}-${item.name}-${item.kind}`
+
+  // Helper function to highlight search terms
+  const highlightSearchTerm = (text: string, query: string) => {
+    if (!query || !text.toLowerCase().includes(query.toLowerCase())) {
+      return text
+    }
+    
+    const index = text.toLowerCase().indexOf(query.toLowerCase())
+    return (
+      <>
+        {text.substring(0, index)}
+        <span className="bg-yellow-200 text-yellow-900 px-1 rounded">
+          {text.substring(index, index + query.length)}
+        </span>
+        {text.substring(index + query.length)}
+      </>
+    )
+  }
 
   const toggleResourceSelection = (item: ResourceItem) => {
     const id = getResourceId(item)
@@ -138,7 +198,2048 @@ export function ResourceTree({
           return 'text-muted-foreground'
       }
     }
+
+    // Special rendering for Pods - inline format
+    if (item.kind === 'Pod') {
+      // Get pod status color
+      const getPodStatusColor = (status: string) => {
+        switch (status) {
+          case 'Running':
+            return 'bg-green-500 text-white'
+          case 'Pending':
+            return 'bg-yellow-500 text-white'
+          case 'Failed':
+            return 'bg-red-500 text-white'
+          case 'Succeeded':
+            return 'bg-blue-500 text-white'
+          case 'Unknown':
+            return 'bg-gray-500 text-white'
+          default:
+            return 'bg-gray-500 text-white'
+        }
+      }
+
+      return (
+        <div
+          key={resourceId}
+          className={cn(
+            "flex items-center gap-2 h-6 px-2 text-xs hover:bg-accent group cursor-pointer",
+            isSelected && "bg-accent"
+          )}
+          onClick={(e) => handleResourceClick(item, e)}
+        >
+          {isMultiSelectMode && (
+            <Checkbox
+              checked={isSelected}
+              onCheckedChange={() => toggleResourceSelection(item)}
+              onClick={(e) => e.stopPropagation()}
+              className="h-3 w-3"
+            />
+          )}
+          <FileText className={cn("h-3 w-3 flex-shrink-0", getIconColor())} />
+          
+          <span className="truncate flex-1 text-left">
+            {selectedClusters.length > 1 && item.clusterName && (
+              <Badge variant="outline" className="h-3.5 px-1 text-[10px] mr-1">
+                {item.clusterName}
+              </Badge>
+            )}
+            {item.namespace && (
+              <span className="text-muted-foreground">
+                {searchQuery ? highlightSearchTerm(item.namespace, searchQuery) : item.namespace}/
+              </span>
+            )}
+            {searchQuery ? highlightSearchTerm(item.name, searchQuery) : item.name}
+          </span>
+          
+          {/* Pod status badges - at the end */}
+          {item.age && (
+            <TooltipProvider>
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <Badge variant="outline" className="h-4 px-1 text-[10px]">
+                    <Clock className="h-2 w-2 mr-0.5" />
+                    {item.age}
+                  </Badge>
+                </TooltipTrigger>
+                <TooltipContent>
+                  <p>Created: {item.creationTimestamp}</p>
+                </TooltipContent>
+              </Tooltip>
+            </TooltipProvider>
+          )}
+          
+          {item.podStatus && (
+            <Badge 
+              className={cn("h-4 px-1 text-[10px]", getPodStatusColor(item.podStatus))}
+            >
+              {item.podStatus}
+            </Badge>
+          )}
+          
+          {(item.containerReady !== undefined && item.containerTotal !== undefined) && (
+            <TooltipProvider>
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <Badge variant="outline" className="h-4 px-1 text-[10px]">
+                    <Users className="h-2 w-2 mr-0.5" />
+                    {item.containerReady}/{item.containerTotal}
+                  </Badge>
+                </TooltipTrigger>
+                <TooltipContent>
+                  <p>Ready/Total Containers</p>
+                </TooltipContent>
+              </Tooltip>
+            </TooltipProvider>
+          )}
+        </div>
+      )
+    }
+
+    // Special rendering for DaemonSets - inline format
+    if (item.kind === 'DaemonSet') {
+      return (
+        <div
+          key={resourceId}
+          className={cn(
+            "flex items-center gap-2 h-6 px-2 text-xs hover:bg-accent group cursor-pointer",
+            isSelected && "bg-accent"
+          )}
+          onClick={(e) => handleResourceClick(item, e)}
+        >
+          {isMultiSelectMode && (
+            <Checkbox
+              checked={isSelected}
+              onCheckedChange={() => toggleResourceSelection(item)}
+              onClick={(e) => e.stopPropagation()}
+              className="h-3 w-3"
+            />
+          )}
+          <FileText className={cn("h-3 w-3 flex-shrink-0", getIconColor())} />
+          
+          <span className="truncate flex-1 text-left">
+            {selectedClusters.length > 1 && item.clusterName && (
+              <Badge variant="outline" className="h-3.5 px-1 text-[10px] mr-1">
+                {item.clusterName}
+              </Badge>
+            )}
+            {item.namespace && (
+              <span className="text-muted-foreground">
+                {searchQuery ? highlightSearchTerm(item.namespace, searchQuery) : item.namespace}/
+              </span>
+            )}
+            {searchQuery ? highlightSearchTerm(item.name, searchQuery) : item.name}
+          </span>
+          
+          {/* DaemonSet status badges - at the end */}
+          {item.age && (
+            <TooltipProvider>
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <Badge variant="outline" className="h-4 px-1 text-[10px]">
+                    <Clock className="h-2 w-2 mr-0.5" />
+                    {item.age}
+                  </Badge>
+                </TooltipTrigger>
+                <TooltipContent>
+                  <p>Created: {item.creationTimestamp}</p>
+                </TooltipContent>
+              </Tooltip>
+            </TooltipProvider>
+          )}
+          
+          {(item.daemonSetReadyReplicas !== undefined || item.daemonSetDesiredReplicas !== undefined) && (
+            <TooltipProvider>
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <Badge variant="outline" className="h-4 px-1 text-[10px]">
+                    <Users className="h-2 w-2 mr-0.5" />
+                    {item.daemonSetReadyReplicas || 0}/{item.daemonSetDesiredReplicas || 0}
+                  </Badge>
+                </TooltipTrigger>
+                <TooltipContent>
+                  <p>Ready/Desired Replicas</p>
+                </TooltipContent>
+              </Tooltip>
+            </TooltipProvider>
+          )}
+        </div>
+      )
+    }
+
+    // Special rendering for StatefulSets - inline format
+    if (item.kind === 'StatefulSet') {
+      return (
+        <div
+          key={resourceId}
+          className={cn(
+            "flex items-center gap-2 h-6 px-2 text-xs hover:bg-accent group cursor-pointer",
+            isSelected && "bg-accent"
+          )}
+          onClick={(e) => handleResourceClick(item, e)}
+        >
+          {isMultiSelectMode && (
+            <Checkbox
+              checked={isSelected}
+              onCheckedChange={() => toggleResourceSelection(item)}
+              onClick={(e) => e.stopPropagation()}
+              className="h-3 w-3"
+            />
+          )}
+          <FileText className={cn("h-3 w-3 flex-shrink-0", getIconColor())} />
+          
+          <span className="truncate flex-1 text-left">
+            {selectedClusters.length > 1 && item.clusterName && (
+              <Badge variant="outline" className="h-3.5 px-1 text-[10px] mr-1">
+                {item.clusterName}
+              </Badge>
+            )}
+            {item.namespace && (
+              <span className="text-muted-foreground">
+                {searchQuery ? highlightSearchTerm(item.namespace, searchQuery) : item.namespace}/
+              </span>
+            )}
+            {searchQuery ? highlightSearchTerm(item.name, searchQuery) : item.name}
+          </span>
+          
+          {/* StatefulSet status badges - at the end */}
+          {item.age && (
+            <TooltipProvider>
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <Badge variant="outline" className="h-4 px-1 text-[10px]">
+                    <Clock className="h-2 w-2 mr-0.5" />
+                    {item.age}
+                  </Badge>
+                </TooltipTrigger>
+                <TooltipContent>
+                  <p>Created: {item.creationTimestamp}</p>
+                </TooltipContent>
+              </Tooltip>
+            </TooltipProvider>
+          )}
+          
+          {(item.statefulSetReadyReplicas !== undefined || item.statefulSetDesiredReplicas !== undefined) && (
+            <TooltipProvider>
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <Badge variant="outline" className="h-4 px-1 text-[10px]">
+                    <Users className="h-2 w-2 mr-0.5" />
+                    {item.statefulSetReadyReplicas || 0}/{item.statefulSetDesiredReplicas || 0}
+                  </Badge>
+                </TooltipTrigger>
+                <TooltipContent>
+                  <p>Ready/Desired Replicas</p>
+                </TooltipContent>
+              </Tooltip>
+            </TooltipProvider>
+          )}
+        </div>
+      )
+    }
+
+    // Special rendering for Jobs - inline format
+    if (item.kind === 'Job') {
+      // Get job status color
+      const getJobStatusColor = (status: string) => {
+        switch (status) {
+          case 'Complete':
+            return 'bg-green-500 text-white'
+          case 'Failed':
+            return 'bg-red-500 text-white'
+          case 'Running':
+            return 'bg-blue-500 text-white'
+          case 'Pending':
+            return 'bg-yellow-500 text-white'
+          default:
+            return 'bg-gray-500 text-white'
+        }
+      }
+
+      return (
+        <div
+          key={resourceId}
+          className={cn(
+            "flex items-center gap-2 h-6 px-2 text-xs hover:bg-accent group cursor-pointer",
+            isSelected && "bg-accent"
+          )}
+          onClick={(e) => handleResourceClick(item, e)}
+        >
+          {isMultiSelectMode && (
+            <Checkbox
+              checked={isSelected}
+              onCheckedChange={() => toggleResourceSelection(item)}
+              onClick={(e) => e.stopPropagation()}
+              className="h-3 w-3"
+            />
+          )}
+          <FileText className={cn("h-3 w-3 flex-shrink-0", getIconColor())} />
+          
+          <span className="truncate flex-1 text-left">
+            {selectedClusters.length > 1 && item.clusterName && (
+              <Badge variant="outline" className="h-3.5 px-1 text-[10px] mr-1">
+                {item.clusterName}
+              </Badge>
+            )}
+            {item.namespace && (
+              <span className="text-muted-foreground">
+                {searchQuery ? highlightSearchTerm(item.namespace, searchQuery) : item.namespace}/
+              </span>
+            )}
+            {searchQuery ? highlightSearchTerm(item.name, searchQuery) : item.name}
+          </span>
+          
+          {/* Job status badges - at the end */}
+          {item.age && (
+            <TooltipProvider>
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <Badge variant="outline" className="h-4 px-1 text-[10px]">
+                    <Clock className="h-2 w-2 mr-0.5" />
+                    {item.age}
+                  </Badge>
+                </TooltipTrigger>
+                <TooltipContent>
+                  <p>Created: {item.creationTimestamp}</p>
+                </TooltipContent>
+              </Tooltip>
+            </TooltipProvider>
+          )}
+          
+          {item.jobStatus && (
+            <Badge 
+              className={cn("h-4 px-1 text-[10px]", getJobStatusColor(item.jobStatus))}
+            >
+              {item.jobStatus}
+            </Badge>
+          )}
+          
+          {(item.jobSucceededCount !== undefined || item.jobFailedCount !== undefined) && (
+            <TooltipProvider>
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <Badge variant="outline" className="h-4 px-1 text-[10px]">
+                    <Users className="h-2 w-2 mr-0.5" />
+                    {item.jobSucceededCount || 0}/{item.jobFailedCount || 0}
+                  </Badge>
+                </TooltipTrigger>
+                <TooltipContent>
+                  <p>Succeeded/Failed Count</p>
+                </TooltipContent>
+              </Tooltip>
+            </TooltipProvider>
+          )}
+        </div>
+      )
+    }
+
+    // Special rendering for CronJobs - inline format
+    if (item.kind === 'CronJob') {
+      return (
+        <div
+          key={resourceId}
+          className={cn(
+            "flex items-center gap-2 h-6 px-2 text-xs hover:bg-accent group cursor-pointer",
+            isSelected && "bg-accent"
+          )}
+          onClick={(e) => handleResourceClick(item, e)}
+        >
+          {isMultiSelectMode && (
+            <Checkbox
+              checked={isSelected}
+              onCheckedChange={() => toggleResourceSelection(item)}
+              onClick={(e) => e.stopPropagation()}
+              className="h-3 w-3"
+            />
+          )}
+          <FileText className={cn("h-3 w-3 flex-shrink-0", getIconColor())} />
+          
+          <span className="truncate flex-1 text-left">
+            {selectedClusters.length > 1 && item.clusterName && (
+              <Badge variant="outline" className="h-3.5 px-1 text-[10px] mr-1">
+                {item.clusterName}
+              </Badge>
+            )}
+            {item.namespace && (
+              <span className="text-muted-foreground">
+                {searchQuery ? highlightSearchTerm(item.namespace, searchQuery) : item.namespace}/
+              </span>
+            )}
+            {searchQuery ? highlightSearchTerm(item.name, searchQuery) : item.name}
+          </span>
+          
+          {/* CronJob status badges - at the end */}
+          {item.age && (
+            <TooltipProvider>
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <Badge variant="outline" className="h-4 px-1 text-[10px]">
+                    <Clock className="h-2 w-2 mr-0.5" />
+                    {item.age}
+                  </Badge>
+                </TooltipTrigger>
+                <TooltipContent>
+                  <p>Created: {item.creationTimestamp}</p>
+                </TooltipContent>
+              </Tooltip>
+            </TooltipProvider>
+          )}
+          
+          {item.cronJobActiveJobs !== undefined && (
+            <TooltipProvider>
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <Badge variant="outline" className="h-4 px-1 text-[10px]">
+                    <Users className="h-2 w-2 mr-0.5" />
+                    {item.cronJobActiveJobs}
+                  </Badge>
+                </TooltipTrigger>
+                <TooltipContent>
+                  <p>Active Jobs</p>
+                </TooltipContent>
+              </Tooltip>
+            </TooltipProvider>
+          )}
+        </div>
+      )
+    }
+
+    // Special rendering for Services - inline format
+    if (item.kind === 'Service') {
+      // Get service type color
+      const getServiceTypeColor = (type: string) => {
+        switch (type) {
+          case 'ClusterIP':
+            return 'bg-blue-500 text-white'
+          case 'NodePort':
+            return 'bg-green-500 text-white'
+          case 'LoadBalancer':
+            return 'bg-purple-500 text-white'
+          case 'ExternalName':
+            return 'bg-orange-500 text-white'
+          default:
+            return 'bg-gray-500 text-white'
+        }
+      }
+
+      return (
+        <div
+          key={resourceId}
+          className={cn(
+            "flex items-center gap-2 h-6 px-2 text-xs hover:bg-accent group cursor-pointer",
+            isSelected && "bg-accent"
+          )}
+          onClick={(e) => handleResourceClick(item, e)}
+        >
+          {isMultiSelectMode && (
+            <Checkbox
+              checked={isSelected}
+              onCheckedChange={() => toggleResourceSelection(item)}
+              onClick={(e) => e.stopPropagation()}
+              className="h-3 w-3"
+            />
+          )}
+          <FileText className={cn("h-3 w-3 flex-shrink-0", getIconColor())} />
+          
+          <span className="truncate flex-1 text-left">
+            {selectedClusters.length > 1 && item.clusterName && (
+              <Badge variant="outline" className="h-3.5 px-1 text-[10px] mr-1">
+                {item.clusterName}
+              </Badge>
+            )}
+            {item.namespace && (
+              <span className="text-muted-foreground">
+                {searchQuery ? highlightSearchTerm(item.namespace, searchQuery) : item.namespace}/
+              </span>
+            )}
+            {searchQuery ? highlightSearchTerm(item.name, searchQuery) : item.name}
+          </span>
+          
+          {/* Service status badges - at the end */}
+          {item.age && (
+            <TooltipProvider>
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <Badge variant="outline" className="h-4 px-1 text-[10px]">
+                    <Clock className="h-2 w-2 mr-0.5" />
+                    {item.age}
+                  </Badge>
+                </TooltipTrigger>
+                <TooltipContent>
+                  <p>Created: {item.creationTimestamp}</p>
+                </TooltipContent>
+              </Tooltip>
+            </TooltipProvider>
+          )}
+          
+          {item.serviceType && (
+            <Badge 
+              className={cn("h-4 px-1 text-[10px]", getServiceTypeColor(item.serviceType))}
+            >
+              {item.serviceType}
+            </Badge>
+          )}
+          
+          {item.servicePorts !== undefined && (
+            <TooltipProvider>
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <Badge variant="outline" className="h-4 px-1 text-[10px]">
+                    <Users className="h-2 w-2 mr-0.5" />
+                    {item.servicePorts}
+                  </Badge>
+                </TooltipTrigger>
+                <TooltipContent>
+                  <p>Number of Ports</p>
+                </TooltipContent>
+              </Tooltip>
+            </TooltipProvider>
+          )}
+        </div>
+      )
+    }
+
+    // Special rendering for ConfigMaps - inline format
+    if (item.kind === 'ConfigMap') {
+      return (
+        <div
+          key={resourceId}
+          className={cn(
+            "flex items-center gap-2 h-6 px-2 text-xs hover:bg-accent group cursor-pointer",
+            isSelected && "bg-accent"
+          )}
+          onClick={(e) => handleResourceClick(item, e)}
+        >
+          {isMultiSelectMode && (
+            <Checkbox
+              checked={isSelected}
+              onCheckedChange={() => toggleResourceSelection(item)}
+              onClick={(e) => e.stopPropagation()}
+              className="h-3 w-3"
+            />
+          )}
+          <FileText className={cn("h-3 w-3 flex-shrink-0", getIconColor())} />
+          
+          <span className="truncate flex-1 text-left">
+            {selectedClusters.length > 1 && item.clusterName && (
+              <Badge variant="outline" className="h-3.5 px-1 text-[10px] mr-1">
+                {item.clusterName}
+              </Badge>
+            )}
+            {item.namespace && (
+              <span className="text-muted-foreground">
+                {searchQuery ? highlightSearchTerm(item.namespace, searchQuery) : item.namespace}/
+              </span>
+            )}
+            {searchQuery ? highlightSearchTerm(item.name, searchQuery) : item.name}
+          </span>
+          
+          {/* ConfigMap status badges - at the end */}
+          {item.age && (
+            <TooltipProvider>
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <Badge variant="outline" className="h-4 px-1 text-[10px]">
+                    <Clock className="h-2 w-2 mr-0.5" />
+                    {item.age}
+                  </Badge>
+                </TooltipTrigger>
+                <TooltipContent>
+                  <p>Created: {item.creationTimestamp}</p>
+                </TooltipContent>
+              </Tooltip>
+            </TooltipProvider>
+          )}
+          
+          {item.configMapDataCount !== undefined && (
+            <TooltipProvider>
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <Badge variant="outline" className="h-4 px-1 text-[10px]">
+                    <Users className="h-2 w-2 mr-0.5" />
+                    {item.configMapDataCount}
+                  </Badge>
+                </TooltipTrigger>
+                <TooltipContent>
+                  <p>Data Keys</p>
+                </TooltipContent>
+              </Tooltip>
+            </TooltipProvider>
+          )}
+        </div>
+      )
+    }
+
+    // Special rendering for Secrets - inline format
+    if (item.kind === 'Secret') {
+      return (
+        <div
+          key={resourceId}
+          className={cn(
+            "flex items-center gap-2 h-6 px-2 text-xs hover:bg-accent group cursor-pointer",
+            isSelected && "bg-accent"
+          )}
+          onClick={(e) => handleResourceClick(item, e)}
+        >
+          {isMultiSelectMode && (
+            <Checkbox
+              checked={isSelected}
+              onCheckedChange={() => toggleResourceSelection(item)}
+              onClick={(e) => e.stopPropagation()}
+              className="h-3 w-3"
+            />
+          )}
+          <FileText className={cn("h-3 w-3 flex-shrink-0", getIconColor())} />
+          
+          <span className="truncate flex-1 text-left">
+            {selectedClusters.length > 1 && item.clusterName && (
+              <Badge variant="outline" className="h-3.5 px-1 text-[10px] mr-1">
+                {item.clusterName}
+              </Badge>
+            )}
+            {item.namespace && (
+              <span className="text-muted-foreground">
+                {searchQuery ? highlightSearchTerm(item.namespace, searchQuery) : item.namespace}/
+              </span>
+            )}
+            {searchQuery ? highlightSearchTerm(item.name, searchQuery) : item.name}
+          </span>
+          
+          {/* Secret status badges - at the end */}
+          {item.age && (
+            <TooltipProvider>
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <Badge variant="outline" className="h-4 px-1 text-[10px]">
+                    <Clock className="h-2 w-2 mr-0.5" />
+                    {item.age}
+                  </Badge>
+                </TooltipTrigger>
+                <TooltipContent>
+                  <p>Created: {item.creationTimestamp}</p>
+                </TooltipContent>
+              </Tooltip>
+            </TooltipProvider>
+          )}
+          
+          {item.secretType && (
+            <Badge variant="outline" className="h-4 px-1 text-[10px]">
+              {item.secretType}
+            </Badge>
+          )}
+          
+          {item.secretDataCount !== undefined && (
+            <TooltipProvider>
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <Badge variant="outline" className="h-4 px-1 text-[10px]">
+                    <Users className="h-2 w-2 mr-0.5" />
+                    {item.secretDataCount}
+                  </Badge>
+                </TooltipTrigger>
+                <TooltipContent>
+                  <p>Data Keys</p>
+                </TooltipContent>
+              </Tooltip>
+            </TooltipProvider>
+          )}
+        </div>
+      )
+    }
+
+    // Special rendering for PersistentVolumes - inline format
+    if (item.kind === 'PersistentVolume') {
+      // Get PV status color
+      const getPVStatusColor = (status: string) => {
+        switch (status) {
+          case 'Available':
+            return 'bg-green-500 text-white'
+          case 'Bound':
+            return 'bg-blue-500 text-white'
+          case 'Released':
+            return 'bg-yellow-500 text-white'
+          case 'Failed':
+            return 'bg-red-500 text-white'
+          default:
+            return 'bg-gray-500 text-white'
+        }
+      }
+
+      return (
+        <div
+          key={resourceId}
+          className={cn(
+            "flex items-center gap-2 h-6 px-2 text-xs hover:bg-accent group cursor-pointer",
+            isSelected && "bg-accent"
+          )}
+          onClick={(e) => handleResourceClick(item, e)}
+        >
+          {isMultiSelectMode && (
+            <Checkbox
+              checked={isSelected}
+              onCheckedChange={() => toggleResourceSelection(item)}
+              onClick={(e) => e.stopPropagation()}
+              className="h-3 w-3"
+            />
+          )}
+          <FileText className={cn("h-3 w-3 flex-shrink-0", getIconColor())} />
+          
+          <span className="truncate flex-1 text-left">
+            {selectedClusters.length > 1 && item.clusterName && (
+              <Badge variant="outline" className="h-3.5 px-1 text-[10px] mr-1">
+                {item.clusterName}
+              </Badge>
+            )}
+            {item.namespace && (
+              <span className="text-muted-foreground">
+                {searchQuery ? highlightSearchTerm(item.namespace, searchQuery) : item.namespace}/
+              </span>
+            )}
+            {searchQuery ? highlightSearchTerm(item.name, searchQuery) : item.name}
+          </span>
+          
+          {/* PV status badges - at the end */}
+          {item.age && (
+            <TooltipProvider>
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <Badge variant="outline" className="h-4 px-1 text-[10px]">
+                    <Clock className="h-2 w-2 mr-0.5" />
+                    {item.age}
+                  </Badge>
+                </TooltipTrigger>
+                <TooltipContent>
+                  <p>Created: {item.creationTimestamp}</p>
+                </TooltipContent>
+              </Tooltip>
+            </TooltipProvider>
+          )}
+          
+          {item.pvStatus && (
+            <Badge 
+              className={cn("h-4 px-1 text-[10px]", getPVStatusColor(item.pvStatus))}
+            >
+              {item.pvStatus}
+            </Badge>
+          )}
+          
+          {item.pvCapacity && (
+            <TooltipProvider>
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <Badge variant="outline" className="h-4 px-1 text-[10px]">
+                    <Users className="h-2 w-2 mr-0.5" />
+                    {item.pvCapacity}
+                  </Badge>
+                </TooltipTrigger>
+                <TooltipContent>
+                  <p>Capacity</p>
+                </TooltipContent>
+              </Tooltip>
+            </TooltipProvider>
+          )}
+        </div>
+      )
+    }
+
+    // Special rendering for PersistentVolumeClaims - inline format
+    if (item.kind === 'PersistentVolumeClaim') {
+      // Get PVC status color
+      const getPVCStatusColor = (status: string) => {
+        switch (status) {
+          case 'Bound':
+            return 'bg-green-500 text-white'
+          case 'Pending':
+            return 'bg-yellow-500 text-white'
+          case 'Lost':
+            return 'bg-red-500 text-white'
+          default:
+            return 'bg-gray-500 text-white'
+        }
+      }
+
+      return (
+        <div
+          key={resourceId}
+          className={cn(
+            "flex items-center gap-2 h-6 px-2 text-xs hover:bg-accent group cursor-pointer",
+            isSelected && "bg-accent"
+          )}
+          onClick={(e) => handleResourceClick(item, e)}
+        >
+          {isMultiSelectMode && (
+            <Checkbox
+              checked={isSelected}
+              onCheckedChange={() => toggleResourceSelection(item)}
+              onClick={(e) => e.stopPropagation()}
+              className="h-3 w-3"
+            />
+          )}
+          <FileText className={cn("h-3 w-3 flex-shrink-0", getIconColor())} />
+          
+          <span className="truncate flex-1 text-left">
+            {selectedClusters.length > 1 && item.clusterName && (
+              <Badge variant="outline" className="h-3.5 px-1 text-[10px] mr-1">
+                {item.clusterName}
+              </Badge>
+            )}
+            {item.namespace && (
+              <span className="text-muted-foreground">
+                {searchQuery ? highlightSearchTerm(item.namespace, searchQuery) : item.namespace}/
+              </span>
+            )}
+            {searchQuery ? highlightSearchTerm(item.name, searchQuery) : item.name}
+          </span>
+          
+          {/* PVC status badges - at the end */}
+          {item.age && (
+            <TooltipProvider>
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <Badge variant="outline" className="h-4 px-1 text-[10px]">
+                    <Clock className="h-2 w-2 mr-0.5" />
+                    {item.age}
+                  </Badge>
+                </TooltipTrigger>
+                <TooltipContent>
+                  <p>Created: {item.creationTimestamp}</p>
+                </TooltipContent>
+              </Tooltip>
+            </TooltipProvider>
+          )}
+          
+          {item.pvcStatus && (
+            <Badge 
+              className={cn("h-4 px-1 text-[10px]", getPVCStatusColor(item.pvcStatus))}
+            >
+              {item.pvcStatus}
+            </Badge>
+          )}
+          
+          {item.pvcCapacity && (
+            <TooltipProvider>
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <Badge variant="outline" className="h-4 px-1 text-[10px]">
+                    <Users className="h-2 w-2 mr-0.5" />
+                    {item.pvcCapacity}
+                  </Badge>
+                </TooltipTrigger>
+                <TooltipContent>
+                  <p>Capacity</p>
+                </TooltipContent>
+              </Tooltip>
+            </TooltipProvider>
+          )}
+        </div>
+      )
+    }
+
+    // Special rendering for Ingress - inline format
+    if (item.kind === 'Ingress') {
+      return (
+        <div
+          key={resourceId}
+          className={cn(
+            "flex items-center gap-2 h-6 px-2 text-xs hover:bg-accent group cursor-pointer",
+            isSelected && "bg-accent"
+          )}
+          onClick={(e) => handleResourceClick(item, e)}
+        >
+          {isMultiSelectMode && (
+            <Checkbox
+              checked={isSelected}
+              onCheckedChange={() => toggleResourceSelection(item)}
+              onClick={(e) => e.stopPropagation()}
+              className="h-3 w-3"
+            />
+          )}
+          <FileText className={cn("h-3 w-3 flex-shrink-0", getIconColor())} />
+          
+          <span className="truncate flex-1 text-left">
+            {selectedClusters.length > 1 && item.clusterName && (
+              <Badge variant="outline" className="h-3.5 px-1 text-[10px] mr-1">
+                {item.clusterName}
+              </Badge>
+            )}
+            {item.namespace && (
+              <span className="text-muted-foreground">
+                {searchQuery ? highlightSearchTerm(item.namespace, searchQuery) : item.namespace}/
+              </span>
+            )}
+            {searchQuery ? highlightSearchTerm(item.name, searchQuery) : item.name}
+          </span>
+          
+          {/* Ingress status badges - at the end */}
+          {item.age && (
+            <TooltipProvider>
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <Badge variant="outline" className="h-4 px-1 text-[10px]">
+                    <Clock className="h-2 w-2 mr-0.5" />
+                    {item.age}
+                  </Badge>
+                </TooltipTrigger>
+                <TooltipContent>
+                  <p>Created: {item.creationTimestamp}</p>
+                </TooltipContent>
+              </Tooltip>
+            </TooltipProvider>
+          )}
+          
+          {item.ingressStatus && (
+            <Badge 
+              className={cn("h-4 px-1 text-[10px]", 
+                item.ingressStatus === 'Valid' ? 'bg-green-500 text-white' : 'bg-yellow-500 text-white'
+              )}
+            >
+              {item.ingressStatus}
+            </Badge>
+          )}
+          
+          {item.ingressRulesCount !== undefined && (
+            <TooltipProvider>
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <Badge variant="outline" className="h-4 px-1 text-[10px]">
+                    <Users className="h-2 w-2 mr-0.5" />
+                    {item.ingressRulesCount}
+                  </Badge>
+                </TooltipTrigger>
+                <TooltipContent>
+                  <p>Rules Count</p>
+                </TooltipContent>
+              </Tooltip>
+            </TooltipProvider>
+          )}
+        </div>
+      )
+    }
+
+    // Special rendering for Namespaces - inline format
+    if (item.kind === 'Namespace') {
+      return (
+        <div
+          key={resourceId}
+          className={cn(
+            "flex items-center gap-2 h-6 px-2 text-xs hover:bg-accent group cursor-pointer",
+            isSelected && "bg-accent"
+          )}
+          onClick={(e) => handleResourceClick(item, e)}
+        >
+          {isMultiSelectMode && (
+            <Checkbox
+              checked={isSelected}
+              onCheckedChange={() => toggleResourceSelection(item)}
+              onClick={(e) => e.stopPropagation()}
+              className="h-3 w-3"
+            />
+          )}
+          <FileText className={cn("h-3 w-3 flex-shrink-0", getIconColor())} />
+          
+          <span className="truncate flex-1 text-left">
+            {selectedClusters.length > 1 && item.clusterName && (
+              <Badge variant="outline" className="h-3.5 px-1 text-[10px] mr-1">
+                {item.clusterName}
+              </Badge>
+            )}
+            {item.namespace && (
+              <span className="text-muted-foreground">
+                {searchQuery ? highlightSearchTerm(item.namespace, searchQuery) : item.namespace}/
+              </span>
+            )}
+            {searchQuery ? highlightSearchTerm(item.name, searchQuery) : item.name}
+          </span>
+          
+          {/* Namespace status badges - at the end */}
+          {item.age && (
+            <TooltipProvider>
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <Badge variant="outline" className="h-4 px-1 text-[10px]">
+                    <Clock className="h-2 w-2 mr-0.5" />
+                    {item.age}
+                  </Badge>
+                </TooltipTrigger>
+                <TooltipContent>
+                  <p>Created: {item.creationTimestamp}</p>
+                </TooltipContent>
+              </Tooltip>
+            </TooltipProvider>
+          )}
+          
+          {item.namespaceStatus && (
+            <Badge 
+              className={cn("h-4 px-1 text-[10px]", 
+                item.namespaceStatus === 'Active' ? 'bg-green-500 text-white' : 'bg-yellow-500 text-white'
+              )}
+            >
+              {item.namespaceStatus}
+            </Badge>
+          )}
+        </div>
+      )
+    }
+
+    // Special rendering for ServiceAccounts - inline format
+    if (item.kind === 'ServiceAccount') {
+      return (
+        <div
+          key={resourceId}
+          className={cn(
+            "flex items-center gap-2 h-6 px-2 text-xs hover:bg-accent group cursor-pointer",
+            isSelected && "bg-accent"
+          )}
+          onClick={(e) => handleResourceClick(item, e)}
+        >
+          {isMultiSelectMode && (
+            <Checkbox
+              checked={isSelected}
+              onCheckedChange={() => toggleResourceSelection(item)}
+              onClick={(e) => e.stopPropagation()}
+              className="h-3 w-3"
+            />
+          )}
+          <FileText className={cn("h-3 w-3 flex-shrink-0", getIconColor())} />
+          
+          <span className="truncate flex-1 text-left">
+            {selectedClusters.length > 1 && item.clusterName && (
+              <Badge variant="outline" className="h-3.5 px-1 text-[10px] mr-1">
+                {item.clusterName}
+              </Badge>
+            )}
+            {item.namespace && (
+              <span className="text-muted-foreground">
+                {searchQuery ? highlightSearchTerm(item.namespace, searchQuery) : item.namespace}/
+              </span>
+            )}
+            {searchQuery ? highlightSearchTerm(item.name, searchQuery) : item.name}
+          </span>
+          
+          {/* ServiceAccount status badges - at the end */}
+          {item.age && (
+            <TooltipProvider>
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <Badge variant="outline" className="h-4 px-1 text-[10px]">
+                    <Clock className="h-2 w-2 mr-0.5" />
+                    {item.age}
+                  </Badge>
+                </TooltipTrigger>
+                <TooltipContent>
+                  <p>Created: {item.creationTimestamp}</p>
+                </TooltipContent>
+              </Tooltip>
+            </TooltipProvider>
+          )}
+          
+          {(item.serviceAccountSecretsCount !== undefined || item.serviceAccountImagePullSecretsCount !== undefined) && (
+            <TooltipProvider>
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <Badge variant="outline" className="h-4 px-1 text-[10px]">
+                    <Users className="h-2 w-2 mr-0.5" />
+                    {(item.serviceAccountSecretsCount || 0) + (item.serviceAccountImagePullSecretsCount || 0)}
+                  </Badge>
+                </TooltipTrigger>
+                <TooltipContent>
+                  <p>Secrets: {item.serviceAccountSecretsCount || 0}, ImagePullSecrets: {item.serviceAccountImagePullSecretsCount || 0}</p>
+                </TooltipContent>
+              </Tooltip>
+            </TooltipProvider>
+          )}
+        </div>
+      )
+    }
+
+    // Special rendering for Roles - inline format
+    if (item.kind === 'Role') {
+      return (
+        <div
+          key={resourceId}
+          className={cn(
+            "flex items-center gap-2 h-6 px-2 text-xs hover:bg-accent group cursor-pointer",
+            isSelected && "bg-accent"
+          )}
+          onClick={(e) => handleResourceClick(item, e)}
+        >
+          {isMultiSelectMode && (
+            <Checkbox
+              checked={isSelected}
+              onCheckedChange={() => toggleResourceSelection(item)}
+              onClick={(e) => e.stopPropagation()}
+              className="h-3 w-3"
+            />
+          )}
+          <FileText className={cn("h-3 w-3 flex-shrink-0", getIconColor())} />
+          
+          <span className="truncate flex-1 text-left">
+            {selectedClusters.length > 1 && item.clusterName && (
+              <Badge variant="outline" className="h-3.5 px-1 text-[10px] mr-1">
+                {item.clusterName}
+              </Badge>
+            )}
+            {item.namespace && (
+              <span className="text-muted-foreground">
+                {searchQuery ? highlightSearchTerm(item.namespace, searchQuery) : item.namespace}/
+              </span>
+            )}
+            {searchQuery ? highlightSearchTerm(item.name, searchQuery) : item.name}
+          </span>
+          
+          {/* Role status badges - at the end */}
+          {item.age && (
+            <TooltipProvider>
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <Badge variant="outline" className="h-4 px-1 text-[10px]">
+                    <Clock className="h-2 w-2 mr-0.5" />
+                    {item.age}
+                  </Badge>
+                </TooltipTrigger>
+                <TooltipContent>
+                  <p>Created: {item.creationTimestamp}</p>
+                </TooltipContent>
+              </Tooltip>
+            </TooltipProvider>
+          )}
+          
+          {item.roleRulesCount !== undefined && (
+            <TooltipProvider>
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <Badge variant="outline" className="h-4 px-1 text-[10px]">
+                    <Users className="h-2 w-2 mr-0.5" />
+                    {item.roleRulesCount}
+                  </Badge>
+                </TooltipTrigger>
+                <TooltipContent>
+                  <p>Rules Count</p>
+                </TooltipContent>
+              </Tooltip>
+            </TooltipProvider>
+          )}
+        </div>
+      )
+    }
+
+    // Special rendering for RoleBindings - inline format
+    if (item.kind === 'RoleBinding') {
+      return (
+        <div
+          key={resourceId}
+          className={cn(
+            "flex items-center gap-2 h-6 px-2 text-xs hover:bg-accent group cursor-pointer",
+            isSelected && "bg-accent"
+          )}
+          onClick={(e) => handleResourceClick(item, e)}
+        >
+          {isMultiSelectMode && (
+            <Checkbox
+              checked={isSelected}
+              onCheckedChange={() => toggleResourceSelection(item)}
+              onClick={(e) => e.stopPropagation()}
+              className="h-3 w-3"
+            />
+          )}
+          <FileText className={cn("h-3 w-3 flex-shrink-0", getIconColor())} />
+          
+          <span className="truncate flex-1 text-left">
+            {selectedClusters.length > 1 && item.clusterName && (
+              <Badge variant="outline" className="h-3.5 px-1 text-[10px] mr-1">
+                {item.clusterName}
+              </Badge>
+            )}
+            {item.namespace && (
+              <span className="text-muted-foreground">
+                {searchQuery ? highlightSearchTerm(item.namespace, searchQuery) : item.namespace}/
+              </span>
+            )}
+            {searchQuery ? highlightSearchTerm(item.name, searchQuery) : item.name}
+          </span>
+          
+          {/* RoleBinding status badges - at the end */}
+          {item.age && (
+            <TooltipProvider>
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <Badge variant="outline" className="h-4 px-1 text-[10px]">
+                    <Clock className="h-2 w-2 mr-0.5" />
+                    {item.age}
+                  </Badge>
+                </TooltipTrigger>
+                <TooltipContent>
+                  <p>Created: {item.creationTimestamp}</p>
+                </TooltipContent>
+              </Tooltip>
+            </TooltipProvider>
+          )}
+          
+          {item.roleBindingSubjectsCount !== undefined && (
+            <TooltipProvider>
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <Badge variant="outline" className="h-4 px-1 text-[10px]">
+                    <Users className="h-2 w-2 mr-0.5" />
+                    {item.roleBindingSubjectsCount}
+                  </Badge>
+                </TooltipTrigger>
+                <TooltipContent>
+                  <p>Subjects Count</p>
+                </TooltipContent>
+              </Tooltip>
+            </TooltipProvider>
+          )}
+        </div>
+      )
+    }
+
+    // Special rendering for ClusterRoles - inline format
+    if (item.kind === 'ClusterRole') {
+      return (
+        <div
+          key={resourceId}
+          className={cn(
+            "flex items-center gap-2 h-6 px-2 text-xs hover:bg-accent group cursor-pointer",
+            isSelected && "bg-accent"
+          )}
+          onClick={(e) => handleResourceClick(item, e)}
+        >
+          {isMultiSelectMode && (
+            <Checkbox
+              checked={isSelected}
+              onCheckedChange={() => toggleResourceSelection(item)}
+              onClick={(e) => e.stopPropagation()}
+              className="h-3 w-3"
+            />
+          )}
+          <FileText className={cn("h-3 w-3 flex-shrink-0", getIconColor())} />
+          
+          <span className="truncate flex-1 text-left">
+            {selectedClusters.length > 1 && item.clusterName && (
+              <Badge variant="outline" className="h-3.5 px-1 text-[10px] mr-1">
+                {item.clusterName}
+              </Badge>
+            )}
+            {item.namespace && (
+              <span className="text-muted-foreground">
+                {searchQuery ? highlightSearchTerm(item.namespace, searchQuery) : item.namespace}/
+              </span>
+            )}
+            {searchQuery ? highlightSearchTerm(item.name, searchQuery) : item.name}
+          </span>
+          
+          {/* ClusterRole status badges - at the end */}
+          {item.age && (
+            <TooltipProvider>
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <Badge variant="outline" className="h-4 px-1 text-[10px]">
+                    <Clock className="h-2 w-2 mr-0.5" />
+                    {item.age}
+                  </Badge>
+                </TooltipTrigger>
+                <TooltipContent>
+                  <p>Created: {item.creationTimestamp}</p>
+                </TooltipContent>
+              </Tooltip>
+            </TooltipProvider>
+          )}
+          
+          {item.clusterRoleRulesCount !== undefined && (
+            <TooltipProvider>
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <Badge variant="outline" className="h-4 px-1 text-[10px]">
+                    <Users className="h-2 w-2 mr-0.5" />
+                    {item.clusterRoleRulesCount}
+                  </Badge>
+                </TooltipTrigger>
+                <TooltipContent>
+                  <p>Rules Count</p>
+                </TooltipContent>
+              </Tooltip>
+            </TooltipProvider>
+          )}
+        </div>
+      )
+    }
+
+    // Special rendering for ClusterRoleBindings - inline format
+    if (item.kind === 'ClusterRoleBinding') {
+      return (
+        <div
+          key={resourceId}
+          className={cn(
+            "flex items-center gap-2 h-6 px-2 text-xs hover:bg-accent group cursor-pointer",
+            isSelected && "bg-accent"
+          )}
+          onClick={(e) => handleResourceClick(item, e)}
+        >
+          {isMultiSelectMode && (
+            <Checkbox
+              checked={isSelected}
+              onCheckedChange={() => toggleResourceSelection(item)}
+              onClick={(e) => e.stopPropagation()}
+              className="h-3 w-3"
+            />
+          )}
+          <FileText className={cn("h-3 w-3 flex-shrink-0", getIconColor())} />
+          
+          <span className="truncate flex-1 text-left">
+            {selectedClusters.length > 1 && item.clusterName && (
+              <Badge variant="outline" className="h-3.5 px-1 text-[10px] mr-1">
+                {item.clusterName}
+              </Badge>
+            )}
+            {item.namespace && (
+              <span className="text-muted-foreground">
+                {searchQuery ? highlightSearchTerm(item.namespace, searchQuery) : item.namespace}/
+              </span>
+            )}
+            {searchQuery ? highlightSearchTerm(item.name, searchQuery) : item.name}
+          </span>
+          
+          {/* ClusterRoleBinding status badges - at the end */}
+          {item.age && (
+            <TooltipProvider>
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <Badge variant="outline" className="h-4 px-1 text-[10px]">
+                    <Clock className="h-2 w-2 mr-0.5" />
+                    {item.age}
+                  </Badge>
+                </TooltipTrigger>
+                <TooltipContent>
+                  <p>Created: {item.creationTimestamp}</p>
+                </TooltipContent>
+              </Tooltip>
+            </TooltipProvider>
+          )}
+          
+          {item.clusterRoleBindingSubjectsCount !== undefined && (
+            <TooltipProvider>
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <Badge variant="outline" className="h-4 px-1 text-[10px]">
+                    <Users className="h-2 w-2 mr-0.5" />
+                    {item.clusterRoleBindingSubjectsCount}
+                  </Badge>
+                </TooltipTrigger>
+                <TooltipContent>
+                  <p>Subjects Count</p>
+                </TooltipContent>
+              </Tooltip>
+            </TooltipProvider>
+          )}
+        </div>
+      )
+    }
+
+    // Special rendering for NetworkPolicies - inline format
+    if (item.kind === 'NetworkPolicy') {
+      return (
+        <div
+          key={resourceId}
+          className={cn(
+            "flex items-center gap-2 h-6 px-2 text-xs hover:bg-accent group cursor-pointer",
+            isSelected && "bg-accent"
+          )}
+          onClick={(e) => handleResourceClick(item, e)}
+        >
+          {isMultiSelectMode && (
+            <Checkbox
+              checked={isSelected}
+              onCheckedChange={() => toggleResourceSelection(item)}
+              onClick={(e) => e.stopPropagation()}
+              className="h-3 w-3"
+            />
+          )}
+          <FileText className={cn("h-3 w-3 flex-shrink-0", getIconColor())} />
+          
+          <span className="truncate flex-1 text-left">
+            {selectedClusters.length > 1 && item.clusterName && (
+              <Badge variant="outline" className="h-3.5 px-1 text-[10px] mr-1">
+                {item.clusterName}
+              </Badge>
+            )}
+            {item.namespace && (
+              <span className="text-muted-foreground">
+                {searchQuery ? highlightSearchTerm(item.namespace, searchQuery) : item.namespace}/
+              </span>
+            )}
+            {searchQuery ? highlightSearchTerm(item.name, searchQuery) : item.name}
+          </span>
+          
+          {/* NetworkPolicy status badges - at the end */}
+          {item.age && (
+            <TooltipProvider>
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <Badge variant="outline" className="h-4 px-1 text-[10px]">
+                    <Clock className="h-2 w-2 mr-0.5" />
+                    {item.age}
+                  </Badge>
+                </TooltipTrigger>
+                <TooltipContent>
+                  <p>Created: {item.creationTimestamp}</p>
+                </TooltipContent>
+              </Tooltip>
+            </TooltipProvider>
+          )}
+          
+          {item.networkPolicyRulesCount !== undefined && (
+            <TooltipProvider>
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <Badge variant="outline" className="h-4 px-1 text-[10px]">
+                    <Users className="h-2 w-2 mr-0.5" />
+                    {item.networkPolicyRulesCount}
+                  </Badge>
+                </TooltipTrigger>
+                <TooltipContent>
+                  <p>Rules Count</p>
+                </TooltipContent>
+              </Tooltip>
+            </TooltipProvider>
+          )}
+        </div>
+      )
+    }
+
+    // Special rendering for StorageClasses - inline format
+    if (item.kind === 'StorageClass') {
+      return (
+        <div
+          key={resourceId}
+          className={cn(
+            "flex items-center gap-2 h-6 px-2 text-xs hover:bg-accent group cursor-pointer",
+            isSelected && "bg-accent"
+          )}
+          onClick={(e) => handleResourceClick(item, e)}
+        >
+          {isMultiSelectMode && (
+            <Checkbox
+              checked={isSelected}
+              onCheckedChange={() => toggleResourceSelection(item)}
+              onClick={(e) => e.stopPropagation()}
+              className="h-3 w-3"
+            />
+          )}
+          <FileText className={cn("h-3 w-3 flex-shrink-0", getIconColor())} />
+          
+          <span className="truncate flex-1 text-left">
+            {selectedClusters.length > 1 && item.clusterName && (
+              <Badge variant="outline" className="h-3.5 px-1 text-[10px] mr-1">
+                {item.clusterName}
+              </Badge>
+            )}
+            {item.namespace && (
+              <span className="text-muted-foreground">
+                {searchQuery ? highlightSearchTerm(item.namespace, searchQuery) : item.namespace}/
+              </span>
+            )}
+            {searchQuery ? highlightSearchTerm(item.name, searchQuery) : item.name}
+          </span>
+          
+          {/* StorageClass status badges - at the end */}
+          {item.age && (
+            <TooltipProvider>
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <Badge variant="outline" className="h-4 px-1 text-[10px]">
+                    <Clock className="h-2 w-2 mr-0.5" />
+                    {item.age}
+                  </Badge>
+                </TooltipTrigger>
+                <TooltipContent>
+                  <p>Created: {item.creationTimestamp}</p>
+                </TooltipContent>
+              </Tooltip>
+            </TooltipProvider>
+          )}
+          
+          {item.storageClassProvisioner && (
+            <Badge variant="outline" className="h-4 px-1 text-[10px]">
+              {item.storageClassProvisioner}
+            </Badge>
+          )}
+        </div>
+      )
+    }
+
+    // Special rendering for Events - inline format
+    if (item.kind === 'Event') {
+      // Get event type color
+      const getEventTypeColor = (type: string) => {
+        switch (type) {
+          case 'Normal':
+            return 'bg-green-500 text-white'
+          case 'Warning':
+            return 'bg-yellow-500 text-white'
+          default:
+            return 'bg-gray-500 text-white'
+        }
+      }
+
+      return (
+        <div
+          key={resourceId}
+          className={cn(
+            "flex items-center gap-2 h-6 px-2 text-xs hover:bg-accent group cursor-pointer",
+            isSelected && "bg-accent"
+          )}
+          onClick={(e) => handleResourceClick(item, e)}
+        >
+          {isMultiSelectMode && (
+            <Checkbox
+              checked={isSelected}
+              onCheckedChange={() => toggleResourceSelection(item)}
+              onClick={(e) => e.stopPropagation()}
+              className="h-3 w-3"
+            />
+          )}
+          <FileText className={cn("h-3 w-3 flex-shrink-0", getIconColor())} />
+          
+          <span className="truncate flex-1 text-left">
+            {selectedClusters.length > 1 && item.clusterName && (
+              <Badge variant="outline" className="h-3.5 px-1 text-[10px] mr-1">
+                {item.clusterName}
+              </Badge>
+            )}
+            {item.namespace && (
+              <span className="text-muted-foreground">
+                {searchQuery ? highlightSearchTerm(item.namespace, searchQuery) : item.namespace}/
+              </span>
+            )}
+            {searchQuery ? highlightSearchTerm(item.name, searchQuery) : item.name}
+          </span>
+          
+          {/* Event status badges - at the end */}
+          {item.age && (
+            <TooltipProvider>
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <Badge variant="outline" className="h-4 px-1 text-[10px]">
+                    <Clock className="h-2 w-2 mr-0.5" />
+                    {item.age}
+                  </Badge>
+                </TooltipTrigger>
+                <TooltipContent>
+                  <p>Created: {item.creationTimestamp}</p>
+                </TooltipContent>
+              </Tooltip>
+            </TooltipProvider>
+          )}
+          
+          {item.eventType && (
+            <Badge 
+              className={cn("h-4 px-1 text-[10px]", getEventTypeColor(item.eventType))}
+            >
+              {item.eventType}
+            </Badge>
+          )}
+          
+          {item.eventCount !== undefined && (
+            <TooltipProvider>
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <Badge variant="outline" className="h-4 px-1 text-[10px]">
+                    <Users className="h-2 w-2 mr-0.5" />
+                    {item.eventCount}
+                  </Badge>
+                </TooltipTrigger>
+                <TooltipContent>
+                  <p>Count</p>
+                </TooltipContent>
+              </Tooltip>
+            </TooltipProvider>
+          )}
+        </div>
+      )
+    }
+
+    // Special rendering for CustomResourceDefinitions - inline format
+    if (item.kind === 'CustomResourceDefinition') {
+      return (
+        <div
+          key={resourceId}
+          className={cn(
+            "flex items-center gap-2 h-6 px-2 text-xs hover:bg-accent group cursor-pointer",
+            isSelected && "bg-accent"
+          )}
+          onClick={(e) => handleResourceClick(item, e)}
+        >
+          {isMultiSelectMode && (
+            <Checkbox
+              checked={isSelected}
+              onCheckedChange={() => toggleResourceSelection(item)}
+              onClick={(e) => e.stopPropagation()}
+              className="h-3 w-3"
+            />
+          )}
+          <FileText className={cn("h-3 w-3 flex-shrink-0", getIconColor())} />
+          
+          <span className="truncate flex-1 text-left">
+            {selectedClusters.length > 1 && item.clusterName && (
+              <Badge variant="outline" className="h-3.5 px-1 text-[10px] mr-1">
+                {item.clusterName}
+              </Badge>
+            )}
+            {item.namespace && (
+              <span className="text-muted-foreground">
+                {searchQuery ? highlightSearchTerm(item.namespace, searchQuery) : item.namespace}/
+              </span>
+            )}
+            {searchQuery ? highlightSearchTerm(item.name, searchQuery) : item.name}
+          </span>
+          
+          {/* CRD status badges - at the end */}
+          {item.age && (
+            <TooltipProvider>
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <Badge variant="outline" className="h-4 px-1 text-[10px]">
+                    <Clock className="h-2 w-2 mr-0.5" />
+                    {item.age}
+                  </Badge>
+                </TooltipTrigger>
+                <TooltipContent>
+                  <p>Created: {item.creationTimestamp}</p>
+                </TooltipContent>
+              </Tooltip>
+            </TooltipProvider>
+          )}
+          
+          {item.crdScope && (
+            <Badge variant="outline" className="h-4 px-1 text-[10px]">
+              {item.crdScope}
+            </Badge>
+          )}
+          
+          {item.crdVersionCount !== undefined && (
+            <TooltipProvider>
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <Badge variant="outline" className="h-4 px-1 text-[10px]">
+                    <Users className="h-2 w-2 mr-0.5" />
+                    {item.crdVersionCount}
+                  </Badge>
+                </TooltipTrigger>
+                <TooltipContent>
+                  <p>Versions</p>
+                </TooltipContent>
+              </Tooltip>
+            </TooltipProvider>
+          )}
+        </div>
+      )
+    }
+
+    // Special rendering for Nodes - inline format
+    if (item.kind === 'Node') {
+      // Get node status color
+      const getNodeStatusColor = (status: string) => {
+        switch (status) {
+          case 'Ready':
+            return 'bg-green-500 text-white'
+          case 'NotReady':
+            return 'bg-red-500 text-white'
+          default:
+            return 'bg-gray-500 text-white'
+        }
+      }
+
+      return (
+        <div
+          key={resourceId}
+          className={cn(
+            "flex items-center gap-2 h-6 px-2 text-xs hover:bg-accent group cursor-pointer",
+            isSelected && "bg-accent"
+          )}
+          onClick={(e) => handleResourceClick(item, e)}
+        >
+          {isMultiSelectMode && (
+            <Checkbox
+              checked={isSelected}
+              onCheckedChange={() => toggleResourceSelection(item)}
+              onClick={(e) => e.stopPropagation()}
+              className="h-3 w-3"
+            />
+          )}
+          <FileText className={cn("h-3 w-3 flex-shrink-0", getIconColor())} />
+          
+          <span className="truncate flex-1 text-left">
+            {selectedClusters.length > 1 && item.clusterName && (
+              <Badge variant="outline" className="h-3.5 px-1 text-[10px] mr-1">
+                {item.clusterName}
+              </Badge>
+            )}
+            {item.namespace && (
+              <span className="text-muted-foreground">
+                {searchQuery ? highlightSearchTerm(item.namespace, searchQuery) : item.namespace}/
+              </span>
+            )}
+            {searchQuery ? highlightSearchTerm(item.name, searchQuery) : item.name}
+          </span>
+          
+          {/* Node status badges - at the end */}
+          {item.age && (
+            <TooltipProvider>
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <Badge variant="outline" className="h-4 px-1 text-[10px]">
+                    <Clock className="h-2 w-2 mr-0.5" />
+                    {item.age}
+                  </Badge>
+                </TooltipTrigger>
+                <TooltipContent>
+                  <p>Created: {item.creationTimestamp}</p>
+                </TooltipContent>
+              </Tooltip>
+            </TooltipProvider>
+          )}
+          
+          {item.nodeStatus && (
+            <Badge 
+              className={cn("h-4 px-1 text-[10px]", getNodeStatusColor(item.nodeStatus))}
+            >
+              {item.nodeStatus}
+            </Badge>
+          )}
+          
+          {item.nodeRole && (
+            <Badge variant="outline" className="h-4 px-1 text-[10px]">
+              {item.nodeRole}
+            </Badge>
+          )}
+          
+          {item.nodePodCount !== undefined && (
+            <TooltipProvider>
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <Badge variant="outline" className="h-4 px-1 text-[10px]">
+                    <Users className="h-2 w-2 mr-0.5" />
+                    {item.nodePodCount}
+                  </Badge>
+                </TooltipTrigger>
+                <TooltipContent>
+                  <p>Pods on this node</p>
+                </TooltipContent>
+              </Tooltip>
+            </TooltipProvider>
+          )}
+        </div>
+      )
+    }
+
+    // Special rendering for ResourceQuotas - inline format
+    if (item.kind === 'ResourceQuota') {
+      return (
+        <div
+          key={resourceId}
+          className={cn(
+            "flex items-center gap-2 h-6 px-2 text-xs hover:bg-accent group cursor-pointer",
+            isSelected && "bg-accent"
+          )}
+          onClick={(e) => handleResourceClick(item, e)}
+        >
+          {isMultiSelectMode && (
+            <Checkbox
+              checked={isSelected}
+              onCheckedChange={() => toggleResourceSelection(item)}
+              onClick={(e) => e.stopPropagation()}
+              className="h-3 w-3"
+            />
+          )}
+          <FileText className={cn("h-3 w-3 flex-shrink-0", getIconColor())} />
+          
+          <span className="truncate flex-1 text-left">
+            {selectedClusters.length > 1 && item.clusterName && (
+              <Badge variant="outline" className="h-3.5 px-1 text-[10px] mr-1">
+                {item.clusterName}
+              </Badge>
+            )}
+            {item.namespace && (
+              <span className="text-muted-foreground">
+                {searchQuery ? highlightSearchTerm(item.namespace, searchQuery) : item.namespace}/
+              </span>
+            )}
+            {searchQuery ? highlightSearchTerm(item.name, searchQuery) : item.name}
+          </span>
+          
+          {/* ResourceQuota status badges - at the end */}
+          {item.age && (
+            <TooltipProvider>
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <Badge variant="outline" className="h-4 px-1 text-[10px]">
+                    <Clock className="h-2 w-2 mr-0.5" />
+                    {item.age}
+                  </Badge>
+                </TooltipTrigger>
+                <TooltipContent>
+                  <p>Created: {item.creationTimestamp}</p>
+                </TooltipContent>
+              </Tooltip>
+            </TooltipProvider>
+          )}
+          
+          {item.resourceQuotaStatus && (
+            <Badge variant="outline" className="h-4 px-1 text-[10px]">
+              {item.resourceQuotaStatus}
+            </Badge>
+          )}
+          
+          {item.resourceQuotaUsed && (
+            <TooltipProvider>
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <Badge variant="outline" className="h-4 px-1 text-[10px]">
+                    <Users className="h-2 w-2 mr-0.5" />
+                    Used
+                  </Badge>
+                </TooltipTrigger>
+                <TooltipContent>
+                  <p>{item.resourceQuotaUsed}</p>
+                </TooltipContent>
+              </Tooltip>
+            </TooltipProvider>
+          )}
+        </div>
+      )
+    }
+
+    // Special rendering for LimitRanges - inline format
+    if (item.kind === 'LimitRange') {
+      return (
+        <div
+          key={resourceId}
+          className={cn(
+            "flex items-center gap-2 h-6 px-2 text-xs hover:bg-accent group cursor-pointer",
+            isSelected && "bg-accent"
+          )}
+          onClick={(e) => handleResourceClick(item, e)}
+        >
+          {isMultiSelectMode && (
+            <Checkbox
+              checked={isSelected}
+              onCheckedChange={() => toggleResourceSelection(item)}
+              onClick={(e) => e.stopPropagation()}
+              className="h-3 w-3"
+            />
+          )}
+          <FileText className={cn("h-3 w-3 flex-shrink-0", getIconColor())} />
+          
+          <span className="truncate flex-1 text-left">
+            {selectedClusters.length > 1 && item.clusterName && (
+              <Badge variant="outline" className="h-3.5 px-1 text-[10px] mr-1">
+                {item.clusterName}
+              </Badge>
+            )}
+            {item.namespace && (
+              <span className="text-muted-foreground">
+                {searchQuery ? highlightSearchTerm(item.namespace, searchQuery) : item.namespace}/
+              </span>
+            )}
+            {searchQuery ? highlightSearchTerm(item.name, searchQuery) : item.name}
+          </span>
+          
+          {/* LimitRange status badges - at the end */}
+          {item.age && (
+            <TooltipProvider>
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <Badge variant="outline" className="h-4 px-1 text-[10px]">
+                    <Clock className="h-2 w-2 mr-0.5" />
+                    {item.age}
+                  </Badge>
+                </TooltipTrigger>
+                <TooltipContent>
+                  <p>Created: {item.creationTimestamp}</p>
+                </TooltipContent>
+              </Tooltip>
+            </TooltipProvider>
+          )}
+          
+          {item.limitRangeStatus && (
+            <Badge variant="outline" className="h-4 px-1 text-[10px]">
+              {item.limitRangeStatus}
+            </Badge>
+          )}
+          
+          {item.limitRangeLimitsCount !== undefined && (
+            <TooltipProvider>
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <Badge variant="outline" className="h-4 px-1 text-[10px]">
+                    <Users className="h-2 w-2 mr-0.5" />
+                    {item.limitRangeLimitsCount}
+                  </Badge>
+                </TooltipTrigger>
+                <TooltipContent>
+                  <p>Limits Count</p>
+                </TooltipContent>
+              </Tooltip>
+            </TooltipProvider>
+          )}
+        </div>
+      )
+    }
+
+    // Special rendering for Deployments - inline format
+    if (item.kind === 'Deployment') {
+      return (
+        <div
+          key={resourceId}
+          className={cn(
+            "flex items-center gap-2 h-6 px-2 text-xs hover:bg-accent group cursor-pointer",
+            isSelected && "bg-accent"
+          )}
+          onClick={(e) => handleResourceClick(item, e)}
+        >
+          {isMultiSelectMode && (
+            <Checkbox
+              checked={isSelected}
+              onCheckedChange={() => toggleResourceSelection(item)}
+              onClick={(e) => e.stopPropagation()}
+              className="h-3 w-3"
+            />
+          )}
+          <FileText className={cn("h-3 w-3 flex-shrink-0", getIconColor())} />
+          
+          <span className="truncate flex-1 text-left">
+            {selectedClusters.length > 1 && item.clusterName && (
+              <Badge variant="outline" className="h-3.5 px-1 text-[10px] mr-1">
+                {item.clusterName}
+              </Badge>
+            )}
+            {item.namespace && (
+              <span className="text-muted-foreground">
+                {searchQuery ? highlightSearchTerm(item.namespace, searchQuery) : item.namespace}/
+              </span>
+            )}
+            {searchQuery ? highlightSearchTerm(item.name, searchQuery) : item.name}
+          </span>
+          
+          {/* Deployment status badges - at the end */}
+          {item.age && (
+            <TooltipProvider>
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <Badge variant="outline" className="h-4 px-1 text-[10px]">
+                    <Clock className="h-2 w-2 mr-0.5" />
+                    {item.age}
+                  </Badge>
+                </TooltipTrigger>
+                <TooltipContent>
+                  <p>Created: {item.creationTimestamp}</p>
+                </TooltipContent>
+              </Tooltip>
+            </TooltipProvider>
+          )}
+          
+          {(item.desiredReplicas !== undefined || item.readyReplicas !== undefined) && (
+            <TooltipProvider>
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <Badge variant="outline" className="h-4 px-1 text-[10px]">
+                    <Users className="h-2 w-2 mr-0.5" />
+                    {item.readyReplicas || 0}/{item.desiredReplicas || 0}
+                  </Badge>
+                </TooltipTrigger>
+                <TooltipContent>
+                  <p>Ready/Desired Replicas</p>
+                </TooltipContent>
+              </Tooltip>
+            </TooltipProvider>
+          )}
+        </div>
+      )
+    }
+
+    // Special rendering for ReplicaSets - inline format
+    if (item.kind === 'ReplicaSet') {
+      return (
+        <div
+          key={resourceId}
+          className={cn(
+            "flex items-center gap-2 h-6 px-2 text-xs hover:bg-accent group cursor-pointer",
+            isSelected && "bg-accent",
+            item.isCurrent === false && "opacity-60"
+          )}
+          onClick={(e) => handleResourceClick(item, e)}
+        >
+          {isMultiSelectMode && (
+            <Checkbox
+              checked={isSelected}
+              onCheckedChange={() => toggleResourceSelection(item)}
+              onClick={(e) => e.stopPropagation()}
+              className="h-3 w-3"
+            />
+          )}
+          <Package className={cn("h-3 w-3 flex-shrink-0", getIconColor())} />
+          
+          <span className="truncate flex-1 text-left">
+            {selectedClusters.length > 1 && item.clusterName && (
+              <Badge variant="outline" className="h-3.5 px-1 text-[10px] mr-1">
+                {item.clusterName}
+              </Badge>
+            )}
+            {item.namespace && (
+              <span className="text-muted-foreground">
+                {searchQuery ? highlightSearchTerm(item.namespace, searchQuery) : item.namespace}/
+              </span>
+            )}
+            {searchQuery ? highlightSearchTerm(item.name, searchQuery) : item.name}
+          </span>
+          
+          {/* ReplicaSet status badges - moved to the end */}
+          {item.isCurrent !== undefined && (
+            <Badge 
+              variant={item.isCurrent ? "default" : "secondary"}
+              className="h-4 px-1 text-[10px]"
+            >
+              {item.isCurrent ? "Current" : "Old"}
+            </Badge>
+          )}
+          
+          {item.age && (
+            <TooltipProvider>
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <Badge variant="outline" className="h-4 px-1 text-[10px]">
+                    <Clock className="h-2 w-2 mr-0.5" />
+                    {item.age}
+                  </Badge>
+                </TooltipTrigger>
+                <TooltipContent>
+                  <p>Created: {item.creationTimestamp}</p>
+                </TooltipContent>
+              </Tooltip>
+            </TooltipProvider>
+          )}
+          
+          {(item.desiredReplicas !== undefined || item.readyReplicas !== undefined) && (
+            <TooltipProvider>
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <Badge variant="outline" className="h-4 px-1 text-[10px]">
+                    <Users className="h-2 w-2 mr-0.5" />
+                    {item.readyReplicas || 0}/{item.desiredReplicas || 0}
+                  </Badge>
+                </TooltipTrigger>
+                <TooltipContent>
+                  <p>Ready/Desired Replicas</p>
+                </TooltipContent>
+              </Tooltip>
+            </TooltipProvider>
+          )}
+        </div>
+      )
+    }
     
+    // Default rendering for other resources
     return (
       <div
         key={resourceId}
@@ -198,9 +2299,10 @@ export function ResourceTree({
     
     return (
       <div key={group.name}>
+        <div className="flex items-center w-full h-7 px-2 text-sm">
         <Button
           variant="ghost"
-          className="w-full justify-start h-7 px-2 text-sm hover:bg-accent"
+            className="flex-1 justify-start h-7 px-0 text-sm hover:bg-accent"
           onClick={() => onGroupToggle(group.name, group)}
         >
           {groupData?.expanded ? (
@@ -209,20 +2311,63 @@ export function ResourceTree({
             <ChevronRight className="h-3 w-3 mr-1" />
           )}
           <Icon className={cn("h-3 w-3 mr-2", getIconColor())} />
-          <span className="flex-1 text-left">{group.name}</span>
+            <span className="flex-1 text-left">
+            {searchQuery && group.name.toLowerCase().includes(searchQuery.toLowerCase()) ? (
+              (() => {
+                const query = searchQuery.toLowerCase()
+                const name = group.name
+                const index = name.toLowerCase().indexOf(query)
+                return (
+                  <>
+                    {name.substring(0, index)}
+                    <span className="bg-yellow-200 text-yellow-900 px-1 rounded">
+                      {name.substring(index, index + searchQuery.length)}
+                    </span>
+                    {name.substring(index + searchQuery.length)}
+                  </>
+                )
+              })()
+            ) : (
+              group.name
+            )}
+          </span>
           {groupData?.loading && (
             <RefreshCw className="h-3 w-3 animate-spin ml-2" />
           )}
-          {groupData?.items.length > 0 && (
+            {groupData?.items && groupData.items.length > 0 && (
             <Badge variant="secondary" className="h-5 px-1 text-xs">
               {groupData.items.length}
             </Badge>
           )}
         </Button>
+          <div className="ml-2">
+            <Button
+              size="icon"
+              variant="ghost"
+              className="h-6 w-6 hover:bg-accent"
+              onClick={(e) => {
+                e.stopPropagation()
+                onGroupSmartFetch(group.name, group.kind, group.apiVersion)
+              }}
+              disabled={isFetchingGroup.get(group.name)}
+              title={
+                isFetchingGroup.get(group.name)
+                  ? `Fetching details for ${group.name}...`
+                  : `Fetch detailed info for ${group.name}`
+              }
+            >
+              {isFetchingGroup.get(group.name) ? (
+                <RefreshCw className="h-3 w-3 animate-spin" />
+              ) : (
+                <RefreshCw className="h-3 w-3" />
+              )}
+            </Button>
+          </div>
+        </div>
         
         {groupData?.expanded && (
           <div className="ml-6">
-            {groupData.items.map((item) => renderResourceItem(item, category))}
+            {(searchQuery && (group as any).filteredItems ? (group as any).filteredItems : groupData.items).map((item: ResourceItem) => renderResourceItem(item, category))}
           </div>
         )}
       </div>
@@ -312,8 +2457,8 @@ export function ResourceTree({
                 {[
                   selectedNamespace !== 'all' && 1,
                   selectedResourceTypes.length > 0 && 1,
-                  searchQuery && 1
-                ].filter(Boolean).reduce((a, b) => a + b, 0)} active
+                  searchQuery ? 1 : 0
+                ].filter(Boolean).reduce((a: any, b: any) => Number(a) + Number(b), 0)} active
               </Badge>
             )}
           </h2>
@@ -328,9 +2473,36 @@ export function ResourceTree({
               }}
               title={isMultiSelectMode ? "Exit multi-select" : "Multi-select mode"}
             >
-              <Checkbox className="h-3.5 w-3.5" />
+              <div className="h-3.5 w-3.5 border border-primary rounded-sm flex items-center justify-center">
+                {isMultiSelectMode && (
+                  <div className="h-2 w-2 bg-primary rounded-sm" />
+                )}
+              </div>
+            </Button>
+             <Button
+               variant={enhanceMode ? "default" : "ghost"}
+               size="icon"
+               className="h-7 w-7"
+               onClick={onEnhanceModeToggle}
+               title={enhanceMode ? "Disable detailed info mode" : "Enable detailed info mode"}
+             >
+               <Info className="h-3.5 w-3.5" />
             </Button>
             {(selectedNamespace !== 'all' || selectedResourceTypes.length > 0 || searchQuery || searchInYaml) && (
+              <div className="flex items-center gap-2">
+                {searchQuery && (
+                  <span className="text-xs text-muted-foreground">
+                    {filteredCategories.reduce((total, cat) => 
+                      total + cat.groups.reduce((groupTotal, group) => {
+                        if (searchQuery && (group as any).filteredItems) {
+                          return groupTotal + (group as any).filteredItems.length
+                        }
+                        const groupData = resourceGroups.get(group.name)
+                        return groupTotal + (groupData?.items.length || 0)
+                      }, 0), 0
+                    )} results
+                  </span>
+                )}
               <Button
                 variant="ghost"
                 size="icon"
@@ -345,6 +2517,7 @@ export function ResourceTree({
               >
                 <X className="h-3.5 w-3.5" />
               </Button>
+              </div>
             )}
             <Button
               variant="ghost"
