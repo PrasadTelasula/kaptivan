@@ -81,6 +81,7 @@ export function ResourceTree({
   const [selectedResources, setSelectedResources] = useState<Set<string>>(new Set())
   const [isMultiSelectMode, setIsMultiSelectMode] = useState(false)
   
+  
   // Filter logic
   const filteredCategories = (() => {
     let filtered = RESOURCE_CATEGORIES
@@ -187,6 +188,8 @@ export function ResourceTree({
       onResourceSelect(item)
     }
   }
+
+
 
   const renderResourceItem = (item: ResourceItem, category: string) => {
     const resourceId = getResourceId(item)
@@ -314,6 +317,7 @@ export function ResourceTree({
               </Tooltip>
             </TooltipProvider>
           )}
+          
         </div>
       )
     }
@@ -2392,6 +2396,7 @@ export function ResourceTree({
               </Tooltip>
             </TooltipProvider>
           )}
+          
         </div>
       )
     }
@@ -2516,6 +2521,7 @@ export function ResourceTree({
           )}
           {item.name}
         </span>
+        
       </div>
     )
   }
@@ -2970,6 +2976,8 @@ export function ResourceTree({
           )}
         </div>
       </ScrollArea>
+      
+      
     </div>
   )
 }

@@ -3,26 +3,28 @@ package api
 import (
 	"fmt"
 	"log"
-	
+
 	"github.com/gin-gonic/gin"
 	"github.com/prasad/kaptivan/backend/internal/api/handlers"
 	"github.com/prasad/kaptivan/backend/internal/api/handlers/apidocs"
 	"github.com/prasad/kaptivan/backend/internal/api/handlers/deployments"
 	"github.com/prasad/kaptivan/backend/internal/api/handlers/events"
 	"github.com/prasad/kaptivan/backend/internal/api/handlers/manifests"
-	"github.com/prasad/kaptivan/backend/internal/api/handlers/pods"
-	"github.com/prasad/kaptivan/backend/internal/api/handlers/services"
-	"github.com/prasad/kaptivan/backend/internal/api/handlers/topology"
-	"github.com/prasad/kaptivan/backend/internal/api/handlers/resources"
 	"github.com/prasad/kaptivan/backend/internal/api/handlers/namespaces"
+	"github.com/prasad/kaptivan/backend/internal/api/handlers/pods"
+	"github.com/prasad/kaptivan/backend/internal/api/handlers/resources"
+	"github.com/prasad/kaptivan/backend/internal/api/handlers/services"
 	"github.com/prasad/kaptivan/backend/internal/api/handlers/sqlquery"
+	"github.com/prasad/kaptivan/backend/internal/api/handlers/topology"
 	"github.com/prasad/kaptivan/backend/internal/api/middleware"
+	"github.com/prasad/kaptivan/backend/internal/api/routes"
+	"github.com/prasad/kaptivan/backend/internal/linter/wrapper"
 	logsHandlers "github.com/prasad/kaptivan/backend/internal/logs/handlers"
 )
 
 func SetupRoutes(r *gin.Engine) {
 	r.Use(middleware.CORS())
-	
+
 	// Initialize cluster manager
 	manager, err := handlers.InitializeClusterManager()
 	if err != nil {
@@ -50,26 +52,35 @@ func SetupRoutes(r *gin.Engine) {
 		// Initialize SQL query handlers
 		sqlquery.Initialize(manager)
 	}
-	
+
+	// Initialize linter (doesn't require cluster manager)
+	var linter *wrapper.Linter
+	config := wrapper.DefaultConfig()
+	var linterErr error
+	linter, linterErr = wrapper.NewLinter(config)
+	if linterErr != nil {
+		println("Warning: Failed to initialize linter:", linterErr.Error())
+	}
+
 	r.GET("/health", handlers.Health)
-	
+
 	v1 := r.Group("/api/v1")
 	{
 		// Legacy endpoint (kept for compatibility)
 		v1.GET("/clusters", handlers.ListClusters)
-		
+
 		// New cluster management endpoints
 		v1.GET("/clusters/config", handlers.ListClustersFromConfig)
 		v1.POST("/clusters/connect", handlers.ConnectCluster)
 		v1.POST("/clusters/disconnect", handlers.DisconnectCluster)
 		v1.GET("/clusters/info", handlers.GetClusterInfo)
-		
+
 		// Pod endpoints (new structured handlers)
 		podsGroup := v1.Group("/pods")
 		{
 			podsGroup.POST("/list", pods.List)
 			podsGroup.POST("/list-detailed", pods.ListDetailed) // New endpoint for detailed pod list
-			podsGroup.POST("/batch", pods.BatchGet) // New batch endpoint for multiple pod details
+			podsGroup.POST("/batch", pods.BatchGet)             // New batch endpoint for multiple pod details
 			podsGroup.GET("/get", pods.Get)
 			podsGroup.GET("/logs", pods.GetLogs)
 			podsGroup.GET("/events", pods.GetEvents)
@@ -78,7 +89,7 @@ func SetupRoutes(r *gin.Engine) {
 			podsGroup.GET("/exec/ws", pods.ExecWebSocket)
 			podsGroup.GET("/logs/ws", pods.LogsWebSocket)
 		}
-		
+
 		// Deployment endpoints (new structured handlers)
 		deploymentsGroup := v1.Group("/deployments")
 		{
@@ -88,7 +99,7 @@ func SetupRoutes(r *gin.Engine) {
 			deploymentsGroup.POST("/:context/:namespace/:name/restart", deployments.Restart)
 			deploymentsGroup.DELETE("/:context/:namespace/:name", deployments.Delete)
 		}
-		
+
 		// Services endpoints (new structured handlers)
 		servicesGroup := v1.Group("/services")
 		{
@@ -96,7 +107,7 @@ func SetupRoutes(r *gin.Engine) {
 			servicesGroup.GET("/:context/:namespace/:name", services.GetService)
 			servicesGroup.DELETE("/:context/:namespace/:name", services.DeleteService)
 		}
-		
+
 		// Manifest endpoints
 		manifestsGroup := v1.Group("/manifests")
 		{
@@ -107,17 +118,17 @@ func SetupRoutes(r *gin.Engine) {
 			// Add path-based route for related resources to match frontend expectations
 			manifestsGroup.GET("/:context/:name/related", manifests.GetRelatedResourcesWithPath)
 		}
-		
+
 		// Topology endpoints
 		// Initialize topology handler if not already done
 		if topology.GetHandler() == nil && manager != nil {
 			topology.Initialize(manager)
 		}
-		
+
 		topologyGroup := v1.Group("/topology")
 		{
 			topologyHandler := topology.GetHandler()
-			
+
 			if topologyHandler != nil {
 				topologyGroup.GET("/namespaces", topologyHandler.ListNamespaces)
 				topologyGroup.GET("/deployments/list", topologyHandler.ListDeployments)
@@ -128,11 +139,11 @@ func SetupRoutes(r *gin.Engine) {
 				topologyGroup.GET("/job", topologyHandler.GetJobTopology)
 				topologyGroup.GET("/cronjobs/list", topologyHandler.ListCronJobs)
 				topologyGroup.GET("/cronjob", topologyHandler.GetCronJobTopology)
-				
+
 				// WebSocket endpoint for real-time updates
 				topologyGroup.GET("/ws", func(c *gin.Context) {
 					context := c.Query("context")
-					
+
 					// Try to get clientset, if not connected, try to connect
 					clientset, err := manager.GetClientset(context)
 					if err != nil {
@@ -156,12 +167,12 @@ func SetupRoutes(r *gin.Engine) {
 				println("Warning: Topology handler not initialized - topology endpoints will not be available")
 			}
 		}
-		
+
 		// APIDocs endpoints
 		apiDocsGroup := v1.Group("/apidocs")
 		{
 			apiDocsHandler := apidocs.GetHandler()
-			
+
 			if apiDocsHandler != nil {
 				apiDocsGroup.GET("/groups", apiDocsHandler.GetAPIGroups)
 				apiDocsGroup.GET("/resources", apiDocsHandler.GetAPIResources)
@@ -172,7 +183,7 @@ func SetupRoutes(r *gin.Engine) {
 				println("Warning: APIDocs handler not initialized - APIDocs endpoints will not be available")
 			}
 		}
-		
+
 		// Logs endpoints (multi-cluster log aggregation)
 		logsGroup := v1.Group("/logs")
 		{
@@ -180,7 +191,7 @@ func SetupRoutes(r *gin.Engine) {
 				logsHandler := logsHandlers.NewLogsHandler(manager)
 				// Use optimized streaming handler for production performance
 				streamHandler := logsHandlers.NewStreamHandlerOptimized(manager)
-				
+
 				logsGroup.GET("/", logsHandler.GetLogs)
 				logsGroup.POST("/search", logsHandler.SearchLogs)
 				logsGroup.GET("/stream", streamHandler.StreamLogs)
@@ -188,7 +199,7 @@ func SetupRoutes(r *gin.Engine) {
 				println("Warning: Logs handler not initialized - logs endpoints will not be available")
 			}
 		}
-		
+
 		// Events endpoints
 		eventsGroup := v1.Group("/events")
 		{
@@ -196,7 +207,7 @@ func SetupRoutes(r *gin.Engine) {
 			eventsGroup.GET("/reasons", events.GetReasons)
 			eventsGroup.GET("/ws", events.EventsWebSocket) // WebSocket for real-time events
 		}
-		
+
 		// Logs V2 endpoints (with connection pooling and search optimization)
 		logsV2 := v1.Group("/logs/v2")
 		{
@@ -204,9 +215,9 @@ func SetupRoutes(r *gin.Engine) {
 				// Create pooled manager wrapper
 				poolConfig := logsHandlers.DefaultPoolConfig()
 				pooledManager := logsHandlers.NewClusterManagerWithPool(manager, poolConfig)
-				
+
 				// Optimized streaming handler (removed duplicate - already defined above)
-				
+
 				// Search handler with optimization
 				searchHandler := logsHandlers.NewSearchHandler(pooledManager)
 				logsV2.GET("/search", searchHandler.HandleSearchLogs)
@@ -216,7 +227,7 @@ func SetupRoutes(r *gin.Engine) {
 				println("Warning: Logs V2 handler not initialized - optimized logs endpoints will not be available")
 			}
 		}
-		
+
 		// Namespace resources endpoints
 		namespaceResources := v1.Group("/namespace-resources")
 		{
@@ -227,7 +238,7 @@ func SetupRoutes(r *gin.Engine) {
 			namespaceResources.POST("/resource-names", resources.GetResourceNames)
 			namespaceResources.GET("/resource-details", resources.GetNamespaceResourcesDetails)
 		}
-		
+
 		// Namespace comparison endpoints
 		namespacesGroup := v1.Group("/namespaces")
 		{
@@ -240,7 +251,7 @@ func SetupRoutes(r *gin.Engine) {
 				println("Warning: Namespace comparison handler not initialized - comparison endpoints will not be available")
 			}
 		}
-		
+
 		// SQL Query endpoints
 		sqlGroup := v1.Group("/sql")
 		{
@@ -248,7 +259,14 @@ func SetupRoutes(r *gin.Engine) {
 			sqlGroup.GET("/health", sqlquery.HandleHealth)
 			sqlGroup.GET("/schema", sqlquery.HandleSchema)
 		}
-		
+
+		// Linter endpoints
+		if linter != nil {
+			routes.RegisterLinterRoutes(v1, linter)
+		} else {
+			println("Warning: Linter not initialized - linting endpoints will not be available")
+		}
+
 		// Resource endpoints (legacy, will be deprecated)
 		resourcesLegacy := v1.Group("/resources")
 		{
@@ -261,28 +279,28 @@ func SetupRoutes(r *gin.Engine) {
 			// resources.POST("/apply", handlers.ApplyManifest)
 			// resources.POST("/delete", handlers.DeleteResource)
 		}
-		
+
 		// Test endpoints (only in debug mode)
 		// TODO: Implement test handlers
 		// if gin.Mode() == gin.DebugMode {
 		// 	v1.GET("/test/kubectl", handlers.TestKubectl)
 		// 	v1.GET("/test/clusters", handlers.TestClusters)
 		// }
-		
+
 		// Auth endpoints
 		v1.POST("/auth/login", handlers.Login)
 	}
-	
+
 	// Websocket endpoints
 	// TODO: Implement WebSocket handlers
 	// v1.GET("/ws/exec", handlers.WebSocketExec)
 	// v1.GET("/ws/logs", handlers.WebSocketLogs)
-	
+
 	// Catch-all for debugging
 	r.NoRoute(func(c *gin.Context) {
 		c.JSON(404, gin.H{
-			"error": "Endpoint not found",
-			"path":  c.Request.URL.Path,
+			"error":  "Endpoint not found",
+			"path":   c.Request.URL.Path,
 			"method": c.Request.Method,
 			"available_endpoints": []string{
 				"/api/v1/clusters",
@@ -298,11 +316,12 @@ func SetupRoutes(r *gin.Engine) {
 				"/api/v1/events/*",
 				"/api/v1/logs/*",
 				"/api/v1/sql/*",
+				"/api/v1/linter/*",
 				"/api/v1/resources/*",
 			},
 		})
 	})
-	
+
 	log.Printf("API routes configured successfully")
 }
 

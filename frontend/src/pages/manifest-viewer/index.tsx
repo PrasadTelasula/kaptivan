@@ -24,6 +24,7 @@ import {
 import { ResourceTree } from './components/ResourceTree'
 import { ManifestTabs } from './components/ManifestTabs'
 import { TabContent } from './components/TabContent'
+import { LintButton } from './components/LintButton'
 import type { ResourceItem, ResourceGroup, ManifestTab } from './types'
 import { RESOURCE_CATEGORIES } from './constants'
 
@@ -752,6 +753,13 @@ export function ManifestViewer({ selectedClusters = [], isFullscreen = false, on
               >
                 <Download className="h-3.5 w-3.5 text-orange-500 dark:text-orange-400" />
               </Button>
+              <LintButton
+                yaml={tab.content || ''}
+                namespace={tab.resource?.namespace}
+                kind={tab.resource?.kind}
+                resourceName={tab.resource?.name}
+                className="h-7 w-7"
+              />
             </div>
           </div>
 

@@ -1,6 +1,5 @@
 import { Button } from '@/components/ui/button'
 import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs'
-import { Badge } from '@/components/ui/badge'
 import { X, RefreshCw, FileJson, GitCompare, Copy, Download, SidebarOpen, SidebarClose, Maximize2, Minimize2, Info } from 'lucide-react'
 import { RelatedResourcesPopover } from '@/components/related-resources-popover'
 import { cn } from '@/utils/cn'
@@ -43,75 +42,48 @@ export function ManifestTabs({
   onNavigateToRelated,
   selectedClusters = []
 }: ManifestTabsProps) {
-  if (tabs.length === 0) {
-    return (
-      <div className="h-full flex items-center justify-center">
-        <div className="text-center">
-          <FileJson className="h-12 w-12 text-muted-foreground mx-auto mb-3" />
-          <p className="text-sm font-medium text-muted-foreground">No manifests open</p>
-          <p className="text-xs text-muted-foreground mt-1">
-            Select a resource from the tree to view its manifest
-          </p>
-        </div>
-      </div>
-    )
-  }
-
-  const activeTab = tabs.find(t => t.id === activeTabId)
+  
+  const activeTab = tabs.find(tab => tab.id === activeTabId)
 
   return (
-    <Tabs value={activeTabId} onValueChange={onTabSelect} className="h-full flex flex-col">
-      <div className="border-b">
-        <div className="flex items-center justify-between">
-          <TabsList className="h-10 flex-1 justify-start rounded-none bg-transparent p-0">
-          {tabs.map((tab) => (
-            <TabsTrigger
-              key={tab.id}
-              value={tab.id}
-              className={cn(
-                "relative h-10 rounded-none border-b-2 border-transparent px-3",
-                "data-[state=active]:border-primary data-[state=active]:shadow-none",
-                "flex items-center gap-2 group"
-              )}
-            >
-              <FileJson className="h-3.5 w-3.5" />
-              <span className="max-w-[150px] truncate text-xs">
-                {tab.resource.namespace && (
-                  <span className="text-muted-foreground">{tab.resource.namespace}/</span>
+    <Tabs value={activeTabId} onValueChange={onTabSelect} className="w-full">
+      <div className="flex items-center justify-between border-b bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60">
+        <div className="flex items-center">
+          <TabsList className="h-auto p-0 bg-transparent">
+            {tabs.map((tab) => (
+              <TabsTrigger
+                key={tab.id}
+                value={tab.id}
+                className={cn(
+                  "relative h-10 px-4 py-2 text-sm font-medium transition-all",
+                  "data-[state=active]:bg-background data-[state=active]:shadow-sm",
+                  "hover:bg-muted/50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring",
+                  "flex items-center gap-2 group"
                 )}
-                {tab.title}
-              </span>
-              {tab.resource.clusterName && (
-                <Badge variant="outline" className="h-4 px-1 text-[10px]">
-                  {tab.resource.clusterName}
-                </Badge>
-              )}
-              <div className="flex items-center gap-0.5 ml-1">
-                {tab.loading ? (
-                  <RefreshCw className="h-3 w-3 animate-spin" />
-                ) : (
-                  <div
-                    className="h-4 w-4 opacity-0 group-hover:opacity-100 inline-flex items-center justify-center rounded-sm hover:bg-accent transition-colors cursor-pointer"
-                    onClick={(e) => {
-                      e.stopPropagation()
-                      onTabRefresh(tab)
-                    }}
-                  >
-                    <RefreshCw className="h-3 w-3" />
-                  </div>
-                )}
-                <div
-                  className="h-4 w-4 opacity-0 group-hover:opacity-100 inline-flex items-center justify-center rounded-sm hover:bg-accent transition-colors cursor-pointer"
+              >
+                <div className="flex items-center gap-2 min-w-0">
+                  <FileJson className="h-4 w-4 flex-shrink-0" />
+                  <span className="truncate max-w-[200px]">
+                    {tab.resource.kind} {tab.resource.namespace ? `${tab.resource.namespace}/` : ''}{tab.resource.name}
+                  </span>
+                  {tab.loading && (
+                    <RefreshCw className="h-3 w-3 animate-spin text-muted-foreground" />
+                  )}
+                </div>
+                
+                <Button
+                  variant="ghost"
+                  size="icon"
+                  className="h-5 w-5 opacity-0 group-hover:opacity-100 transition-opacity ml-1"
                   onClick={(e) => {
                     e.stopPropagation()
                     onTabClose(tab.id)
                   }}
                 >
                   <X className="h-3 w-3" />
-                </div>
-              </div>
-            </TabsTrigger>
-          ))}
+                </Button>
+              </TabsTrigger>
+            ))}
           </TabsList>
           
           {/* Action buttons for active tab */}
@@ -167,6 +139,7 @@ export function ManifestTabs({
                   onNavigate={onNavigateToRelated}
                 />
               )}
+              
               
               {onCompareMultiple && tabs.length >= 2 && (
                 <Button
