@@ -29,6 +29,17 @@ import { cn } from '@/utils/cn'
 import type { ResourceItem, ResourceGroup } from '../types'
 import { RESOURCE_CATEGORIES } from '../constants'
 
+// Helper function to extract cluster name from ARN
+const extractClusterName = (clusterContext: string): string => {
+  // Check if it's an EKS ARN format
+  if (clusterContext.startsWith('arn:aws:eks:')) {
+    const parts = clusterContext.split('/')
+    return parts[parts.length - 1] // Last part after the last '/'
+  }
+  // Return original if not ARN format
+  return clusterContext
+}
+
 interface ResourceTreeProps {
   resourceGroups: Map<string, ResourceGroup>
   selectedNamespace: string
@@ -241,17 +252,26 @@ export function ResourceTree({
           <FileText className={cn("h-3 w-3 flex-shrink-0", getIconColor())} />
           
           <span className="truncate flex-1 text-left">
-            {selectedClusters.length > 1 && item.clusterName && (
-              <Badge variant="outline" className="h-3.5 px-1 text-[10px] mr-1">
-                {item.clusterName}
-              </Badge>
-            )}
+            {(selectedClusters.length > 1 && item.clusterName) || item.clusterContext ? (
+              <TooltipProvider>
+                <Tooltip>
+                  <TooltipTrigger asChild>
+                    <Badge variant="outline" className="h-3.5 px-1 text-[10px] mr-1">
+                      {selectedClusters.length > 1 ? extractClusterName(item.clusterName || '') : extractClusterName(item.clusterContext || '')}
+                    </Badge>
+                  </TooltipTrigger>
+                  <TooltipContent>
+                    <p>{item.clusterContext}</p>
+                  </TooltipContent>
+                </Tooltip>
+              </TooltipProvider>
+            ) : null}
             {item.namespace && (
               <span className="text-muted-foreground">
                 {searchQuery ? highlightSearchTerm(item.namespace, searchQuery) : item.namespace}/
               </span>
             )}
-            {searchQuery ? highlightSearchTerm(item.name, searchQuery) : item.name}
+            {searchQuery ? highlightSearchTerm(extractClusterName(item.name), searchQuery) : extractClusterName(item.name)}
           </span>
           
           {/* Pod status badges - at the end */}
@@ -320,17 +340,26 @@ export function ResourceTree({
           <FileText className={cn("h-3 w-3 flex-shrink-0", getIconColor())} />
           
           <span className="truncate flex-1 text-left">
-            {selectedClusters.length > 1 && item.clusterName && (
-              <Badge variant="outline" className="h-3.5 px-1 text-[10px] mr-1">
-                {item.clusterName}
-              </Badge>
-            )}
+            {(selectedClusters.length > 1 && item.clusterName) || item.clusterContext ? (
+              <TooltipProvider>
+                <Tooltip>
+                  <TooltipTrigger asChild>
+                    <Badge variant="outline" className="h-3.5 px-1 text-[10px] mr-1">
+                      {selectedClusters.length > 1 ? extractClusterName(item.clusterName || '') : extractClusterName(item.clusterContext || '')}
+                    </Badge>
+                  </TooltipTrigger>
+                  <TooltipContent>
+                    <p>{item.clusterContext}</p>
+                  </TooltipContent>
+                </Tooltip>
+              </TooltipProvider>
+            ) : null}
             {item.namespace && (
               <span className="text-muted-foreground">
                 {searchQuery ? highlightSearchTerm(item.namespace, searchQuery) : item.namespace}/
               </span>
             )}
-            {searchQuery ? highlightSearchTerm(item.name, searchQuery) : item.name}
+            {searchQuery ? highlightSearchTerm(extractClusterName(item.name), searchQuery) : extractClusterName(item.name)}
           </span>
           
           {/* DaemonSet status badges - at the end */}
@@ -391,17 +420,26 @@ export function ResourceTree({
           <FileText className={cn("h-3 w-3 flex-shrink-0", getIconColor())} />
           
           <span className="truncate flex-1 text-left">
-            {selectedClusters.length > 1 && item.clusterName && (
-              <Badge variant="outline" className="h-3.5 px-1 text-[10px] mr-1">
-                {item.clusterName}
-              </Badge>
-            )}
+            {(selectedClusters.length > 1 && item.clusterName) || item.clusterContext ? (
+              <TooltipProvider>
+                <Tooltip>
+                  <TooltipTrigger asChild>
+                    <Badge variant="outline" className="h-3.5 px-1 text-[10px] mr-1">
+                      {selectedClusters.length > 1 ? extractClusterName(item.clusterName || '') : extractClusterName(item.clusterContext || '')}
+                    </Badge>
+                  </TooltipTrigger>
+                  <TooltipContent>
+                    <p>{item.clusterContext}</p>
+                  </TooltipContent>
+                </Tooltip>
+              </TooltipProvider>
+            ) : null}
             {item.namespace && (
               <span className="text-muted-foreground">
                 {searchQuery ? highlightSearchTerm(item.namespace, searchQuery) : item.namespace}/
               </span>
             )}
-            {searchQuery ? highlightSearchTerm(item.name, searchQuery) : item.name}
+            {searchQuery ? highlightSearchTerm(extractClusterName(item.name), searchQuery) : extractClusterName(item.name)}
           </span>
           
           {/* StatefulSet status badges - at the end */}
@@ -478,17 +516,26 @@ export function ResourceTree({
           <FileText className={cn("h-3 w-3 flex-shrink-0", getIconColor())} />
           
           <span className="truncate flex-1 text-left">
-            {selectedClusters.length > 1 && item.clusterName && (
-              <Badge variant="outline" className="h-3.5 px-1 text-[10px] mr-1">
-                {item.clusterName}
-              </Badge>
-            )}
+            {(selectedClusters.length > 1 && item.clusterName) || item.clusterContext ? (
+              <TooltipProvider>
+                <Tooltip>
+                  <TooltipTrigger asChild>
+                    <Badge variant="outline" className="h-3.5 px-1 text-[10px] mr-1">
+                      {selectedClusters.length > 1 ? extractClusterName(item.clusterName || '') : extractClusterName(item.clusterContext || '')}
+                    </Badge>
+                  </TooltipTrigger>
+                  <TooltipContent>
+                    <p>{item.clusterContext}</p>
+                  </TooltipContent>
+                </Tooltip>
+              </TooltipProvider>
+            ) : null}
             {item.namespace && (
               <span className="text-muted-foreground">
                 {searchQuery ? highlightSearchTerm(item.namespace, searchQuery) : item.namespace}/
               </span>
             )}
-            {searchQuery ? highlightSearchTerm(item.name, searchQuery) : item.name}
+            {searchQuery ? highlightSearchTerm(extractClusterName(item.name), searchQuery) : extractClusterName(item.name)}
           </span>
           
           {/* Job status badges - at the end */}
@@ -557,17 +604,26 @@ export function ResourceTree({
           <FileText className={cn("h-3 w-3 flex-shrink-0", getIconColor())} />
           
           <span className="truncate flex-1 text-left">
-            {selectedClusters.length > 1 && item.clusterName && (
-              <Badge variant="outline" className="h-3.5 px-1 text-[10px] mr-1">
-                {item.clusterName}
-              </Badge>
-            )}
+            {(selectedClusters.length > 1 && item.clusterName) || item.clusterContext ? (
+              <TooltipProvider>
+                <Tooltip>
+                  <TooltipTrigger asChild>
+                    <Badge variant="outline" className="h-3.5 px-1 text-[10px] mr-1">
+                      {selectedClusters.length > 1 ? extractClusterName(item.clusterName || '') : extractClusterName(item.clusterContext || '')}
+                    </Badge>
+                  </TooltipTrigger>
+                  <TooltipContent>
+                    <p>{item.clusterContext}</p>
+                  </TooltipContent>
+                </Tooltip>
+              </TooltipProvider>
+            ) : null}
             {item.namespace && (
               <span className="text-muted-foreground">
                 {searchQuery ? highlightSearchTerm(item.namespace, searchQuery) : item.namespace}/
               </span>
             )}
-            {searchQuery ? highlightSearchTerm(item.name, searchQuery) : item.name}
+            {searchQuery ? highlightSearchTerm(extractClusterName(item.name), searchQuery) : extractClusterName(item.name)}
           </span>
           
           {/* CronJob status badges - at the end */}
@@ -644,17 +700,26 @@ export function ResourceTree({
           <FileText className={cn("h-3 w-3 flex-shrink-0", getIconColor())} />
           
           <span className="truncate flex-1 text-left">
-            {selectedClusters.length > 1 && item.clusterName && (
-              <Badge variant="outline" className="h-3.5 px-1 text-[10px] mr-1">
-                {item.clusterName}
-              </Badge>
-            )}
+            {(selectedClusters.length > 1 && item.clusterName) || item.clusterContext ? (
+              <TooltipProvider>
+                <Tooltip>
+                  <TooltipTrigger asChild>
+                    <Badge variant="outline" className="h-3.5 px-1 text-[10px] mr-1">
+                      {selectedClusters.length > 1 ? extractClusterName(item.clusterName || '') : extractClusterName(item.clusterContext || '')}
+                    </Badge>
+                  </TooltipTrigger>
+                  <TooltipContent>
+                    <p>{item.clusterContext}</p>
+                  </TooltipContent>
+                </Tooltip>
+              </TooltipProvider>
+            ) : null}
             {item.namespace && (
               <span className="text-muted-foreground">
                 {searchQuery ? highlightSearchTerm(item.namespace, searchQuery) : item.namespace}/
               </span>
             )}
-            {searchQuery ? highlightSearchTerm(item.name, searchQuery) : item.name}
+            {searchQuery ? highlightSearchTerm(extractClusterName(item.name), searchQuery) : extractClusterName(item.name)}
           </span>
           
           {/* Service status badges - at the end */}
@@ -723,17 +788,26 @@ export function ResourceTree({
           <FileText className={cn("h-3 w-3 flex-shrink-0", getIconColor())} />
           
           <span className="truncate flex-1 text-left">
-            {selectedClusters.length > 1 && item.clusterName && (
-              <Badge variant="outline" className="h-3.5 px-1 text-[10px] mr-1">
-                {item.clusterName}
-              </Badge>
-            )}
+            {(selectedClusters.length > 1 && item.clusterName) || item.clusterContext ? (
+              <TooltipProvider>
+                <Tooltip>
+                  <TooltipTrigger asChild>
+                    <Badge variant="outline" className="h-3.5 px-1 text-[10px] mr-1">
+                      {selectedClusters.length > 1 ? extractClusterName(item.clusterName || '') : extractClusterName(item.clusterContext || '')}
+                    </Badge>
+                  </TooltipTrigger>
+                  <TooltipContent>
+                    <p>{item.clusterContext}</p>
+                  </TooltipContent>
+                </Tooltip>
+              </TooltipProvider>
+            ) : null}
             {item.namespace && (
               <span className="text-muted-foreground">
                 {searchQuery ? highlightSearchTerm(item.namespace, searchQuery) : item.namespace}/
               </span>
             )}
-            {searchQuery ? highlightSearchTerm(item.name, searchQuery) : item.name}
+            {searchQuery ? highlightSearchTerm(extractClusterName(item.name), searchQuery) : extractClusterName(item.name)}
           </span>
           
           {/* ConfigMap status badges - at the end */}
@@ -794,17 +868,26 @@ export function ResourceTree({
           <FileText className={cn("h-3 w-3 flex-shrink-0", getIconColor())} />
           
           <span className="truncate flex-1 text-left">
-            {selectedClusters.length > 1 && item.clusterName && (
-              <Badge variant="outline" className="h-3.5 px-1 text-[10px] mr-1">
-                {item.clusterName}
-              </Badge>
-            )}
+            {(selectedClusters.length > 1 && item.clusterName) || item.clusterContext ? (
+              <TooltipProvider>
+                <Tooltip>
+                  <TooltipTrigger asChild>
+                    <Badge variant="outline" className="h-3.5 px-1 text-[10px] mr-1">
+                      {selectedClusters.length > 1 ? extractClusterName(item.clusterName || '') : extractClusterName(item.clusterContext || '')}
+                    </Badge>
+                  </TooltipTrigger>
+                  <TooltipContent>
+                    <p>{item.clusterContext}</p>
+                  </TooltipContent>
+                </Tooltip>
+              </TooltipProvider>
+            ) : null}
             {item.namespace && (
               <span className="text-muted-foreground">
                 {searchQuery ? highlightSearchTerm(item.namespace, searchQuery) : item.namespace}/
               </span>
             )}
-            {searchQuery ? highlightSearchTerm(item.name, searchQuery) : item.name}
+            {searchQuery ? highlightSearchTerm(extractClusterName(item.name), searchQuery) : extractClusterName(item.name)}
           </span>
           
           {/* Secret status badges - at the end */}
@@ -887,17 +970,26 @@ export function ResourceTree({
           <FileText className={cn("h-3 w-3 flex-shrink-0", getIconColor())} />
           
           <span className="truncate flex-1 text-left">
-            {selectedClusters.length > 1 && item.clusterName && (
-              <Badge variant="outline" className="h-3.5 px-1 text-[10px] mr-1">
-                {item.clusterName}
-              </Badge>
-            )}
+            {(selectedClusters.length > 1 && item.clusterName) || item.clusterContext ? (
+              <TooltipProvider>
+                <Tooltip>
+                  <TooltipTrigger asChild>
+                    <Badge variant="outline" className="h-3.5 px-1 text-[10px] mr-1">
+                      {selectedClusters.length > 1 ? extractClusterName(item.clusterName || '') : extractClusterName(item.clusterContext || '')}
+                    </Badge>
+                  </TooltipTrigger>
+                  <TooltipContent>
+                    <p>{item.clusterContext}</p>
+                  </TooltipContent>
+                </Tooltip>
+              </TooltipProvider>
+            ) : null}
             {item.namespace && (
               <span className="text-muted-foreground">
                 {searchQuery ? highlightSearchTerm(item.namespace, searchQuery) : item.namespace}/
               </span>
             )}
-            {searchQuery ? highlightSearchTerm(item.name, searchQuery) : item.name}
+            {searchQuery ? highlightSearchTerm(extractClusterName(item.name), searchQuery) : extractClusterName(item.name)}
           </span>
           
           {/* PV status badges - at the end */}
@@ -980,17 +1072,26 @@ export function ResourceTree({
           <FileText className={cn("h-3 w-3 flex-shrink-0", getIconColor())} />
           
           <span className="truncate flex-1 text-left">
-            {selectedClusters.length > 1 && item.clusterName && (
-              <Badge variant="outline" className="h-3.5 px-1 text-[10px] mr-1">
-                {item.clusterName}
-              </Badge>
-            )}
+            {(selectedClusters.length > 1 && item.clusterName) || item.clusterContext ? (
+              <TooltipProvider>
+                <Tooltip>
+                  <TooltipTrigger asChild>
+                    <Badge variant="outline" className="h-3.5 px-1 text-[10px] mr-1">
+                      {selectedClusters.length > 1 ? extractClusterName(item.clusterName || '') : extractClusterName(item.clusterContext || '')}
+                    </Badge>
+                  </TooltipTrigger>
+                  <TooltipContent>
+                    <p>{item.clusterContext}</p>
+                  </TooltipContent>
+                </Tooltip>
+              </TooltipProvider>
+            ) : null}
             {item.namespace && (
               <span className="text-muted-foreground">
                 {searchQuery ? highlightSearchTerm(item.namespace, searchQuery) : item.namespace}/
               </span>
             )}
-            {searchQuery ? highlightSearchTerm(item.name, searchQuery) : item.name}
+            {searchQuery ? highlightSearchTerm(extractClusterName(item.name), searchQuery) : extractClusterName(item.name)}
           </span>
           
           {/* PVC status badges - at the end */}
@@ -1059,17 +1160,26 @@ export function ResourceTree({
           <FileText className={cn("h-3 w-3 flex-shrink-0", getIconColor())} />
           
           <span className="truncate flex-1 text-left">
-            {selectedClusters.length > 1 && item.clusterName && (
-              <Badge variant="outline" className="h-3.5 px-1 text-[10px] mr-1">
-                {item.clusterName}
-              </Badge>
-            )}
+            {(selectedClusters.length > 1 && item.clusterName) || item.clusterContext ? (
+              <TooltipProvider>
+                <Tooltip>
+                  <TooltipTrigger asChild>
+                    <Badge variant="outline" className="h-3.5 px-1 text-[10px] mr-1">
+                      {selectedClusters.length > 1 ? extractClusterName(item.clusterName || '') : extractClusterName(item.clusterContext || '')}
+                    </Badge>
+                  </TooltipTrigger>
+                  <TooltipContent>
+                    <p>{item.clusterContext}</p>
+                  </TooltipContent>
+                </Tooltip>
+              </TooltipProvider>
+            ) : null}
             {item.namespace && (
               <span className="text-muted-foreground">
                 {searchQuery ? highlightSearchTerm(item.namespace, searchQuery) : item.namespace}/
               </span>
             )}
-            {searchQuery ? highlightSearchTerm(item.name, searchQuery) : item.name}
+            {searchQuery ? highlightSearchTerm(extractClusterName(item.name), searchQuery) : extractClusterName(item.name)}
           </span>
           
           {/* Ingress status badges - at the end */}
@@ -1140,17 +1250,26 @@ export function ResourceTree({
           <FileText className={cn("h-3 w-3 flex-shrink-0", getIconColor())} />
           
           <span className="truncate flex-1 text-left">
-            {selectedClusters.length > 1 && item.clusterName && (
-              <Badge variant="outline" className="h-3.5 px-1 text-[10px] mr-1">
-                {item.clusterName}
-              </Badge>
-            )}
+            {(selectedClusters.length > 1 && item.clusterName) || item.clusterContext ? (
+              <TooltipProvider>
+                <Tooltip>
+                  <TooltipTrigger asChild>
+                    <Badge variant="outline" className="h-3.5 px-1 text-[10px] mr-1">
+                      {selectedClusters.length > 1 ? extractClusterName(item.clusterName || '') : extractClusterName(item.clusterContext || '')}
+                    </Badge>
+                  </TooltipTrigger>
+                  <TooltipContent>
+                    <p>{item.clusterContext}</p>
+                  </TooltipContent>
+                </Tooltip>
+              </TooltipProvider>
+            ) : null}
             {item.namespace && (
               <span className="text-muted-foreground">
                 {searchQuery ? highlightSearchTerm(item.namespace, searchQuery) : item.namespace}/
               </span>
             )}
-            {searchQuery ? highlightSearchTerm(item.name, searchQuery) : item.name}
+            {searchQuery ? highlightSearchTerm(extractClusterName(item.name), searchQuery) : extractClusterName(item.name)}
           </span>
           
           {/* Namespace status badges - at the end */}
@@ -1205,17 +1324,26 @@ export function ResourceTree({
           <FileText className={cn("h-3 w-3 flex-shrink-0", getIconColor())} />
           
           <span className="truncate flex-1 text-left">
-            {selectedClusters.length > 1 && item.clusterName && (
-              <Badge variant="outline" className="h-3.5 px-1 text-[10px] mr-1">
-                {item.clusterName}
-              </Badge>
-            )}
+            {(selectedClusters.length > 1 && item.clusterName) || item.clusterContext ? (
+              <TooltipProvider>
+                <Tooltip>
+                  <TooltipTrigger asChild>
+                    <Badge variant="outline" className="h-3.5 px-1 text-[10px] mr-1">
+                      {selectedClusters.length > 1 ? extractClusterName(item.clusterName || '') : extractClusterName(item.clusterContext || '')}
+                    </Badge>
+                  </TooltipTrigger>
+                  <TooltipContent>
+                    <p>{item.clusterContext}</p>
+                  </TooltipContent>
+                </Tooltip>
+              </TooltipProvider>
+            ) : null}
             {item.namespace && (
               <span className="text-muted-foreground">
                 {searchQuery ? highlightSearchTerm(item.namespace, searchQuery) : item.namespace}/
               </span>
             )}
-            {searchQuery ? highlightSearchTerm(item.name, searchQuery) : item.name}
+            {searchQuery ? highlightSearchTerm(extractClusterName(item.name), searchQuery) : extractClusterName(item.name)}
           </span>
           
           {/* ServiceAccount status badges - at the end */}
@@ -1276,17 +1404,26 @@ export function ResourceTree({
           <FileText className={cn("h-3 w-3 flex-shrink-0", getIconColor())} />
           
           <span className="truncate flex-1 text-left">
-            {selectedClusters.length > 1 && item.clusterName && (
-              <Badge variant="outline" className="h-3.5 px-1 text-[10px] mr-1">
-                {item.clusterName}
-              </Badge>
-            )}
+            {(selectedClusters.length > 1 && item.clusterName) || item.clusterContext ? (
+              <TooltipProvider>
+                <Tooltip>
+                  <TooltipTrigger asChild>
+                    <Badge variant="outline" className="h-3.5 px-1 text-[10px] mr-1">
+                      {selectedClusters.length > 1 ? extractClusterName(item.clusterName || '') : extractClusterName(item.clusterContext || '')}
+                    </Badge>
+                  </TooltipTrigger>
+                  <TooltipContent>
+                    <p>{item.clusterContext}</p>
+                  </TooltipContent>
+                </Tooltip>
+              </TooltipProvider>
+            ) : null}
             {item.namespace && (
               <span className="text-muted-foreground">
                 {searchQuery ? highlightSearchTerm(item.namespace, searchQuery) : item.namespace}/
               </span>
             )}
-            {searchQuery ? highlightSearchTerm(item.name, searchQuery) : item.name}
+            {searchQuery ? highlightSearchTerm(extractClusterName(item.name), searchQuery) : extractClusterName(item.name)}
           </span>
           
           {/* Role status badges - at the end */}
@@ -1347,17 +1484,26 @@ export function ResourceTree({
           <FileText className={cn("h-3 w-3 flex-shrink-0", getIconColor())} />
           
           <span className="truncate flex-1 text-left">
-            {selectedClusters.length > 1 && item.clusterName && (
-              <Badge variant="outline" className="h-3.5 px-1 text-[10px] mr-1">
-                {item.clusterName}
-              </Badge>
-            )}
+            {(selectedClusters.length > 1 && item.clusterName) || item.clusterContext ? (
+              <TooltipProvider>
+                <Tooltip>
+                  <TooltipTrigger asChild>
+                    <Badge variant="outline" className="h-3.5 px-1 text-[10px] mr-1">
+                      {selectedClusters.length > 1 ? extractClusterName(item.clusterName || '') : extractClusterName(item.clusterContext || '')}
+                    </Badge>
+                  </TooltipTrigger>
+                  <TooltipContent>
+                    <p>{item.clusterContext}</p>
+                  </TooltipContent>
+                </Tooltip>
+              </TooltipProvider>
+            ) : null}
             {item.namespace && (
               <span className="text-muted-foreground">
                 {searchQuery ? highlightSearchTerm(item.namespace, searchQuery) : item.namespace}/
               </span>
             )}
-            {searchQuery ? highlightSearchTerm(item.name, searchQuery) : item.name}
+            {searchQuery ? highlightSearchTerm(extractClusterName(item.name), searchQuery) : extractClusterName(item.name)}
           </span>
           
           {/* RoleBinding status badges - at the end */}
@@ -1418,17 +1564,26 @@ export function ResourceTree({
           <FileText className={cn("h-3 w-3 flex-shrink-0", getIconColor())} />
           
           <span className="truncate flex-1 text-left">
-            {selectedClusters.length > 1 && item.clusterName && (
-              <Badge variant="outline" className="h-3.5 px-1 text-[10px] mr-1">
-                {item.clusterName}
-              </Badge>
-            )}
+            {(selectedClusters.length > 1 && item.clusterName) || item.clusterContext ? (
+              <TooltipProvider>
+                <Tooltip>
+                  <TooltipTrigger asChild>
+                    <Badge variant="outline" className="h-3.5 px-1 text-[10px] mr-1">
+                      {selectedClusters.length > 1 ? extractClusterName(item.clusterName || '') : extractClusterName(item.clusterContext || '')}
+                    </Badge>
+                  </TooltipTrigger>
+                  <TooltipContent>
+                    <p>{item.clusterContext}</p>
+                  </TooltipContent>
+                </Tooltip>
+              </TooltipProvider>
+            ) : null}
             {item.namespace && (
               <span className="text-muted-foreground">
                 {searchQuery ? highlightSearchTerm(item.namespace, searchQuery) : item.namespace}/
               </span>
             )}
-            {searchQuery ? highlightSearchTerm(item.name, searchQuery) : item.name}
+            {searchQuery ? highlightSearchTerm(extractClusterName(item.name), searchQuery) : extractClusterName(item.name)}
           </span>
           
           {/* ClusterRole status badges - at the end */}
@@ -1489,17 +1644,26 @@ export function ResourceTree({
           <FileText className={cn("h-3 w-3 flex-shrink-0", getIconColor())} />
           
           <span className="truncate flex-1 text-left">
-            {selectedClusters.length > 1 && item.clusterName && (
-              <Badge variant="outline" className="h-3.5 px-1 text-[10px] mr-1">
-                {item.clusterName}
-              </Badge>
-            )}
+            {(selectedClusters.length > 1 && item.clusterName) || item.clusterContext ? (
+              <TooltipProvider>
+                <Tooltip>
+                  <TooltipTrigger asChild>
+                    <Badge variant="outline" className="h-3.5 px-1 text-[10px] mr-1">
+                      {selectedClusters.length > 1 ? extractClusterName(item.clusterName || '') : extractClusterName(item.clusterContext || '')}
+                    </Badge>
+                  </TooltipTrigger>
+                  <TooltipContent>
+                    <p>{item.clusterContext}</p>
+                  </TooltipContent>
+                </Tooltip>
+              </TooltipProvider>
+            ) : null}
             {item.namespace && (
               <span className="text-muted-foreground">
                 {searchQuery ? highlightSearchTerm(item.namespace, searchQuery) : item.namespace}/
               </span>
             )}
-            {searchQuery ? highlightSearchTerm(item.name, searchQuery) : item.name}
+            {searchQuery ? highlightSearchTerm(extractClusterName(item.name), searchQuery) : extractClusterName(item.name)}
           </span>
           
           {/* ClusterRoleBinding status badges - at the end */}
@@ -1560,17 +1724,26 @@ export function ResourceTree({
           <FileText className={cn("h-3 w-3 flex-shrink-0", getIconColor())} />
           
           <span className="truncate flex-1 text-left">
-            {selectedClusters.length > 1 && item.clusterName && (
-              <Badge variant="outline" className="h-3.5 px-1 text-[10px] mr-1">
-                {item.clusterName}
-              </Badge>
-            )}
+            {(selectedClusters.length > 1 && item.clusterName) || item.clusterContext ? (
+              <TooltipProvider>
+                <Tooltip>
+                  <TooltipTrigger asChild>
+                    <Badge variant="outline" className="h-3.5 px-1 text-[10px] mr-1">
+                      {selectedClusters.length > 1 ? extractClusterName(item.clusterName || '') : extractClusterName(item.clusterContext || '')}
+                    </Badge>
+                  </TooltipTrigger>
+                  <TooltipContent>
+                    <p>{item.clusterContext}</p>
+                  </TooltipContent>
+                </Tooltip>
+              </TooltipProvider>
+            ) : null}
             {item.namespace && (
               <span className="text-muted-foreground">
                 {searchQuery ? highlightSearchTerm(item.namespace, searchQuery) : item.namespace}/
               </span>
             )}
-            {searchQuery ? highlightSearchTerm(item.name, searchQuery) : item.name}
+            {searchQuery ? highlightSearchTerm(extractClusterName(item.name), searchQuery) : extractClusterName(item.name)}
           </span>
           
           {/* NetworkPolicy status badges - at the end */}
@@ -1631,17 +1804,26 @@ export function ResourceTree({
           <FileText className={cn("h-3 w-3 flex-shrink-0", getIconColor())} />
           
           <span className="truncate flex-1 text-left">
-            {selectedClusters.length > 1 && item.clusterName && (
-              <Badge variant="outline" className="h-3.5 px-1 text-[10px] mr-1">
-                {item.clusterName}
-              </Badge>
-            )}
+            {(selectedClusters.length > 1 && item.clusterName) || item.clusterContext ? (
+              <TooltipProvider>
+                <Tooltip>
+                  <TooltipTrigger asChild>
+                    <Badge variant="outline" className="h-3.5 px-1 text-[10px] mr-1">
+                      {selectedClusters.length > 1 ? extractClusterName(item.clusterName || '') : extractClusterName(item.clusterContext || '')}
+                    </Badge>
+                  </TooltipTrigger>
+                  <TooltipContent>
+                    <p>{item.clusterContext}</p>
+                  </TooltipContent>
+                </Tooltip>
+              </TooltipProvider>
+            ) : null}
             {item.namespace && (
               <span className="text-muted-foreground">
                 {searchQuery ? highlightSearchTerm(item.namespace, searchQuery) : item.namespace}/
               </span>
             )}
-            {searchQuery ? highlightSearchTerm(item.name, searchQuery) : item.name}
+            {searchQuery ? highlightSearchTerm(extractClusterName(item.name), searchQuery) : extractClusterName(item.name)}
           </span>
           
           {/* StorageClass status badges - at the end */}
@@ -1704,17 +1886,26 @@ export function ResourceTree({
           <FileText className={cn("h-3 w-3 flex-shrink-0", getIconColor())} />
           
           <span className="truncate flex-1 text-left">
-            {selectedClusters.length > 1 && item.clusterName && (
-              <Badge variant="outline" className="h-3.5 px-1 text-[10px] mr-1">
-                {item.clusterName}
-              </Badge>
-            )}
+            {(selectedClusters.length > 1 && item.clusterName) || item.clusterContext ? (
+              <TooltipProvider>
+                <Tooltip>
+                  <TooltipTrigger asChild>
+                    <Badge variant="outline" className="h-3.5 px-1 text-[10px] mr-1">
+                      {selectedClusters.length > 1 ? extractClusterName(item.clusterName || '') : extractClusterName(item.clusterContext || '')}
+                    </Badge>
+                  </TooltipTrigger>
+                  <TooltipContent>
+                    <p>{item.clusterContext}</p>
+                  </TooltipContent>
+                </Tooltip>
+              </TooltipProvider>
+            ) : null}
             {item.namespace && (
               <span className="text-muted-foreground">
                 {searchQuery ? highlightSearchTerm(item.namespace, searchQuery) : item.namespace}/
               </span>
             )}
-            {searchQuery ? highlightSearchTerm(item.name, searchQuery) : item.name}
+            {searchQuery ? highlightSearchTerm(extractClusterName(item.name), searchQuery) : extractClusterName(item.name)}
           </span>
           
           {/* Event status badges - at the end */}
@@ -1783,17 +1974,26 @@ export function ResourceTree({
           <FileText className={cn("h-3 w-3 flex-shrink-0", getIconColor())} />
           
           <span className="truncate flex-1 text-left">
-            {selectedClusters.length > 1 && item.clusterName && (
-              <Badge variant="outline" className="h-3.5 px-1 text-[10px] mr-1">
-                {item.clusterName}
-              </Badge>
-            )}
+            {(selectedClusters.length > 1 && item.clusterName) || item.clusterContext ? (
+              <TooltipProvider>
+                <Tooltip>
+                  <TooltipTrigger asChild>
+                    <Badge variant="outline" className="h-3.5 px-1 text-[10px] mr-1">
+                      {selectedClusters.length > 1 ? extractClusterName(item.clusterName || '') : extractClusterName(item.clusterContext || '')}
+                    </Badge>
+                  </TooltipTrigger>
+                  <TooltipContent>
+                    <p>{item.clusterContext}</p>
+                  </TooltipContent>
+                </Tooltip>
+              </TooltipProvider>
+            ) : null}
             {item.namespace && (
               <span className="text-muted-foreground">
                 {searchQuery ? highlightSearchTerm(item.namespace, searchQuery) : item.namespace}/
               </span>
             )}
-            {searchQuery ? highlightSearchTerm(item.name, searchQuery) : item.name}
+            {searchQuery ? highlightSearchTerm(extractClusterName(item.name), searchQuery) : extractClusterName(item.name)}
           </span>
           
           {/* CRD status badges - at the end */}
@@ -1872,17 +2072,26 @@ export function ResourceTree({
           <FileText className={cn("h-3 w-3 flex-shrink-0", getIconColor())} />
           
           <span className="truncate flex-1 text-left">
-            {selectedClusters.length > 1 && item.clusterName && (
-              <Badge variant="outline" className="h-3.5 px-1 text-[10px] mr-1">
-                {item.clusterName}
-              </Badge>
-            )}
+            {(selectedClusters.length > 1 && item.clusterName) || item.clusterContext ? (
+              <TooltipProvider>
+                <Tooltip>
+                  <TooltipTrigger asChild>
+                    <Badge variant="outline" className="h-3.5 px-1 text-[10px] mr-1">
+                      {selectedClusters.length > 1 ? extractClusterName(item.clusterName || '') : extractClusterName(item.clusterContext || '')}
+                    </Badge>
+                  </TooltipTrigger>
+                  <TooltipContent>
+                    <p>{item.clusterContext}</p>
+                  </TooltipContent>
+                </Tooltip>
+              </TooltipProvider>
+            ) : null}
             {item.namespace && (
               <span className="text-muted-foreground">
                 {searchQuery ? highlightSearchTerm(item.namespace, searchQuery) : item.namespace}/
               </span>
             )}
-            {searchQuery ? highlightSearchTerm(item.name, searchQuery) : item.name}
+            {searchQuery ? highlightSearchTerm(extractClusterName(item.name), searchQuery) : extractClusterName(item.name)}
           </span>
           
           {/* Node status badges - at the end */}
@@ -1957,17 +2166,26 @@ export function ResourceTree({
           <FileText className={cn("h-3 w-3 flex-shrink-0", getIconColor())} />
           
           <span className="truncate flex-1 text-left">
-            {selectedClusters.length > 1 && item.clusterName && (
-              <Badge variant="outline" className="h-3.5 px-1 text-[10px] mr-1">
-                {item.clusterName}
-              </Badge>
-            )}
+            {(selectedClusters.length > 1 && item.clusterName) || item.clusterContext ? (
+              <TooltipProvider>
+                <Tooltip>
+                  <TooltipTrigger asChild>
+                    <Badge variant="outline" className="h-3.5 px-1 text-[10px] mr-1">
+                      {selectedClusters.length > 1 ? extractClusterName(item.clusterName || '') : extractClusterName(item.clusterContext || '')}
+                    </Badge>
+                  </TooltipTrigger>
+                  <TooltipContent>
+                    <p>{item.clusterContext}</p>
+                  </TooltipContent>
+                </Tooltip>
+              </TooltipProvider>
+            ) : null}
             {item.namespace && (
               <span className="text-muted-foreground">
                 {searchQuery ? highlightSearchTerm(item.namespace, searchQuery) : item.namespace}/
               </span>
             )}
-            {searchQuery ? highlightSearchTerm(item.name, searchQuery) : item.name}
+            {searchQuery ? highlightSearchTerm(extractClusterName(item.name), searchQuery) : extractClusterName(item.name)}
           </span>
           
           {/* ResourceQuota status badges - at the end */}
@@ -2034,17 +2252,26 @@ export function ResourceTree({
           <FileText className={cn("h-3 w-3 flex-shrink-0", getIconColor())} />
           
           <span className="truncate flex-1 text-left">
-            {selectedClusters.length > 1 && item.clusterName && (
-              <Badge variant="outline" className="h-3.5 px-1 text-[10px] mr-1">
-                {item.clusterName}
-              </Badge>
-            )}
+            {(selectedClusters.length > 1 && item.clusterName) || item.clusterContext ? (
+              <TooltipProvider>
+                <Tooltip>
+                  <TooltipTrigger asChild>
+                    <Badge variant="outline" className="h-3.5 px-1 text-[10px] mr-1">
+                      {selectedClusters.length > 1 ? extractClusterName(item.clusterName || '') : extractClusterName(item.clusterContext || '')}
+                    </Badge>
+                  </TooltipTrigger>
+                  <TooltipContent>
+                    <p>{item.clusterContext}</p>
+                  </TooltipContent>
+                </Tooltip>
+              </TooltipProvider>
+            ) : null}
             {item.namespace && (
               <span className="text-muted-foreground">
                 {searchQuery ? highlightSearchTerm(item.namespace, searchQuery) : item.namespace}/
               </span>
             )}
-            {searchQuery ? highlightSearchTerm(item.name, searchQuery) : item.name}
+            {searchQuery ? highlightSearchTerm(extractClusterName(item.name), searchQuery) : extractClusterName(item.name)}
           </span>
           
           {/* LimitRange status badges - at the end */}
@@ -2111,17 +2338,26 @@ export function ResourceTree({
           <FileText className={cn("h-3 w-3 flex-shrink-0", getIconColor())} />
           
           <span className="truncate flex-1 text-left">
-            {selectedClusters.length > 1 && item.clusterName && (
-              <Badge variant="outline" className="h-3.5 px-1 text-[10px] mr-1">
-                {item.clusterName}
-              </Badge>
-            )}
+            {(selectedClusters.length > 1 && item.clusterName) || item.clusterContext ? (
+              <TooltipProvider>
+                <Tooltip>
+                  <TooltipTrigger asChild>
+                    <Badge variant="outline" className="h-3.5 px-1 text-[10px] mr-1">
+                      {selectedClusters.length > 1 ? extractClusterName(item.clusterName || '') : extractClusterName(item.clusterContext || '')}
+                    </Badge>
+                  </TooltipTrigger>
+                  <TooltipContent>
+                    <p>{item.clusterContext}</p>
+                  </TooltipContent>
+                </Tooltip>
+              </TooltipProvider>
+            ) : null}
             {item.namespace && (
               <span className="text-muted-foreground">
                 {searchQuery ? highlightSearchTerm(item.namespace, searchQuery) : item.namespace}/
               </span>
             )}
-            {searchQuery ? highlightSearchTerm(item.name, searchQuery) : item.name}
+            {searchQuery ? highlightSearchTerm(extractClusterName(item.name), searchQuery) : extractClusterName(item.name)}
           </span>
           
           {/* Deployment status badges - at the end */}
@@ -2183,17 +2419,26 @@ export function ResourceTree({
           <Package className={cn("h-3 w-3 flex-shrink-0", getIconColor())} />
           
           <span className="truncate flex-1 text-left">
-            {selectedClusters.length > 1 && item.clusterName && (
-              <Badge variant="outline" className="h-3.5 px-1 text-[10px] mr-1">
-                {item.clusterName}
-              </Badge>
-            )}
+            {(selectedClusters.length > 1 && item.clusterName) || item.clusterContext ? (
+              <TooltipProvider>
+                <Tooltip>
+                  <TooltipTrigger asChild>
+                    <Badge variant="outline" className="h-3.5 px-1 text-[10px] mr-1">
+                      {selectedClusters.length > 1 ? extractClusterName(item.clusterName || '') : extractClusterName(item.clusterContext || '')}
+                    </Badge>
+                  </TooltipTrigger>
+                  <TooltipContent>
+                    <p>{item.clusterContext}</p>
+                  </TooltipContent>
+                </Tooltip>
+              </TooltipProvider>
+            ) : null}
             {item.namespace && (
               <span className="text-muted-foreground">
                 {searchQuery ? highlightSearchTerm(item.namespace, searchQuery) : item.namespace}/
               </span>
             )}
-            {searchQuery ? highlightSearchTerm(item.name, searchQuery) : item.name}
+            {searchQuery ? highlightSearchTerm(extractClusterName(item.name), searchQuery) : extractClusterName(item.name)}
           </span>
           
           {/* ReplicaSet status badges - moved to the end */}
