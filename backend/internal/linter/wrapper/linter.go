@@ -12,6 +12,7 @@ import (
 	"golang.stackrox.io/kube-linter/pkg/diagnostic"
 	"golang.stackrox.io/kube-linter/pkg/lintcontext"
 	"golang.stackrox.io/kube-linter/pkg/run"
+
 	// Import all templates to register them
 	_ "golang.stackrox.io/kube-linter/pkg/templates/all"
 )
