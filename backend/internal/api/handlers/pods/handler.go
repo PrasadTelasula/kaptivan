@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"net/http"
 	"strings"
+	"time"
 
 	"github.com/gin-gonic/gin"
 	"github.com/prasad/kaptivan/backend/internal/kubernetes"
@@ -179,6 +180,149 @@ func GetEvents(c *gin.Context) {
 	c.JSON(http.StatusOK, gin.H{
 		"events": eventList,
 		"total": len(eventList),
+	})
+}
+
+// Describe handles getting the kubectl describe output for a pod
+func Describe(c *gin.Context) {
+	context := c.Query("context")
+	namespace := c.Query("namespace")
+	name := c.Query("name")
+
+	if context == "" || name == "" {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "context and name are required"})
+		return
+	}
+
+	if namespace == "" {
+		namespace = "default"
+	}
+
+	conn, err := clusterManager.GetConnection(context)
+	if err != nil || conn == nil {
+		c.JSON(http.StatusNotFound, gin.H{"error": "cluster not connected"})
+		return
+	}
+
+	// Get the pod details
+	pod, err := conn.ClientSet.CoreV1().Pods(namespace).Get(c.Request.Context(), name, metav1.GetOptions{})
+	if err != nil {
+		if strings.Contains(err.Error(), "not found") {
+			c.JSON(http.StatusNotFound, gin.H{"error": "pod not found"})
+			return
+		}
+		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		return
+	}
+
+	// Build describe-like output
+	var output strings.Builder
+	output.WriteString(fmt.Sprintf("Name:             %s\n", pod.Name))
+	output.WriteString(fmt.Sprintf("Namespace:        %s\n", pod.Namespace))
+	output.WriteString(fmt.Sprintf("Priority:         %d\n", func() int32 {
+		if pod.Spec.Priority != nil {
+			return *pod.Spec.Priority
+		}
+		return 0
+	}()))
+	output.WriteString(fmt.Sprintf("Service Account:  %s\n", pod.Spec.ServiceAccountName))
+	output.WriteString(fmt.Sprintf("Node:             %s\n", pod.Spec.NodeName))
+	output.WriteString(fmt.Sprintf("Start Time:       %s\n", pod.Status.StartTime))
+
+	// Labels
+	output.WriteString("Labels:           ")
+	first := true
+	for k, v := range pod.Labels {
+		if !first {
+			output.WriteString("                  ")
+		}
+		output.WriteString(fmt.Sprintf("%s=%s\n", k, v))
+		first = false
+	}
+	if len(pod.Labels) == 0 {
+		output.WriteString("<none>\n")
+	}
+
+	// Status
+	output.WriteString(fmt.Sprintf("Status:           %s\n", pod.Status.Phase))
+	output.WriteString(fmt.Sprintf("IP:               %s\n", pod.Status.PodIP))
+
+	// Containers
+	output.WriteString("Containers:\n")
+	for _, container := range pod.Spec.Containers {
+		output.WriteString(fmt.Sprintf("  %s:\n", container.Name))
+		output.WriteString(fmt.Sprintf("    Image:          %s\n", container.Image))
+
+		// Container status
+		for _, cs := range pod.Status.ContainerStatuses {
+			if cs.Name == container.Name {
+				output.WriteString(fmt.Sprintf("    Container ID:   %s\n", cs.ContainerID))
+				output.WriteString(fmt.Sprintf("    Image ID:       %s\n", cs.ImageID))
+				if cs.State.Running != nil {
+					output.WriteString(fmt.Sprintf("    State:          Running\n"))
+					output.WriteString(fmt.Sprintf("      Started:      %s\n", cs.State.Running.StartedAt))
+				} else if cs.State.Waiting != nil {
+					output.WriteString(fmt.Sprintf("    State:          Waiting\n"))
+					output.WriteString(fmt.Sprintf("      Reason:       %s\n", cs.State.Waiting.Reason))
+				} else if cs.State.Terminated != nil {
+					output.WriteString(fmt.Sprintf("    State:          Terminated\n"))
+					output.WriteString(fmt.Sprintf("      Reason:       %s\n", cs.State.Terminated.Reason))
+				}
+				output.WriteString(fmt.Sprintf("    Ready:          %v\n", cs.Ready))
+				output.WriteString(fmt.Sprintf("    Restart Count:  %d\n", cs.RestartCount))
+			}
+		}
+
+		// Resources
+		if container.Resources.Limits != nil {
+			output.WriteString("    Limits:\n")
+			if cpu := container.Resources.Limits.Cpu(); cpu != nil {
+				output.WriteString(fmt.Sprintf("      cpu:          %s\n", cpu.String()))
+			}
+			if mem := container.Resources.Limits.Memory(); mem != nil {
+				output.WriteString(fmt.Sprintf("      memory:       %s\n", mem.String()))
+			}
+		}
+		if container.Resources.Requests != nil {
+			output.WriteString("    Requests:\n")
+			if cpu := container.Resources.Requests.Cpu(); cpu != nil {
+				output.WriteString(fmt.Sprintf("      cpu:          %s\n", cpu.String()))
+			}
+			if mem := container.Resources.Requests.Memory(); mem != nil {
+				output.WriteString(fmt.Sprintf("      memory:       %s\n", mem.String()))
+			}
+		}
+	}
+
+	// Conditions
+	output.WriteString("Conditions:\n")
+	output.WriteString("  Type              Status\n")
+	for _, cond := range pod.Status.Conditions {
+		output.WriteString(fmt.Sprintf("  %-16s  %s\n", cond.Type, cond.Status))
+	}
+
+	// Events
+	events, err := conn.ClientSet.CoreV1().Events(namespace).List(c.Request.Context(), metav1.ListOptions{
+		FieldSelector: fmt.Sprintf("involvedObject.name=%s", name),
+	})
+	if err == nil && len(events.Items) > 0 {
+		output.WriteString("Events:\n")
+		output.WriteString("  Type    Reason     Age   From               Message\n")
+		output.WriteString("  ----    ------     ----  ----               -------\n")
+		for _, event := range events.Items {
+			age := time.Since(event.FirstTimestamp.Time).Round(time.Second)
+			output.WriteString(fmt.Sprintf("  %-7s %-10s %-5s %-18s %s\n",
+				event.Type,
+				event.Reason,
+				age,
+				event.Source.Component,
+				event.Message,
+			))
+		}
+	}
+
+	c.JSON(http.StatusOK, gin.H{
+		"output": output.String(),
 	})
 }
 

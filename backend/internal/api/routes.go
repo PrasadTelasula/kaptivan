@@ -84,10 +84,17 @@ func SetupRoutes(r *gin.Engine) {
 			podsGroup.GET("/get", pods.Get)
 			podsGroup.GET("/logs", pods.GetLogs)
 			podsGroup.GET("/events", pods.GetEvents)
+			podsGroup.GET("/describe", pods.Describe)
 			podsGroup.DELETE("/delete", pods.Delete)
 			podsGroup.POST("/exec", pods.Exec)
 			podsGroup.GET("/exec/ws", pods.ExecWebSocket)
 			podsGroup.GET("/logs/ws", pods.LogsWebSocket)
+		}
+
+		// Node endpoints
+		nodesGroup := v1.Group("/nodes")
+		{
+			nodesGroup.GET("/describe", handlers.DescribeNode)
 		}
 
 		// Deployment endpoints (new structured handlers)

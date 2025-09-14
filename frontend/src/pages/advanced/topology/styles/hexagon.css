@@ -1,0 +1,155 @@
+/* Hexagon honeycomb layout styles */
+.hexagon-grid {
+  display: block;
+  padding: 10px;
+  overflow: hidden;
+}
+
+.hexagon-row {
+  display: flex;
+  margin-bottom: -13px; /* Overlap rows to create tessellation */
+  position: relative;
+}
+
+.hexagon-row:nth-child(even) {
+  margin-left: 31px; /* Half hexagon width + half gap for proper offset */
+}
+
+.hexagon-wrapper {
+  position: relative;
+  width: 60px;
+  height: 52px;
+  margin: 0 2px; /* Small horizontal gap */
+}
+
+.hexagon {
+  position: relative;
+  width: 60px;
+  height: 52px;
+  background-color: currentColor;
+  clip-path: polygon(30% 0%, 70% 0%, 100% 50%, 70% 100%, 30% 100%, 0% 50%);
+  transition: all 0.3s ease;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.hexagon:hover {
+  transform: scale(1.1);
+  z-index: 10;
+  filter: brightness(1.2);
+}
+
+.hexagon-icon {
+  color: white;
+  z-index: 1;
+  pointer-events: none;
+}
+
+/* Status colors for hexagons */
+.hexagon-running {
+  color: rgb(34 197 94);
+}
+
+.hexagon-pending {
+  color: rgb(251 191 36);
+}
+
+.hexagon-failed {
+  color: rgb(239 68 68);
+}
+
+.hexagon-unknown {
+  color: rgb(107 114 128);
+}
+
+/* Dark mode adjustments */
+.dark .hexagon-running {
+  color: rgb(34 197 94);
+}
+
+.dark .hexagon-pending {
+  color: rgb(251 191 36);
+}
+
+.dark .hexagon-failed {
+  color: rgb(239 68 68);
+}
+
+.dark .hexagon-unknown {
+  color: rgb(75 85 99);
+}
+
+/* Compact honeycomb for smaller containers */
+.compact-honeycomb .hexagon-wrapper,
+.compact-honeycomb .hexagon {
+  width: 50px;
+  height: 43px;
+}
+
+.compact-honeycomb .hexagon-row {
+  margin-bottom: -11px;
+}
+
+.compact-honeycomb .hexagon-row:nth-child(even) {
+  margin-left: 26px;
+}
+
+/* Extra compact for many pods */
+.mini-honeycomb .hexagon-wrapper,
+.mini-honeycomb .hexagon {
+  width: 40px;
+  height: 35px;
+}
+
+.mini-honeycomb .hexagon-row {
+  margin-bottom: -9px;
+}
+
+.mini-honeycomb .hexagon-row:nth-child(even) {
+  margin-left: 21px;
+}
+
+.mini-honeycomb .hexagon-icon svg {
+  width: 12px;
+  height: 12px;
+}
+
+/* Responsive hexagon sizes */
+@media (max-width: 1024px) {
+  .hexagon-wrapper,
+  .hexagon {
+    width: 50px;
+    height: 43px;
+  }
+
+  .hexagon-row {
+    margin-bottom: -11px;
+  }
+
+  .hexagon-row:nth-child(even) {
+    margin-left: 26px;
+  }
+}
+
+@media (max-width: 640px) {
+  .hexagon-wrapper,
+  .hexagon {
+    width: 40px;
+    height: 35px;
+  }
+
+  .hexagon-row {
+    margin-bottom: -9px;
+  }
+
+  .hexagon-row:nth-child(even) {
+    margin-left: 21px;
+  }
+
+  .hexagon-icon svg {
+    width: 14px;
+    height: 14px;
+  }
+}

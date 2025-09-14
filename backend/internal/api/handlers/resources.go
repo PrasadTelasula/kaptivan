@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"net/http"
+	"strings"
 	"time"
 
 	"github.com/gin-gonic/gin"
@@ -33,6 +34,8 @@ type PodInfo struct {
 	Node        string            `json:"node"`
 	Labels      map[string]string `json:"labels"`
 	Containers  []string          `json:"containers"`
+	CPU         string            `json:"cpu"`
+	Memory      string            `json:"memory"`
 }
 
 type DeploymentInfo struct {
@@ -65,6 +68,12 @@ type NamespaceInfo struct {
 	Labels map[string]string `json:"labels"`
 }
 
+type NodeResources struct {
+	CPU    string `json:"cpu"`
+	Memory string `json:"memory"`
+	Pods   string `json:"pods"`
+}
+
 type NodeInfo struct {
 	Name              string            `json:"name"`
 	Status            string            `json:"status"`
@@ -76,6 +85,8 @@ type NodeInfo struct {
 	KernelVersion     string            `json:"kernelVersion"`
 	ContainerRuntime  string            `json:"containerRuntime"`
 	Labels            map[string]string `json:"labels"`
+	Capacity          *NodeResources    `json:"capacity,omitempty"`
+	Allocatable       *NodeResources    `json:"allocatable,omitempty"`
 }
 
 func ListPods(c *gin.Context) {
@@ -110,8 +121,30 @@ func ListPods(c *gin.Context) {
 		readyContainers := 0
 		totalContainers := len(pod.Spec.Containers)
 
+		// Calculate total CPU and memory requests/limits
+		var cpuRequestSum, cpuLimitSum, memRequestSum, memLimitSum int64
+
 		for _, container := range pod.Spec.Containers {
 			containerNames = append(containerNames, container.Name)
+
+			// Sum requests
+			if container.Resources.Requests != nil {
+				if cpu := container.Resources.Requests.Cpu(); cpu != nil {
+					cpuRequestSum += cpu.MilliValue()
+				}
+				if mem := container.Resources.Requests.Memory(); mem != nil {
+					memRequestSum += mem.Value()
+				}
+			}
+			// Sum limits
+			if container.Resources.Limits != nil {
+				if cpu := container.Resources.Limits.Cpu(); cpu != nil {
+					cpuLimitSum += cpu.MilliValue()
+				}
+				if mem := container.Resources.Limits.Memory(); mem != nil {
+					memLimitSum += mem.Value()
+				}
+			}
 		}
 
 		for _, containerStatus := range pod.Status.ContainerStatuses {
@@ -119,6 +152,38 @@ func ListPods(c *gin.Context) {
 			if containerStatus.Ready {
 				readyContainers++
 			}
+		}
+
+		// Format CPU in requests/limits format
+		var totalCPU string
+		if cpuRequestSum > 0 || cpuLimitSum > 0 {
+			requestStr := "0"
+			limitStr := "-"
+			if cpuRequestSum > 0 {
+				requestStr = fmt.Sprintf("%dm", cpuRequestSum)
+			}
+			if cpuLimitSum > 0 {
+				limitStr = fmt.Sprintf("%dm", cpuLimitSum)
+			}
+			totalCPU = fmt.Sprintf("%s/%s", requestStr, limitStr)
+		} else {
+			totalCPU = "-/-"
+		}
+
+		// Format memory in requests/limits format
+		var totalMemory string
+		if memRequestSum > 0 || memLimitSum > 0 {
+			requestStr := "0"
+			limitStr := "-"
+			if memRequestSum > 0 {
+				requestStr = fmt.Sprintf("%dMi", memRequestSum/(1024*1024))
+			}
+			if memLimitSum > 0 {
+				limitStr = fmt.Sprintf("%dMi", memLimitSum/(1024*1024))
+			}
+			totalMemory = fmt.Sprintf("%s/%s", requestStr, limitStr)
+		} else {
+			totalMemory = "-/-"
 		}
 
 		podInfo := PodInfo{
@@ -132,6 +197,8 @@ func ListPods(c *gin.Context) {
 			Node:       pod.Spec.NodeName,
 			Labels:     pod.Labels,
 			Containers: containerNames,
+			CPU:        totalCPU,
+			Memory:     totalMemory,
 		}
 		podList = append(podList, podInfo)
 	}
@@ -367,12 +434,287 @@ func ListNodes(c *gin.Context) {
 			ContainerRuntime: node.Status.NodeInfo.ContainerRuntimeVersion,
 			Labels:           node.Labels,
 		}
+
+		// Add capacity if available
+		if node.Status.Capacity != nil {
+			nodeInfo.Capacity = &NodeResources{
+				CPU:    node.Status.Capacity.Cpu().String(),
+				Memory: node.Status.Capacity.Memory().String(),
+				Pods:   node.Status.Capacity.Pods().String(),
+			}
+		}
+
+		// Add allocatable if available
+		if node.Status.Allocatable != nil {
+			nodeInfo.Allocatable = &NodeResources{
+				CPU:    node.Status.Allocatable.Cpu().String(),
+				Memory: node.Status.Allocatable.Memory().String(),
+				Pods:   node.Status.Allocatable.Pods().String(),
+			}
+		}
 		nodeList = append(nodeList, nodeInfo)
 	}
 
 	c.JSON(http.StatusOK, gin.H{
 		"items": nodeList,
 		"total": len(nodeList),
+	})
+}
+
+// DescribeNode handles getting the kubectl describe output for a node
+func DescribeNode(c *gin.Context) {
+	context := c.Query("context")
+	name := c.Query("name")
+
+	if context == "" || name == "" {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "context and name are required"})
+		return
+	}
+
+	conn, err := resourceClusterManager.GetConnection(context)
+	if err != nil || conn == nil {
+		c.JSON(http.StatusNotFound, gin.H{"error": "cluster not connected"})
+		return
+	}
+
+	// Get the node details
+	node, err := conn.ClientSet.CoreV1().Nodes().Get(c.Request.Context(), name, metav1.GetOptions{})
+	if err != nil {
+		if strings.Contains(err.Error(), "not found") {
+			c.JSON(http.StatusNotFound, gin.H{"error": "node not found"})
+			return
+		}
+		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		return
+	}
+
+	// Build describe-like output
+	var output strings.Builder
+	output.WriteString(fmt.Sprintf("Name:               %s\n", node.Name))
+
+	// Roles
+	var roles []string
+	for label := range node.Labels {
+		if strings.HasPrefix(label, "node-role.kubernetes.io/") {
+			role := strings.TrimPrefix(label, "node-role.kubernetes.io/")
+			if role != "" {
+				roles = append(roles, role)
+			}
+		}
+	}
+	if len(roles) > 0 {
+		output.WriteString(fmt.Sprintf("Roles:              %s\n", strings.Join(roles, ",")))
+	} else {
+		output.WriteString("Roles:              <none>\n")
+	}
+
+	// Labels
+	output.WriteString("Labels:             ")
+	first := true
+	for k, v := range node.Labels {
+		if !first {
+			output.WriteString("                    ")
+		}
+		output.WriteString(fmt.Sprintf("%s=%s\n", k, v))
+		first = false
+	}
+	if len(node.Labels) == 0 {
+		output.WriteString("<none>\n")
+	}
+
+	// Annotations
+	output.WriteString("Annotations:        ")
+	first = true
+	for k, v := range node.Annotations {
+		if !first {
+			output.WriteString("                    ")
+		}
+		// Truncate long annotation values
+		if len(v) > 50 {
+			v = v[:47] + "..."
+		}
+		output.WriteString(fmt.Sprintf("%s: %s\n", k, v))
+		first = false
+	}
+	if len(node.Annotations) == 0 {
+		output.WriteString("<none>\n")
+	}
+
+	output.WriteString(fmt.Sprintf("CreationTimestamp:  %s\n", node.CreationTimestamp))
+
+	// Taints
+	output.WriteString("Taints:             ")
+	if len(node.Spec.Taints) > 0 {
+		for i, taint := range node.Spec.Taints {
+			if i > 0 {
+				output.WriteString("                    ")
+			}
+			output.WriteString(fmt.Sprintf("%s=%s:%s\n", taint.Key, taint.Value, taint.Effect))
+		}
+	} else {
+		output.WriteString("<none>\n")
+	}
+
+	output.WriteString(fmt.Sprintf("Unschedulable:      %v\n", node.Spec.Unschedulable))
+
+	// Conditions
+	output.WriteString("Conditions:\n")
+	output.WriteString("  Type                 Status  LastHeartbeatTime                 LastTransitionTime                Reason                       Message\n")
+	output.WriteString("  ----                 ------  -----------------                 ------------------                ------                       -------\n")
+	for _, cond := range node.Status.Conditions {
+		output.WriteString(fmt.Sprintf("  %-20s %-7s %-33s %-33s %-28s %s\n",
+			cond.Type,
+			cond.Status,
+			cond.LastHeartbeatTime.Format(time.RFC3339),
+			cond.LastTransitionTime.Format(time.RFC3339),
+			cond.Reason,
+			cond.Message,
+		))
+	}
+
+	// Addresses
+	output.WriteString("Addresses:\n")
+	for _, addr := range node.Status.Addresses {
+		output.WriteString(fmt.Sprintf("  %s:  %s\n", addr.Type, addr.Address))
+	}
+
+	// Capacity
+	if node.Status.Capacity != nil {
+		output.WriteString("Capacity:\n")
+		output.WriteString(fmt.Sprintf("  cpu:                %s\n", node.Status.Capacity.Cpu().String()))
+		output.WriteString(fmt.Sprintf("  memory:             %s\n", node.Status.Capacity.Memory().String()))
+		output.WriteString(fmt.Sprintf("  pods:               %s\n", node.Status.Capacity.Pods().String()))
+		if storage, ok := node.Status.Capacity["ephemeral-storage"]; ok {
+			output.WriteString(fmt.Sprintf("  ephemeral-storage:  %s\n", storage.String()))
+		}
+	}
+
+	// Allocatable
+	if node.Status.Allocatable != nil {
+		output.WriteString("Allocatable:\n")
+		output.WriteString(fmt.Sprintf("  cpu:                %s\n", node.Status.Allocatable.Cpu().String()))
+		output.WriteString(fmt.Sprintf("  memory:             %s\n", node.Status.Allocatable.Memory().String()))
+		output.WriteString(fmt.Sprintf("  pods:               %s\n", node.Status.Allocatable.Pods().String()))
+		if storage, ok := node.Status.Allocatable["ephemeral-storage"]; ok {
+			output.WriteString(fmt.Sprintf("  ephemeral-storage:  %s\n", storage.String()))
+		}
+	}
+
+	// System Info
+	output.WriteString("System Info:\n")
+	output.WriteString(fmt.Sprintf("  Machine ID:                 %s\n", node.Status.NodeInfo.MachineID))
+	output.WriteString(fmt.Sprintf("  System UUID:                %s\n", node.Status.NodeInfo.SystemUUID))
+	output.WriteString(fmt.Sprintf("  Boot ID:                    %s\n", node.Status.NodeInfo.BootID))
+	output.WriteString(fmt.Sprintf("  Kernel Version:             %s\n", node.Status.NodeInfo.KernelVersion))
+	output.WriteString(fmt.Sprintf("  OS Image:                   %s\n", node.Status.NodeInfo.OSImage))
+	output.WriteString(fmt.Sprintf("  Operating System:           %s\n", node.Status.NodeInfo.OperatingSystem))
+	output.WriteString(fmt.Sprintf("  Architecture:               %s\n", node.Status.NodeInfo.Architecture))
+	output.WriteString(fmt.Sprintf("  Container Runtime Version:  %s\n", node.Status.NodeInfo.ContainerRuntimeVersion))
+	output.WriteString(fmt.Sprintf("  Kubelet Version:            %s\n", node.Status.NodeInfo.KubeletVersion))
+	output.WriteString(fmt.Sprintf("  Kube-Proxy Version:         %s\n", node.Status.NodeInfo.KubeProxyVersion))
+
+	// PodCIDR
+	if node.Spec.PodCIDR != "" {
+		output.WriteString(fmt.Sprintf("PodCIDR:                      %s\n", node.Spec.PodCIDR))
+	}
+	if len(node.Spec.PodCIDRs) > 0 {
+		output.WriteString(fmt.Sprintf("PodCIDRs:                     %s\n", strings.Join(node.Spec.PodCIDRs, ",")))
+	}
+
+	// Get pods running on this node
+	pods, err := conn.ClientSet.CoreV1().Pods("").List(c.Request.Context(), metav1.ListOptions{
+		FieldSelector: fmt.Sprintf("spec.nodeName=%s", name),
+	})
+
+	if err == nil && len(pods.Items) > 0 {
+		output.WriteString(fmt.Sprintf("Non-terminated Pods:          (%d in total)\n", len(pods.Items)))
+		output.WriteString("  Namespace                   Name                                     CPU Requests  CPU Limits  Memory Requests  Memory Limits  Age\n")
+		output.WriteString("  ---------                   ----                                     ------------  ----------  ---------------  -------------  ---\n")
+
+		// Show first 10 pods
+		maxPods := 10
+		if len(pods.Items) < maxPods {
+			maxPods = len(pods.Items)
+		}
+
+		for i := 0; i < maxPods; i++ {
+			pod := pods.Items[i]
+			var cpuReq, cpuLim, memReq, memLim string
+
+			for _, container := range pod.Spec.Containers {
+				if container.Resources.Requests != nil {
+					if cpu := container.Resources.Requests.Cpu(); cpu != nil && !cpu.IsZero() {
+						cpuReq = cpu.String()
+					}
+					if mem := container.Resources.Requests.Memory(); mem != nil && !mem.IsZero() {
+						memReq = mem.String()
+					}
+				}
+				if container.Resources.Limits != nil {
+					if cpu := container.Resources.Limits.Cpu(); cpu != nil && !cpu.IsZero() {
+						cpuLim = cpu.String()
+					}
+					if mem := container.Resources.Limits.Memory(); mem != nil && !mem.IsZero() {
+						memLim = mem.String()
+					}
+				}
+			}
+
+			if cpuReq == "" {
+				cpuReq = "0"
+			}
+			if cpuLim == "" {
+				cpuLim = "0"
+			}
+			if memReq == "" {
+				memReq = "0"
+			}
+			if memLim == "" {
+				memLim = "0"
+			}
+
+			age := time.Since(pod.CreationTimestamp.Time).Round(time.Second)
+			output.WriteString(fmt.Sprintf("  %-27s %-40s %-13s %-11s %-16s %-14s %s\n",
+				pod.Namespace,
+				pod.Name,
+				cpuReq,
+				cpuLim,
+				memReq,
+				memLim,
+				age,
+			))
+		}
+
+		if len(pods.Items) > maxPods {
+			output.WriteString(fmt.Sprintf("  ... and %d more pods\n", len(pods.Items)-maxPods))
+		}
+	}
+
+	// Events
+	events, err := conn.ClientSet.CoreV1().Events("").List(c, metav1.ListOptions{
+		FieldSelector: fmt.Sprintf("involvedObject.name=%s,involvedObject.kind=Node", name),
+	})
+
+	if err == nil && len(events.Items) > 0 {
+		output.WriteString("Events:\n")
+		output.WriteString("  Type    Reason     Age   From               Message\n")
+		output.WriteString("  ----    ------     ----  ----               -------\n")
+		for _, event := range events.Items {
+			age := time.Since(event.FirstTimestamp.Time).Round(time.Second)
+			output.WriteString(fmt.Sprintf("  %-7s %-10s %-5s %-18s %s\n",
+				event.Type,
+				event.Reason,
+				age,
+				event.Source.Component,
+				event.Message,
+			))
+		}
+	} else {
+		output.WriteString("Events:              <none>\n")
+	}
+
+	c.JSON(http.StatusOK, gin.H{
+		"output": output.String(),
 	})
 }
 

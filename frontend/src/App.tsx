@@ -12,6 +12,8 @@ import TopologyPage from '@/pages/advanced/topology'
 import DaemonSetTopologyPage from '@/pages/advanced/daemonset-topology'
 import JobTopologyPage from '@/pages/advanced/job-topology'
 import CronJobTopologyPage from '@/pages/advanced/topology/CronJobTopology'
+import { ClusterTopology } from '@/pages/advanced/topology/ClusterTopology'
+import { NodeTopologyEnhanced } from '@/pages/advanced/topology/NodeTopologyEnhanced'
 import APIDocsPage from '@/pages/advanced/api-docs'
 import LogsPage from '@/pages/advanced/logs'
 import EventsPage from '@/pages/advanced/events'
@@ -19,6 +21,7 @@ import ConnectionHealthDemo from '@/pages/connection-health-demo'
 import { MultiClusterNamespaces } from '@/pages/namespaces'
 import { NamespaceComparison } from '@/pages/advanced/namespace-comparison'
 import { SqlQueryEditorPage } from '@/pages/advanced/sqlqueryeditor/sql-query-editor'
+import { LintingPage } from '@/pages/advanced/linting'
 import { useAuthStore } from '@/stores/auth.store'
 
 function App() {
@@ -107,6 +110,22 @@ function App() {
             }
           />
           <Route
+            path="/advanced/cluster-topology"
+            element={
+              <ProtectedRoute>
+                <ClusterTopology />
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="/advanced/node-topology"
+            element={
+              <ProtectedRoute>
+                <NodeTopologyEnhanced />
+              </ProtectedRoute>
+            }
+          />
+          <Route
             path="/advanced/daemonset-topology"
             element={
               <ProtectedRoute>
@@ -159,6 +178,14 @@ function App() {
             element={
               <ProtectedRoute>
                 <SqlQueryEditorPage />
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="/advanced/linting"
+            element={
+              <ProtectedRoute>
+                <LintingPage />
               </ProtectedRoute>
             }
           />

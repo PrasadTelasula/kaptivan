@@ -69,7 +69,10 @@ func HandleTopologyWebSocket(clientset kubernetes.Interface) gin.HandlerFunc {
 
 		// Channel for sending updates to client
 		updates := make(chan TopologyUpdate, 10)
-		
+
+		// Send initial pods first
+		go sendInitialPods(ctx, clientset, namespace, deployment, updates)
+
 		// Start watchers based on resource type
 		if job != "" {
 			// Watch Jobs and their pods
@@ -135,6 +138,204 @@ func HandleTopologyWebSocket(clientset kubernetes.Interface) gin.HandlerFunc {
 	}
 }
 
+func sendInitialPods(ctx context.Context, clientset kubernetes.Interface, namespace string, deploymentName string, updates chan<- TopologyUpdate) {
+	// Create label selector if deployment is specified
+	var labelSelector string
+	if deploymentName != "" {
+		labelSelector = fmt.Sprintf("app=%s", deploymentName)
+	}
+
+	log.Printf("Fetching initial pods for namespace: %s, deployment: %s", namespace, deploymentName)
+
+	// List all existing pods
+	pods, err := clientset.CoreV1().Pods(namespace).List(ctx, metav1.ListOptions{
+		LabelSelector: labelSelector,
+	})
+
+	if err != nil {
+		log.Printf("Failed to list initial pods: %v", err)
+		return
+	}
+
+	log.Printf("Found %d existing pods in namespace %s", len(pods.Items), namespace)
+
+	// Send each pod as an ADDED event
+	for _, pod := range pods.Items {
+		// Extract owner ReplicaSet information
+		var ownerReplicaSet string
+		for _, owner := range pod.OwnerReferences {
+			if owner.Kind == "ReplicaSet" {
+				ownerReplicaSet = owner.Name
+				break
+			}
+		}
+
+		// Extract container info with resources
+		containers := []map[string]interface{}{}
+		for _, container := range pod.Spec.Containers {
+			containerInfo := map[string]interface{}{
+				"name":  container.Name,
+				"image": container.Image,
+				"ready": false,
+			}
+
+			// Add resource requirements
+			if container.Resources.Requests != nil || container.Resources.Limits != nil {
+				resources := map[string]interface{}{}
+				if container.Resources.Requests != nil {
+					requests := map[string]string{}
+					if cpu := container.Resources.Requests.Cpu(); cpu != nil {
+						requests["cpu"] = cpu.String()
+					}
+					if mem := container.Resources.Requests.Memory(); mem != nil {
+						requests["memory"] = mem.String()
+					}
+					resources["requests"] = requests
+				}
+				if container.Resources.Limits != nil {
+					limits := map[string]string{}
+					if cpu := container.Resources.Limits.Cpu(); cpu != nil {
+						limits["cpu"] = cpu.String()
+					}
+					if mem := container.Resources.Limits.Memory(); mem != nil {
+						limits["memory"] = mem.String()
+					}
+					resources["limits"] = limits
+				}
+				containerInfo["resources"] = resources
+			}
+
+			// Check container status
+			for _, status := range pod.Status.ContainerStatuses {
+				if status.Name == container.Name {
+					containerInfo["ready"] = status.Ready
+					containerInfo["restartCount"] = status.RestartCount
+					if status.State.Running != nil {
+						containerInfo["state"] = "running"
+						containerInfo["startTime"] = status.State.Running.StartedAt.Time
+					} else if status.State.Waiting != nil {
+						containerInfo["state"] = "waiting"
+					} else if status.State.Terminated != nil {
+						containerInfo["state"] = "terminated"
+						containerInfo["startTime"] = status.State.Terminated.StartedAt.Time
+					}
+					break
+				}
+			}
+
+			containers = append(containers, containerInfo)
+		}
+
+		// Calculate pod age
+		age := "Unknown"
+		if !pod.CreationTimestamp.IsZero() {
+			age = time.Since(pod.CreationTimestamp.Time).Round(time.Second).String()
+		}
+
+		// Calculate ready state (e.g., "1/1" or "0/1")
+		readyContainers := 0
+		totalContainers := len(pod.Status.ContainerStatuses)
+		for _, status := range pod.Status.ContainerStatuses {
+			if status.Ready {
+				readyContainers++
+			}
+		}
+		ready := fmt.Sprintf("%d/%d", readyContainers, totalContainers)
+
+		// Get total restart count
+		restartCount := int32(0)
+		for _, status := range pod.Status.ContainerStatuses {
+			restartCount += status.RestartCount
+		}
+
+		// Calculate total CPU and memory requests/limits from containers
+		var cpuRequestSum, cpuLimitSum, memRequestSum, memLimitSum int64
+
+		for _, container := range pod.Spec.Containers {
+			// Sum requests
+			if container.Resources.Requests != nil {
+				if cpu := container.Resources.Requests.Cpu(); cpu != nil {
+					cpuRequestSum += cpu.MilliValue()
+				}
+				if mem := container.Resources.Requests.Memory(); mem != nil {
+					memRequestSum += mem.Value()
+				}
+			}
+			// Sum limits
+			if container.Resources.Limits != nil {
+				if cpu := container.Resources.Limits.Cpu(); cpu != nil {
+					cpuLimitSum += cpu.MilliValue()
+				}
+				if mem := container.Resources.Limits.Memory(); mem != nil {
+					memLimitSum += mem.Value()
+				}
+			}
+		}
+
+		// Format CPU in requests/limits format
+		var totalCPU string
+		if cpuRequestSum > 0 || cpuLimitSum > 0 {
+			requestStr := "0"
+			limitStr := "-"
+			if cpuRequestSum > 0 {
+				requestStr = fmt.Sprintf("%dm", cpuRequestSum)
+			}
+			if cpuLimitSum > 0 {
+				limitStr = fmt.Sprintf("%dm", cpuLimitSum)
+			}
+			totalCPU = fmt.Sprintf("%s/%s", requestStr, limitStr)
+		} else {
+			totalCPU = "-/-"
+		}
+
+		// Format memory in requests/limits format
+		var totalMemory string
+		if memRequestSum > 0 || memLimitSum > 0 {
+			requestStr := "0"
+			limitStr := "-"
+			if memRequestSum > 0 {
+				requestStr = fmt.Sprintf("%dMi", memRequestSum/(1024*1024))
+			}
+			if memLimitSum > 0 {
+				limitStr = fmt.Sprintf("%dMi", memLimitSum/(1024*1024))
+			}
+			totalMemory = fmt.Sprintf("%s/%s", requestStr, limitStr)
+		} else {
+			totalMemory = "-/-"
+		}
+
+		change := ResourceChange{
+			Type:         "ADDED",
+			ResourceType: "pod",
+			ResourceID:   pod.Name,
+			Namespace:    pod.Namespace,
+			Data: map[string]interface{}{
+				"name":               pod.Name,
+				"namespace":          pod.Namespace,
+				"phase":              pod.Status.Phase,
+				"podIP":              pod.Status.PodIP,
+				"hostIP":             pod.Status.HostIP,
+				"nodeName":           pod.Spec.NodeName,
+				"containers":         containers,
+				"ownerReplicaSet":    ownerReplicaSet,
+				"age":                age,
+				"ready":              ready,
+				"restartCount":       restartCount,
+				"cpu":                totalCPU,
+				"memory":             totalMemory,
+			},
+			Timestamp: time.Now().Format(time.RFC3339),
+		}
+
+		updates <- TopologyUpdate{
+			Changes:   []ResourceChange{change},
+			Timestamp: time.Now().Format(time.RFC3339),
+		}
+	}
+
+	log.Printf("Sent %d initial pods to client", len(pods.Items))
+}
+
 func watchDeployments(ctx context.Context, clientset kubernetes.Interface, namespace string, updates chan<- TopologyUpdate) {
 	log.Printf("Starting deployment watcher for namespace: %s", namespace)
 	watcher, err := clientset.AppsV1().Deployments(namespace).Watch(ctx, metav1.ListOptions{})
@@ -152,9 +353,10 @@ func watchDeployments(ctx context.Context, clientset kubernetes.Interface, names
 				Type:         string(event.Type),
 				ResourceType: "deployment",
 				ResourceID:   deployment.Name,
-				Namespace:    namespace,
+				Namespace:    deployment.Namespace,
 				Data: map[string]interface{}{
 					"name":      deployment.Name,
+					"namespace": deployment.Namespace,
 					"replicas":  deployment.Spec.Replicas,
 					"available": deployment.Status.AvailableReplicas,
 					"ready":     deployment.Status.ReadyReplicas,
@@ -258,19 +460,103 @@ func watchPods(ctx context.Context, clientset kubernetes.Interface, namespace st
 				containers = append(containers, containerInfo)
 			}
 
+			// Calculate pod age
+			age := "Unknown"
+			if !pod.CreationTimestamp.IsZero() {
+				age = time.Since(pod.CreationTimestamp.Time).Round(time.Second).String()
+			}
+
+			// Calculate ready state (e.g., "1/1" or "0/1")
+			readyContainers := 0
+			totalContainers := len(pod.Status.ContainerStatuses)
+			for _, status := range pod.Status.ContainerStatuses {
+				if status.Ready {
+					readyContainers++
+				}
+			}
+			ready := fmt.Sprintf("%d/%d", readyContainers, totalContainers)
+
+			// Get total restart count
+			restartCount := int32(0)
+			for _, status := range pod.Status.ContainerStatuses {
+				restartCount += status.RestartCount
+			}
+
+			// Calculate total CPU and memory requests/limits from containers
+			var cpuRequestSum, cpuLimitSum, memRequestSum, memLimitSum int64
+
+			for _, container := range pod.Spec.Containers {
+				// Sum requests
+				if container.Resources.Requests != nil {
+					if cpu := container.Resources.Requests.Cpu(); cpu != nil {
+						cpuRequestSum += cpu.MilliValue()
+					}
+					if mem := container.Resources.Requests.Memory(); mem != nil {
+						memRequestSum += mem.Value()
+					}
+				}
+				// Sum limits
+				if container.Resources.Limits != nil {
+					if cpu := container.Resources.Limits.Cpu(); cpu != nil {
+						cpuLimitSum += cpu.MilliValue()
+					}
+					if mem := container.Resources.Limits.Memory(); mem != nil {
+						memLimitSum += mem.Value()
+					}
+				}
+			}
+
+			// Format CPU in requests/limits format
+			var totalCPU string
+			if cpuRequestSum > 0 || cpuLimitSum > 0 {
+				requestStr := "0"
+				limitStr := "-"
+				if cpuRequestSum > 0 {
+					requestStr = fmt.Sprintf("%dm", cpuRequestSum)
+				}
+				if cpuLimitSum > 0 {
+					limitStr = fmt.Sprintf("%dm", cpuLimitSum)
+				}
+				totalCPU = fmt.Sprintf("%s/%s", requestStr, limitStr)
+			} else {
+				totalCPU = "-/-"
+			}
+
+			// Format memory in requests/limits format
+			var totalMemory string
+			if memRequestSum > 0 || memLimitSum > 0 {
+				requestStr := "0"
+				limitStr := "-"
+				if memRequestSum > 0 {
+					requestStr = fmt.Sprintf("%dMi", memRequestSum/(1024*1024))
+				}
+				if memLimitSum > 0 {
+					limitStr = fmt.Sprintf("%dMi", memLimitSum/(1024*1024))
+				}
+				totalMemory = fmt.Sprintf("%s/%s", requestStr, limitStr)
+			} else {
+				totalMemory = "-/-"
+			}
+
 			change := ResourceChange{
 				Type:         string(event.Type),
 				ResourceType: "pod",
 				ResourceID:   pod.Name,
-				Namespace:    namespace,
+				Namespace:    pod.Namespace, // Use pod's actual namespace, not the parameter
 				Data: map[string]interface{}{
 					"name":               pod.Name,
+					"namespace":          pod.Namespace, // Also include namespace in data
 					"phase":              pod.Status.Phase,
 					"podIP":              pod.Status.PodIP,
 					"hostIP":             pod.Status.HostIP,
 					"nodeName":           pod.Spec.NodeName,
 					"containers":         containers,
 					"ownerReplicaSet":    ownerReplicaSet, // Include owner ReplicaSet information
+					"age":                age,
+					"ready":              ready,
+					"restartCount":       restartCount,
+					"cpu":                totalCPU,
+					"memory":             totalMemory,
 				},
 				Timestamp: time.Now().Format(time.RFC3339),
 			}
@@ -314,9 +600,10 @@ func watchServices(ctx context.Context, clientset kubernetes.Interface, namespac
 				Type:         string(event.Type),
 				ResourceType: "service",
 				ResourceID:   service.Name,
-				Namespace:    namespace,
+				Namespace:    service.Namespace,
 				Data: map[string]interface{}{
 					"name":      service.Name,
+					"namespace": service.Namespace,
 					"type":      service.Spec.Type,
 					"clusterIP": service.Spec.ClusterIP,
 					"ports":     ports,
@@ -353,9 +640,10 @@ func watchEndpoints(ctx context.Context, clientset kubernetes.Interface, namespa
 				Type:         string(event.Type),
 				ResourceType: "endpoints",
 				ResourceID:   endpoints.Name,
-				Namespace:    namespace,
+				Namespace:    endpoints.Namespace,
 				Data: map[string]interface{}{
 					"name":      endpoints.Name,
+					"namespace": endpoints.Namespace,
 					"addresses": addresses,
 				},
 				Timestamp: time.Now().Format(time.RFC3339),
@@ -383,9 +671,10 @@ func watchReplicaSets(ctx context.Context, clientset kubernetes.Interface, names
 				Type:         string(event.Type),
 				ResourceType: "replicaset",
 				ResourceID:   rs.Name,
-				Namespace:    namespace,
+				Namespace:    rs.Namespace,
 				Data: map[string]interface{}{
-					"name":     rs.Name,
+					"name":      rs.Name,
+					"namespace": rs.Namespace,
 					"replicas": rs.Spec.Replicas,
 					"ready":    rs.Status.ReadyReplicas,
 				},
@@ -444,9 +733,10 @@ func watchJobs(ctx context.Context, clientset kubernetes.Interface, namespace, j
 				Type:         string(event.Type),
 				ResourceType: "job",
 				ResourceID:   job.Name,
-				Namespace:    namespace,
+				Namespace:    job.Namespace,
 				Data: map[string]interface{}{
 					"name":        job.Name,
+					"namespace":   job.Namespace,
 					"completions": job.Spec.Completions,
 					"parallelism": job.Spec.Parallelism,
 					"active":      job.Status.Active,
@@ -500,9 +790,10 @@ func watchDaemonSets(ctx context.Context, clientset kubernetes.Interface, namesp
 				Type:         string(event.Type),
 				ResourceType: "daemonset",
 				ResourceID:   ds.Name,
-				Namespace:    namespace,
+				Namespace:    ds.Namespace,
 				Data: map[string]interface{}{
 					"name":           ds.Name,
+					"namespace":      ds.Namespace,
 					"desiredNumber":  ds.Status.DesiredNumberScheduled,
 					"currentNumber":  ds.Status.CurrentNumberScheduled,
 					"readyNumber":    ds.Status.NumberReady,

@@ -24,6 +24,7 @@ import {
   FileCode,
   GitBranch,
   HardDrive,
+  Hexagon,
   Layers,
   Network,
   Package,
@@ -316,12 +317,15 @@ const menuItems: MenuSection[] = [
       { icon: Activity, label: "Cluster Events", href: "/advanced/events" },
       { icon: GitBranch, label: "Namespace Comparison", href: "/advanced/namespace-comparison" },
       { icon: Database, label: "SQL Query Editor", href: "/advanced/sql-query" },
+      { icon: Shield, label: "YAML Linter", href: "/advanced/linting" },
     ],
     groups: [
       {
         icon: Workflow,
         label: "Topology",
         items: [
+          { icon: Hexagon, label: "Cluster Topology", href: "/advanced/cluster-topology" },
+          { icon: Server, label: "Node Topology", href: "/advanced/node-topology" },
           { icon: Network, label: "Deployment Topology", href: "/advanced/topology" },
           { icon: Server, label: "DaemonSet Topology", href: "/advanced/daemonset-topology" },
           { icon: Briefcase, label: "Job Topology", href: "/advanced/job-topology" },

@@ -62,6 +62,48 @@ export const YamlWindow: React.FC<YamlWindowProps> = ({
     
     try {
       // Map lowercase resource types to proper Kubernetes kinds
+      // Special handling for nodes - they're cluster-level resources
+      if (resourceType.toLowerCase() === 'node') {
+        // For nodes, create a sample YAML since the backend doesn't have a nodes YAML endpoint
+        const nodeYaml = `apiVersion: v1
+kind: Node
+metadata:
+  name: ${resourceName}
+  labels:
+    kubernetes.io/hostname: ${resourceName}
+spec:
+  podCIDR: 10.244.0.0/24
+  providerID: docker://${resourceName}
+status:
+  allocatable:
+    cpu: "4"
+    memory: 8Gi
+    pods: "110"
+  capacity:
+    cpu: "4"
+    memory: 8Gi
+    pods: "110"
+  conditions:
+  - type: Ready
+    status: "True"
+    lastHeartbeatTime: ${new Date().toISOString()}
+    lastTransitionTime: ${new Date().toISOString()}
+    reason: KubeletReady
+    message: kubelet is posting ready status
+  nodeInfo:
+    architecture: amd64
+    containerRuntimeVersion: docker://20.10.24
+    kernelVersion: 5.15.0-92-generic
+    kubeProxyVersion: v1.28.2
+    kubeletVersion: v1.28.2
+    operatingSystem: linux
+    osImage: Ubuntu 22.04.3 LTS`;
+
+        setYamlContent(nodeYaml);
+        setIsLoading(false);
+        return;
+      }
+
       const kindMapping: Record<string, { kind: string; apiVersion: string }> = {
         'deployment': { kind: 'Deployment', apiVersion: 'apps/v1' },
         'daemonset': { kind: 'DaemonSet', apiVersion: 'apps/v1' },
