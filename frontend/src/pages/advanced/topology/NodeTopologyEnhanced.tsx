@@ -936,11 +936,22 @@ export function NodeTopologyEnhanced() {
   }
 
   // Render functions for different view modes
-  const renderCardView = () => (
-    <div className="space-y-6">
-      <TooltipProvider>
-        {nodeGroups.map(group => (
-          <Card key={group.node.name} className="overflow-hidden">
+  const renderCardView = () => {
+    // Helper function to determine card width based on pod count
+    const getNodeCardClass = (podCount: number) => {
+      if (podCount === 0) return "w-fit min-w-[300px] max-w-md"
+      if (podCount === 1) return "w-fit min-w-[350px] max-w-lg"
+      if (podCount <= 4) return "w-fit min-w-[400px] max-w-2xl"
+      if (podCount <= 8) return "w-fit min-w-[500px] max-w-3xl"
+      if (podCount <= 12) return "w-fit min-w-[600px] max-w-4xl"
+      return "w-full"
+    }
+
+    return (
+      <div className="flex flex-wrap gap-6">
+        <TooltipProvider>
+          {nodeGroups.map(group => (
+            <Card key={group.node.name} className={cn("overflow-hidden", getNodeCardClass(group.pods.length))}>
             <CardHeader className="bg-muted/30">
               <div className="flex items-center justify-between">
                 <div className="flex items-center gap-3">
@@ -996,7 +1007,13 @@ export function NodeTopologyEnhanced() {
               {group.pods.length === 0 ? (
                 <p className="text-center text-muted-foreground py-4">No pods on this node</p>
               ) : (
-                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-3">
+                <div className={cn(
+                  "gap-3",
+                  group.pods.length === 1 ? "flex justify-center" :
+                  group.pods.length <= 2 ? "grid grid-cols-1 md:grid-cols-2" :
+                  group.pods.length <= 4 ? "grid grid-cols-1 md:grid-cols-2 lg:grid-cols-2" :
+                  "grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4"
+                )}>
                   {group.pods.map(pod => (
                     <ContextMenu key={`${pod.namespace}-${pod.name}`}>
                       <ContextMenuTrigger>
@@ -1136,38 +1153,16 @@ export function NodeTopologyEnhanced() {
               )}
             </CardContent>
           </Card>
-        ))}
-      </TooltipProvider>
-    </div>
-  )
+          ))}
+        </TooltipProvider>
+      </div>
+    )
+  }
 
-  const renderCompactGridView = () => {
-    // Helper function to determine card width based on pod count
-    const getCardWidth = (podCount: number) => {
-      if (podCount === 0) return "w-fit min-w-[200px] max-w-xs"
-      if (podCount === 1) return "w-fit min-w-[150px] max-w-[200px]"
-      if (podCount <= 4) return "w-fit min-w-[200px] max-w-sm"
-      if (podCount <= 8) return "w-fit min-w-[280px] max-w-md"
-      if (podCount <= 16) return "w-fit min-w-[350px] max-w-lg"
-      if (podCount <= 24) return "w-fit min-w-[400px] max-w-xl"
-      return "w-fit min-w-[500px] max-w-2xl"
-    }
-
-    // Helper function to determine grid columns for pods based on count
-    const getPodGridCols = (podCount: number) => {
-      if (podCount === 0) return "flex justify-center"
-      if (podCount === 1) return "flex justify-center"
-      if (podCount <= 4) return "grid grid-cols-4"
-      if (podCount <= 8) return "grid grid-cols-8"
-      if (podCount <= 16) return "grid grid-cols-8"
-      if (podCount <= 24) return "grid grid-cols-8"
-      return "grid grid-cols-8"
-    }
-
-    return (
-      <div className="flex flex-wrap gap-4">
-        {nodeGroups.map(group => (
-          <Card key={group.node.name} className={cn("overflow-hidden", getCardWidth(group.pods.length))}>
+  const renderCompactGridView = () => (
+    <div className="grid grid-cols-1 lg:grid-cols-2 xl:grid-cols-3 gap-4">
+      {nodeGroups.map(group => (
+        <Card key={group.node.name} className="overflow-hidden">
           <CardHeader className="py-3 px-4 bg-muted/30">
             <div className="flex items-center justify-between">
               <div className="flex items-center gap-2">
@@ -1208,7 +1203,7 @@ export function NodeTopologyEnhanced() {
             </div>
           </CardHeader>
           <CardContent className="p-3">
-            <div className={cn("gap-0.5", getPodGridCols(group.pods.length))}>
+            <div className="grid grid-cols-8 gap-0.5">
               {group.pods.map(pod => (
                 <ContextMenu key={`${pod.namespace}-${pod.name}`}>
                   <ContextMenuTrigger asChild>
@@ -1290,10 +1285,9 @@ export function NodeTopologyEnhanced() {
             </div>
           </CardContent>
         </Card>
-        ))}
-      </div>
-    )
-  }
+      ))}
+    </div>
+  )
 
   const renderHeatMapView = () => {
     const getHeatMapColor = (pod: Pod) => {
