@@ -1005,8 +1005,8 @@ export function NodeTopologyEnhanced() {
                           getPodStatusColor(pod)
                         )}>
                           <div className="space-y-2">
-                            <div className="flex items-center justify-between">
-                              <div className="flex items-center gap-2">
+                            <div className="flex items-center justify-between gap-2">
+                              <div className="flex items-center gap-2 min-w-0 flex-1">
                                 {getPodIcon(pod)}
                                 <span className="font-medium text-sm truncate" title={pod.name}>
                                   {pod.name}
@@ -1225,9 +1225,9 @@ export function NodeTopologyEnhanced() {
                             {getPodIcon(pod)}
                           </div>
                         </TooltipTrigger>
-                        <TooltipContent>
+                        <TooltipContent className="max-w-xs">
                         <div className="text-xs space-y-1">
-                          <p className="font-medium">{pod.name}</p>
+                          <p className="font-medium truncate">{pod.name}</p>
                           <p>Namespace: {pod.namespace}</p>
                           <p>Status: {pod.status}</p>
                           <p>Ready: {pod.ready}</p>
@@ -1367,9 +1367,9 @@ export function NodeTopologyEnhanced() {
                               <Container className="h-3 w-3 text-white" />
                             </div>
                           </TooltipTrigger>
-                          <TooltipContent>
+                          <TooltipContent className="max-w-xs">
                             <div className="text-xs">
-                              <p className="font-medium">{pod.name}</p>
+                              <p className="font-medium truncate">{pod.name}</p>
                               <p>CPU: {pod.cpu || '-/-'}</p>
                               <p>Memory: {pod.memory || '-/-'}</p>
                               <p>Status: {pod.status}</p>
@@ -1448,7 +1448,9 @@ export function NodeTopologyEnhanced() {
                 {group.pods.map(pod => (
                   <TableRow key={`${pod.namespace}-${pod.name}`}>
                     <TableCell>{getPodIcon(pod)}</TableCell>
-                    <TableCell className="font-medium">{pod.name}</TableCell>
+                    <TableCell className="font-medium max-w-[200px]">
+                      <span className="block truncate" title={pod.name}>{pod.name}</span>
+                    </TableCell>
                     <TableCell>{pod.namespace}</TableCell>
                     <TableCell>
                       <Badge variant={pod.status === 'Running' ? 'success' : 'destructive'} className="text-xs">
