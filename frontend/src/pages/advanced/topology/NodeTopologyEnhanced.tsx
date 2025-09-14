@@ -1154,37 +1154,115 @@ export function NodeTopologyEnhanced() {
                   {group.pods.length} pods
                 </Badge>
               </div>
-              <Badge variant={group.node.status === 'Ready' ? 'success' : 'destructive'} className="text-xs py-0">
-                {group.node.status}
-              </Badge>
+              <div className="flex items-center gap-2">
+                <Badge variant={group.node.status === 'Ready' ? 'success' : 'destructive'} className="text-xs py-0">
+                  {group.node.status}
+                </Badge>
+                <DropdownMenu>
+                  <DropdownMenuTrigger asChild>
+                    <Button variant="ghost" size="icon" className="h-6 w-6">
+                      <MoreVertical className="h-3 w-3" />
+                    </Button>
+                  </DropdownMenuTrigger>
+                  <DropdownMenuContent align="end">
+                    <DropdownMenuLabel>Node Actions</DropdownMenuLabel>
+                    <DropdownMenuSeparator />
+                    <DropdownMenuItem onClick={() => handleNodeAction('describe', group.node)}>
+                      <FileText className="mr-2 h-4 w-4" />
+                      Describe
+                    </DropdownMenuItem>
+                    <DropdownMenuItem onClick={() => handleNodeAction('yaml', group.node)}>
+                      <FileCode className="mr-2 h-4 w-4" />
+                      View YAML
+                    </DropdownMenuItem>
+                    <DropdownMenuItem onClick={() => handleNodeAction('events', group.node)}>
+                      <Activity className="mr-2 h-4 w-4" />
+                      View Events
+                    </DropdownMenuItem>
+                  </DropdownMenuContent>
+                </DropdownMenu>
+              </div>
             </div>
           </CardHeader>
           <CardContent className="p-3">
             <div className="grid grid-cols-8 gap-0.5">
               {group.pods.map(pod => (
-                <Tooltip key={`${pod.namespace}-${pod.name}`}>
-                  <TooltipTrigger>
-                    <div
-                      className={cn(
-                        "w-7 h-7 rounded border flex items-center justify-center cursor-pointer hover:scale-110 transition-transform",
-                        getPodStatusColor(pod)
-                      )}
-                      onClick={() => handlePodAction('info', pod)}
-                    >
-                      {getPodIcon(pod)}
+                <ContextMenu key={`${pod.namespace}-${pod.name}`}>
+                  <ContextMenuTrigger asChild>
+                    <div>
+                      <Tooltip>
+                        <TooltipTrigger asChild>
+                          <div
+                            className={cn(
+                              "w-7 h-7 rounded border flex items-center justify-center cursor-pointer hover:scale-110 transition-transform",
+                              getPodStatusColor(pod)
+                            )}
+                            onClick={() => handlePodAction('info', pod)}
+                          >
+                            {getPodIcon(pod)}
+                          </div>
+                        </TooltipTrigger>
+                        <TooltipContent>
+                        <div className="text-xs space-y-1">
+                          <p className="font-medium">{pod.name}</p>
+                          <p>Namespace: {pod.namespace}</p>
+                          <p>Status: {pod.status}</p>
+                          <p>Ready: {pod.ready}</p>
+                          <p>CPU: {pod.cpu || '-/-'}</p>
+                          <p>Memory: {pod.memory || '-/-'}</p>
+                          {pod.containers && pod.containers.length > 0 && (
+                            <div className="pt-1 border-t">
+                              <p className="font-medium">Containers ({pod.containers.length}):</p>
+                              <div className="flex flex-wrap gap-1 mt-1">
+                                {pod.containers.map((container, idx) => {
+                                  const containerName = typeof container === 'string' ? container : container.name
+                                  return (
+                                    <div key={idx} className="flex items-center gap-1">
+                                      <div className={cn(
+                                        "w-2 h-2 rounded-full",
+                                        getContainerColor(container, pod.ready).replace('bg-', 'bg-')
+                                      )} />
+                                      <span className="text-[10px]">{containerName}</span>
+                                    </div>
+                                  )
+                                })}
+                              </div>
+                            </div>
+                          )}
+                        </div>
+                      </TooltipContent>
+                    </Tooltip>
                     </div>
-                  </TooltipTrigger>
-                  <TooltipContent>
-                    <div className="text-xs">
-                      <p className="font-medium">{pod.name}</p>
-                      <p>Namespace: {pod.namespace}</p>
-                      <p>Status: {pod.status}</p>
-                      <p>Ready: {pod.ready}</p>
-                      <p>CPU: {pod.cpu || '-/-'}</p>
-                      <p>Memory: {pod.memory || '-/-'}</p>
-                    </div>
-                  </TooltipContent>
-                </Tooltip>
+                  </ContextMenuTrigger>
+                  <ContextMenuContent>
+                    <ContextMenuLabel>Pod Actions</ContextMenuLabel>
+                    <ContextMenuSeparator />
+                    <ContextMenuItem onClick={() => handlePodAction('info', pod)}>
+                      <FileText className="mr-2 h-4 w-4" />
+                      Pod Info
+                    </ContextMenuItem>
+                    <ContextMenuItem onClick={() => handlePodAction('logs', pod)}>
+                      <ScrollText className="mr-2 h-4 w-4" />
+                      View Logs
+                    </ContextMenuItem>
+                    <ContextMenuItem onClick={() => handlePodAction('yaml', pod)}>
+                      <FileCode className="mr-2 h-4 w-4" />
+                      View YAML
+                    </ContextMenuItem>
+                    <ContextMenuItem onClick={() => handlePodAction('shell', pod)}>
+                      <Terminal className="mr-2 h-4 w-4" />
+                      Open Shell
+                    </ContextMenuItem>
+                    <ContextMenuItem onClick={() => handlePodAction('describe', pod)}>
+                      <FileText className="mr-2 h-4 w-4" />
+                      Describe
+                    </ContextMenuItem>
+                    <ContextMenuItem onClick={() => handlePodAction('events', pod)}>
+                      <Activity className="mr-2 h-4 w-4" />
+                      View Events
+                    </ContextMenuItem>
+                  </ContextMenuContent>
+                </ContextMenu>
               ))}
             </div>
           </CardContent>
@@ -1216,36 +1294,95 @@ export function NodeTopologyEnhanced() {
                   <Server className={cn("h-4 w-4", getNodeStatusColor(group.node.status))} />
                   {group.node.name}
                 </CardTitle>
-                <div className="flex items-center gap-2 text-sm">
-                  <span>CPU: {group.node.capacity?.cpu || 'N/A'}</span>
-                  <span>Memory: {formatMemory(group.node.capacity?.memory)}</span>
+                <div className="flex items-center gap-2">
+                  <div className="flex items-center gap-2 text-sm">
+                    <span>CPU: {group.node.capacity?.cpu || 'N/A'}</span>
+                    <span>Memory: {formatMemory(group.node.capacity?.memory)}</span>
+                  </div>
+                  <DropdownMenu>
+                    <DropdownMenuTrigger asChild>
+                      <Button variant="ghost" size="icon" className="h-7 w-7">
+                        <MoreVertical className="h-3 w-3" />
+                      </Button>
+                    </DropdownMenuTrigger>
+                    <DropdownMenuContent align="end">
+                      <DropdownMenuLabel>Node Actions</DropdownMenuLabel>
+                      <DropdownMenuSeparator />
+                      <DropdownMenuItem onClick={() => handleNodeAction('describe', group.node)}>
+                        <FileText className="mr-2 h-4 w-4" />
+                        Describe
+                      </DropdownMenuItem>
+                      <DropdownMenuItem onClick={() => handleNodeAction('yaml', group.node)}>
+                        <FileCode className="mr-2 h-4 w-4" />
+                        View YAML
+                      </DropdownMenuItem>
+                      <DropdownMenuItem onClick={() => handleNodeAction('events', group.node)}>
+                        <Activity className="mr-2 h-4 w-4" />
+                        View Events
+                      </DropdownMenuItem>
+                    </DropdownMenuContent>
+                  </DropdownMenu>
                 </div>
               </div>
             </CardHeader>
             <CardContent className="p-3">
               <div className="flex flex-wrap gap-1">
                 {group.pods.map(pod => (
-                  <Tooltip key={`${pod.namespace}-${pod.name}`}>
-                    <TooltipTrigger>
-                      <div
-                        className={cn(
-                          "w-8 h-8 rounded cursor-pointer hover:opacity-80 transition-opacity flex items-center justify-center",
-                          getHeatMapColor(pod)
-                        )}
-                        onClick={() => handlePodAction('info', pod)}
-                      >
-                        <Container className="h-3 w-3 text-white" />
+                  <ContextMenu key={`${pod.namespace}-${pod.name}`}>
+                    <ContextMenuTrigger asChild>
+                      <div>
+                        <Tooltip>
+                          <TooltipTrigger asChild>
+                            <div
+                              className={cn(
+                                "w-8 h-8 rounded cursor-pointer hover:opacity-80 transition-opacity flex items-center justify-center",
+                                getHeatMapColor(pod)
+                              )}
+                              onClick={() => handlePodAction('info', pod)}
+                            >
+                              <Container className="h-3 w-3 text-white" />
+                            </div>
+                          </TooltipTrigger>
+                          <TooltipContent>
+                            <div className="text-xs">
+                              <p className="font-medium">{pod.name}</p>
+                              <p>CPU: {pod.cpu || '-/-'}</p>
+                              <p>Memory: {pod.memory || '-/-'}</p>
+                              <p>Status: {pod.status}</p>
+                            </div>
+                          </TooltipContent>
+                        </Tooltip>
                       </div>
-                    </TooltipTrigger>
-                    <TooltipContent>
-                      <div className="text-xs">
-                        <p className="font-medium">{pod.name}</p>
-                        <p>CPU: {pod.cpu || '-/-'}</p>
-                        <p>Memory: {pod.memory || '-/-'}</p>
-                        <p>Status: {pod.status}</p>
-                      </div>
-                    </TooltipContent>
-                  </Tooltip>
+                    </ContextMenuTrigger>
+                    <ContextMenuContent>
+                      <ContextMenuLabel>Pod Actions</ContextMenuLabel>
+                      <ContextMenuSeparator />
+                      <ContextMenuItem onClick={() => handlePodAction('info', pod)}>
+                        <FileText className="mr-2 h-4 w-4" />
+                        Pod Info
+                      </ContextMenuItem>
+                      <ContextMenuItem onClick={() => handlePodAction('logs', pod)}>
+                        <ScrollText className="mr-2 h-4 w-4" />
+                        View Logs
+                      </ContextMenuItem>
+                      <ContextMenuItem onClick={() => handlePodAction('yaml', pod)}>
+                        <FileCode className="mr-2 h-4 w-4" />
+                        View YAML
+                      </ContextMenuItem>
+                      <ContextMenuItem onClick={() => handlePodAction('shell', pod)}>
+                        <Terminal className="mr-2 h-4 w-4" />
+                        Open Shell
+                      </ContextMenuItem>
+                      <ContextMenuItem onClick={() => handlePodAction('describe', pod)}>
+                        <FileText className="mr-2 h-4 w-4" />
+                        Describe
+                      </ContextMenuItem>
+                      <ContextMenuItem onClick={() => handlePodAction('events', pod)}>
+                        <Activity className="mr-2 h-4 w-4" />
+                        View Events
+                      </ContextMenuItem>
+                    </ContextMenuContent>
+                  </ContextMenu>
                 ))}
               </div>
             </CardContent>
