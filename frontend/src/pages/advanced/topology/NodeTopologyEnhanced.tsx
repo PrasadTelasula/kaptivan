@@ -1141,10 +1141,33 @@ export function NodeTopologyEnhanced() {
     </div>
   )
 
-  const renderCompactGridView = () => (
-    <div className="grid grid-cols-1 lg:grid-cols-2 xl:grid-cols-3 gap-4">
-      {nodeGroups.map(group => (
-        <Card key={group.node.name} className="overflow-hidden">
+  const renderCompactGridView = () => {
+    // Helper function to determine card width based on pod count
+    const getCardWidth = (podCount: number) => {
+      if (podCount === 0) return "w-full max-w-xs"
+      if (podCount === 1) return "w-full max-w-xs"
+      if (podCount <= 4) return "w-full max-w-sm"
+      if (podCount <= 8) return "w-full max-w-md"
+      if (podCount <= 16) return "w-full max-w-lg"
+      if (podCount <= 24) return "w-full max-w-xl"
+      return "w-full max-w-2xl"
+    }
+
+    // Helper function to determine grid columns for pods based on count
+    const getPodGridCols = (podCount: number) => {
+      if (podCount === 0) return "grid-cols-1"
+      if (podCount === 1) return "grid-cols-1"
+      if (podCount <= 4) return "grid-cols-4"
+      if (podCount <= 8) return "grid-cols-8"
+      if (podCount <= 16) return "grid-cols-8"
+      if (podCount <= 24) return "grid-cols-8"
+      return "grid-cols-8"
+    }
+
+    return (
+      <div className="flex flex-wrap gap-4">
+        {nodeGroups.map(group => (
+          <Card key={group.node.name} className={cn("overflow-hidden", getCardWidth(group.pods.length))}>
           <CardHeader className="py-3 px-4 bg-muted/30">
             <div className="flex items-center justify-between">
               <div className="flex items-center gap-2">
@@ -1185,7 +1208,7 @@ export function NodeTopologyEnhanced() {
             </div>
           </CardHeader>
           <CardContent className="p-3">
-            <div className="grid grid-cols-8 gap-0.5">
+            <div className={cn("grid gap-0.5", getPodGridCols(group.pods.length))}>
               {group.pods.map(pod => (
                 <ContextMenu key={`${pod.namespace}-${pod.name}`}>
                   <ContextMenuTrigger asChild>
@@ -1267,9 +1290,10 @@ export function NodeTopologyEnhanced() {
             </div>
           </CardContent>
         </Card>
-      ))}
-    </div>
-  )
+        ))}
+      </div>
+    )
+  }
 
   const renderHeatMapView = () => {
     const getHeatMapColor = (pod: Pod) => {
