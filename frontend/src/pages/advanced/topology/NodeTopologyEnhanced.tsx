@@ -1144,24 +1144,24 @@ export function NodeTopologyEnhanced() {
   const renderCompactGridView = () => {
     // Helper function to determine card width based on pod count
     const getCardWidth = (podCount: number) => {
-      if (podCount === 0) return "w-full max-w-xs"
-      if (podCount === 1) return "w-full max-w-xs"
-      if (podCount <= 4) return "w-full max-w-sm"
-      if (podCount <= 8) return "w-full max-w-md"
-      if (podCount <= 16) return "w-full max-w-lg"
-      if (podCount <= 24) return "w-full max-w-xl"
-      return "w-full max-w-2xl"
+      if (podCount === 0) return "w-fit min-w-[200px] max-w-xs"
+      if (podCount === 1) return "w-fit min-w-[150px] max-w-[200px]"
+      if (podCount <= 4) return "w-fit min-w-[200px] max-w-sm"
+      if (podCount <= 8) return "w-fit min-w-[280px] max-w-md"
+      if (podCount <= 16) return "w-fit min-w-[350px] max-w-lg"
+      if (podCount <= 24) return "w-fit min-w-[400px] max-w-xl"
+      return "w-fit min-w-[500px] max-w-2xl"
     }
 
     // Helper function to determine grid columns for pods based on count
     const getPodGridCols = (podCount: number) => {
-      if (podCount === 0) return "grid-cols-1"
-      if (podCount === 1) return "grid-cols-1"
-      if (podCount <= 4) return "grid-cols-4"
-      if (podCount <= 8) return "grid-cols-8"
-      if (podCount <= 16) return "grid-cols-8"
-      if (podCount <= 24) return "grid-cols-8"
-      return "grid-cols-8"
+      if (podCount === 0) return "flex justify-center"
+      if (podCount === 1) return "flex justify-center"
+      if (podCount <= 4) return "grid grid-cols-4"
+      if (podCount <= 8) return "grid grid-cols-8"
+      if (podCount <= 16) return "grid grid-cols-8"
+      if (podCount <= 24) return "grid grid-cols-8"
+      return "grid grid-cols-8"
     }
 
     return (
@@ -1208,7 +1208,7 @@ export function NodeTopologyEnhanced() {
             </div>
           </CardHeader>
           <CardContent className="p-3">
-            <div className={cn("grid gap-0.5", getPodGridCols(group.pods.length))}>
+            <div className={cn("gap-0.5", getPodGridCols(group.pods.length))}>
               {group.pods.map(pod => (
                 <ContextMenu key={`${pod.namespace}-${pod.name}`}>
                   <ContextMenuTrigger asChild>
