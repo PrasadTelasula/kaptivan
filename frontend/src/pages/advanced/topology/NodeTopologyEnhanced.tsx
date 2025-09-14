@@ -947,40 +947,82 @@ export function NodeTopologyEnhanced() {
       return "w-full"
     }
 
+    // Helper function to get responsive header layout based on pod count
+    const getHeaderLayout = (podCount: number) => {
+      if (podCount <= 1) {
+        // For single pod or empty nodes - very compact layout
+        return {
+          containerClass: "flex flex-col gap-2",
+          statsClass: "flex items-center gap-2 text-xs",
+          titleClass: "text-base",
+          showFullStats: false
+        }
+      } else if (podCount <= 4) {
+        // For small pod count - compact horizontal layout
+        return {
+          containerClass: "flex items-center justify-between",
+          statsClass: "flex items-center gap-3 text-sm",
+          titleClass: "text-lg",
+          showFullStats: true
+        }
+      } else {
+        // For larger pod count - full layout
+        return {
+          containerClass: "flex items-center justify-between",
+          statsClass: "flex items-center gap-4 text-sm",
+          titleClass: "text-lg",
+          showFullStats: true
+        }
+      }
+    }
+
     return (
       <div className="flex flex-wrap gap-6">
         <TooltipProvider>
-          {nodeGroups.map(group => (
+          {nodeGroups.map(group => {
+            const layout = getHeaderLayout(group.pods.length);
+            return (
             <Card key={group.node.name} className={cn("overflow-hidden", getNodeCardClass(group.pods.length))}>
             <CardHeader className="bg-muted/30">
-              <div className="flex items-center justify-between">
-                <div className="flex items-center gap-3">
-                  <Server className={cn("h-5 w-5", getNodeStatusColor(group.node.status))} />
-                  <CardTitle className="text-lg">{group.node.name}</CardTitle>
-                  <Badge variant={group.node.status === 'Ready' ? 'success' : 'destructive'}>
+              <div className={layout.containerClass}>
+                <div className="flex items-center gap-2 min-w-0 flex-1">
+                  <Server className={cn("h-4 w-4 flex-shrink-0", getNodeStatusColor(group.node.status))} />
+                  <CardTitle className={cn("truncate", layout.titleClass)} title={group.node.name}>
+                    {group.node.name}
+                  </CardTitle>
+                  <Badge variant={group.node.status === 'Ready' ? 'success' : 'destructive'} className="text-xs">
                     {group.node.status}
                   </Badge>
-                  <Badge variant="outline">{group.node.roles}</Badge>
+                  <Badge variant="outline" className="text-xs hidden sm:inline-flex">{group.node.roles}</Badge>
                 </div>
-                <div className="flex items-center gap-4">
-                  <div className="flex items-center gap-4 text-sm text-muted-foreground">
+                <div className="flex items-center gap-2 flex-shrink-0">
+                  <div className={cn("text-muted-foreground", layout.statsClass)}>
+                    {layout.showFullStats ? (
+                      <>
+                        <div className="flex items-center gap-1">
+                          <Cpu className="h-3 w-3" />
+                          <span>{group.node.capacity?.cpu || 'N/A'} / {group.node.allocatable?.cpu || 'N/A'}</span>
+                        </div>
+                        <div className="flex items-center gap-1">
+                          <HardDrive className="h-3 w-3" />
+                          <span>{formatMemory(group.node.capacity?.memory)} / {formatMemory(group.node.allocatable?.memory)}</span>
+                        </div>
+                      </>
+                    ) : (
+                      <div className="flex items-center gap-1">
+                        <Cpu className="h-3 w-3" />
+                        <span>{group.node.capacity?.cpu || 'N/A'}</span>
+                      </div>
+                    )}
                     <div className="flex items-center gap-1">
-                      <Cpu className="h-4 w-4" />
-                      <span>{group.node.capacity?.cpu || 'N/A'} / {group.node.allocatable?.cpu || 'N/A'}</span>
-                    </div>
-                    <div className="flex items-center gap-1">
-                      <HardDrive className="h-4 w-4" />
-                      <span>{formatMemory(group.node.capacity?.memory)} / {formatMemory(group.node.allocatable?.memory)}</span>
-                    </div>
-                    <div className="flex items-center gap-1">
-                      <Box className="h-4 w-4" />
-                      <span>{group.pods.length} pods</span>
+                      <Box className="h-3 w-3" />
+                      <span>{group.pods.length} pod{group.pods.length !== 1 ? 's' : ''}</span>
                     </div>
                   </div>
                   <DropdownMenu>
                     <DropdownMenuTrigger asChild>
-                      <Button variant="ghost" size="icon">
-                        <MoreVertical className="h-4 w-4" />
+                      <Button variant="ghost" size="icon" className="h-6 w-6">
+                        <MoreVertical className="h-3 w-3" />
                       </Button>
                     </DropdownMenuTrigger>
                     <DropdownMenuContent align="end">
@@ -1153,7 +1195,7 @@ export function NodeTopologyEnhanced() {
               )}
             </CardContent>
           </Card>
-          ))}
+          )})}
         </TooltipProvider>
       </div>
     )
